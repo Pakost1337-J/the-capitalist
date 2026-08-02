@@ -362,7 +362,7 @@ button, input, select { font-family: inherit; }
   box-sizing: border-box;
 }
 
-/* Центр — absolute по чёрному отверстию кадра (не grid+margin, иначе двойной inset) */
+/* Центр — UI поверх кожи, уже нарисованной в board-frame.png */
 .board__center {
   position: absolute;
   left: var(--hole-l, 149px);
@@ -374,11 +374,7 @@ button, input, select { font-family: inherit; }
   margin: 0;
   grid-row: unset;
   grid-column: unset;
-  background:
-    radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.07), transparent 50%),
-    radial-gradient(ellipse at 70% 80%, rgba(0,0,0,0.22), transparent 55%),
-    var(--leather-img) center / cover,
-    #5a3d2e;
+  background: transparent;
   border: none;
   box-shadow: none;
   display: flex;
