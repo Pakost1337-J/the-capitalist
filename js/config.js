@@ -3,7 +3,7 @@ export const GO_SALARY = 200;
 export const JAIL_BAIL = 50;
 export const MAX_HOUSES = 5;
 export const MAX_PLAYERS = 5;
-export const MIN_PLAYERS = 2;
+export const MIN_PLAYERS = 1;
 
 export const PLAYER_SLOTS = [
   { id: 0, color: '#ef4444', token: '🚗' },

@@ -18,7 +18,7 @@ export function runBotTurn(game, onDone) {
     } else {
       onDone();
     }
-  }, 1200);
+  }, 900);
 }
 
 function handleAfterRoll(game, onDone) {

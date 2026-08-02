@@ -13,53 +13,55 @@
 <body>
   <!-- Lobby -->
   <div class="lobby" id="lobby">
-    <div class="lobby__card">
-      <div class="lobby__header">
-        <span class="lobby__icon">💰</span>
-        <h1>КАПИТАЛИСТ</h1>
-        <p>Монополия онлайн · до 5 игроков</p>
-      </div>
-
-      <div class="lobby__error" id="lobby-error" hidden></div>
-
-      <div id="lobby-menu">
-        <label class="lobby__field">
-          <span>Ваше имя</span>
-          <input type="text" id="player-name" maxlength="20" placeholder="Игрок" value="">
-        </label>
-
-        <label class="lobby__field">
-          <span>Игроков в комнате</span>
-          <select id="max-players">
-            <option value="2">2 игрока</option>
-            <option value="3">3 игрока</option>
-            <option value="4" selected>4 игрока</option>
-            <option value="5">5 игроков</option>
-          </select>
-        </label>
-
-        <button class="btn btn--roll lobby__btn" id="btn-create">🏠 Создать комнату</button>
-
-        <div class="lobby__divider">или</div>
-
-        <label class="lobby__field">
-          <span>Код комнаты</span>
-          <input type="text" id="join-code" maxlength="5" placeholder="ABCDE">
-        </label>
-        <button class="btn btn--end lobby__btn" id="btn-join">🚪 Войти в комнату</button>
-      </div>
-
-      <div id="lobby-room" hidden>
-        <div class="lobby__room-code">
-          Код комнаты: <strong id="room-code">-----</strong>
-          <button class="btn-copy" id="btn-copy" title="Скопировать">📋</button>
+    <div class="lobby__shell">
+      <div class="lobby__card">
+        <div class="lobby__header">
+          <span class="lobby__icon">💰</span>
+          <h1>КАПИТАЛИСТ</h1>
+          <p>Монополия онлайн · до 5 игроков</p>
+          <div class="online-badge">
+            🟢 Онлайн: <strong id="online-count">0</strong>
+          </div>
         </div>
-        <p class="lobby__room-count">Игроков: <span id="room-count">0/4</span></p>
-        <p class="lobby__share">Ссылка для друзей:<br><code id="share-url"></code></p>
-        <div class="lobby__players" id="room-players"></div>
-        <p class="lobby__hint" id="host-hint" hidden>Ожидайте, пока хост начнёт игру</p>
-        <button class="btn btn--roll lobby__btn" id="btn-start">🎲 Начать игру</button>
-        <button class="btn btn--pass lobby__btn" id="btn-leave">← Выйти</button>
+
+        <div class="lobby__error" id="lobby-error" hidden></div>
+
+        <div id="lobby-menu">
+          <label class="lobby__field">
+            <span>Ваше имя</span>
+            <input type="text" id="player-name" maxlength="20" placeholder="Игрок" value="">
+          </label>
+
+          <label class="lobby__field">
+            <span>Игроков за столом</span>
+            <select id="max-players">
+              <option value="1">1 игрок (+ боты)</option>
+              <option value="2">2 игрока</option>
+              <option value="3">3 игрока</option>
+              <option value="4" selected>4 игрока</option>
+              <option value="5">5 игроков</option>
+            </select>
+          </label>
+
+          <button class="btn btn--roll lobby__btn" id="btn-create">🏠 Создать стол</button>
+
+          <div class="lobby__divider">Столы онлайн</div>
+
+          <div class="rooms-list" id="rooms-list">
+            <p class="rooms-empty">Пока нет столов — создайте первый!</p>
+          </div>
+        </div>
+
+        <div id="lobby-room" hidden>
+          <div class="lobby__room-title">
+            <strong id="room-name">Стол</strong>
+          </div>
+          <p class="lobby__room-count">Игроков: <span id="room-count">0/4</span></p>
+          <div class="lobby__players" id="room-players"></div>
+          <p class="lobby__hint" id="host-hint" hidden>Ожидайте, пока хост начнёт игру</p>
+          <button class="btn btn--roll lobby__btn" id="btn-start">🎲 Начать игру</button>
+          <button class="btn btn--pass lobby__btn" id="btn-leave">← Выйти</button>
+        </div>
       </div>
     </div>
   </div>
@@ -76,7 +78,7 @@
           <div class="board__logo">
             <span class="board__logo-icon">💰</span>
             <h1>КАПИТАЛИСТ</h1>
-            <p>Комната: <span id="room-code-display">—</span></p>
+            <p id="room-title-display">Игра</p>
           </div>
           <div class="dice-area" id="dice-area">
             <div class="die" id="die1">1</div>
@@ -98,20 +100,12 @@
           <li>Стройте филиалы (до 5)</li>
           <li>Разорите соперников!</li>
         </ul>
-        <p class="share-hint">Поделитесь кодом комнаты с друзьями!</p>
+        <p class="share-hint">Пустые места заполняются ботами</p>
         <button class="btn btn--new" id="new-game">🚪 Выйти</button>
       </div>
     </aside>
   </div>
 
   <script type="module" src="js/main.js"></script>
-  <script>
-    document.getElementById('btn-copy')?.addEventListener('click', () => {
-      const code = document.getElementById('room-code').textContent;
-      navigator.clipboard.writeText(code);
-      document.getElementById('btn-copy').textContent = '✓';
-      setTimeout(() => document.getElementById('btn-copy').textContent = '📋', 1500);
-    });
-  </script>
 </body>
 </html>

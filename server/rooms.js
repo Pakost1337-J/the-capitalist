@@ -3,39 +3,40 @@ import { MAX_PLAYERS, MIN_PLAYERS, PLAYER_SLOTS } from '../js/config.js';
 import { processBotChain } from './bot.js';
 
 const rooms = new Map();
+let roomSeq = 0;
 
-function genRoomCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  return rooms.has(code) ? genRoomCode() : code;
+function genRoomId() {
+  roomSeq += 1;
+  return `r${Date.now().toString(36)}${roomSeq}`;
 }
 
 export function createRoom(hostSocketId, hostName, maxPlayers = 4) {
-  const code = genRoomCode();
+  const id = genRoomId();
+  const name = (hostName || 'Игрок').slice(0, 20);
   const room = {
-    code,
+    id,
+    name: `Стол ${name}`,
     hostSocketId,
-    maxPlayers: Math.min(Math.max(maxPlayers, MIN_PLAYERS), MAX_PLAYERS),
+    maxPlayers: Math.min(Math.max(Number(maxPlayers) || 4, MIN_PLAYERS), MAX_PLAYERS),
     status: 'lobby',
     members: [{
       socketId: hostSocketId,
-      name: hostName.slice(0, 20),
+      name,
       slot: 0,
       isHost: true,
     }],
     game: null,
   };
-  rooms.set(code, room);
+  rooms.set(id, room);
   return room;
 }
 
-export function getRoom(code) {
-  return rooms.get(code?.toUpperCase());
+export function getRoom(id) {
+  return rooms.get(id);
 }
 
-export function joinRoom(code, socketId, name) {
-  const room = getRoom(code);
+export function joinRoom(id, socketId, name) {
+  const room = getRoom(id);
   if (!room) return { error: 'Комната не найдена' };
   if (room.status !== 'lobby') return { error: 'Игра уже началась' };
   if (room.members.length >= room.maxPlayers) return { error: 'Комната заполнена' };
@@ -46,7 +47,7 @@ export function joinRoom(code, socketId, name) {
 
   room.members.push({
     socketId,
-    name: name.slice(0, 20),
+    name: (name || 'Игрок').slice(0, 20),
     slot,
     isHost: false,
   });
@@ -55,23 +56,24 @@ export function joinRoom(code, socketId, name) {
 }
 
 export function leaveRoom(socketId) {
-  for (const [code, room] of rooms) {
+  for (const [id, room] of rooms) {
     const idx = room.members.findIndex(m => m.socketId === socketId);
     if (idx === -1) continue;
 
     room.members.splice(idx, 1);
 
     if (room.members.length === 0) {
-      rooms.delete(code);
-      return { deleted: true, code };
+      rooms.delete(id);
+      return { deleted: true, id };
     }
 
     if (room.hostSocketId === socketId) {
       room.hostSocketId = room.members[0].socketId;
       room.members[0].isHost = true;
+      room.name = `Стол ${room.members[0].name}`;
     }
 
-    return { room, code };
+    return { room, id };
   }
   return null;
 }
@@ -83,11 +85,11 @@ export function getRoomBySocket(socketId) {
   return null;
 }
 
-export function startGame(code, socketId) {
-  const room = getRoom(code);
+export function startGame(id, socketId) {
+  const room = getRoom(id);
   if (!room) return { error: 'Комната не найдена' };
   if (room.hostSocketId !== socketId) return { error: 'Только хост может начать игру' };
-  if (room.members.length < MIN_PLAYERS) return { error: `Минимум ${MIN_PLAYERS} игрока` };
+  if (room.members.length < MIN_PLAYERS) return { error: 'Нет игроков для старта' };
   if (room.status !== 'lobby') return { error: 'Игра уже началась' };
 
   const playerConfigs = [];
@@ -120,7 +122,8 @@ export function handleGameAction(room, socketId, action) {
 
 export function getLobbyState(room) {
   return {
-    code: room.code,
+    id: room.id,
+    name: room.name,
     status: room.status,
     maxPlayers: room.maxPlayers,
     hostSocketId: room.hostSocketId,
@@ -134,25 +137,41 @@ export function getLobbyState(room) {
   };
 }
 
+export function listPublicRooms() {
+  return [...rooms.values()].map(room => ({
+    id: room.id,
+    name: room.name,
+    status: room.status,
+    players: room.members.length,
+    maxPlayers: room.maxPlayers,
+    hostName: room.members.find(m => m.isHost)?.name || room.members[0]?.name || '—',
+    canJoin: room.status === 'lobby' && room.members.length < room.maxPlayers,
+  })).sort((a, b) => {
+    if (a.canJoin !== b.canJoin) return a.canJoin ? -1 : 1;
+    return b.players - a.players;
+  });
+}
+
 export function getGameState(room, socketId) {
   const member = room.members.find(m => m.socketId === socketId);
   const state = room.game.getState();
   return {
     ...state,
-    roomCode: room.code,
+    roomId: room.id,
+    roomName: room.name,
     mySlot: member?.slot ?? null,
     isMyTurn: member && state.players[state.currentPlayerIndex]?.id === member.slot,
   };
 }
 
-export function broadcastGame(room, io, roomCode) {
+export function broadcastGame(room, io) {
   for (const member of room.members) {
     io.to(member.socketId).emit('game-state', getGameState(room, member.socketId));
   }
 }
 
 export function startBotLoop(room, io) {
-  processBotChain(room.game, () => broadcastGame(room, io, room.code));
+  processBotChain(room.game, () => broadcastGame(room, io));
 }
 
 export function findMemberSlot(room, socketId) {

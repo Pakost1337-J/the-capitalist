@@ -507,13 +507,104 @@ body {
   background-image: radial-gradient(ellipse at center, #3d2b1f 0%, #1a0f0a 100%);
 }
 
+/* display:flex/grid перекрывает атрибут hidden — без этого лобби не скрывается */
+.lobby[hidden],
+.game-layout[hidden],
+#lobby-menu[hidden],
+#lobby-room[hidden],
+.lobby__error[hidden],
+.lobby__hint[hidden] {
+  display: none !important;
+}
+
+.lobby__shell {
+  width: 100%;
+  max-width: 480px;
+}
+
 .lobby__card {
   background: #faf8f0;
   border-radius: 20px;
   padding: 32px;
   width: 100%;
-  max-width: 420px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.online-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 6px 14px;
+  background: #dcfce7;
+  color: #166534;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.rooms-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+}
+
+.rooms-empty {
+  text-align: center;
+  color: #999;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 16px 8px;
+}
+
+.room-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: white;
+  border-radius: 12px;
+  border: 2px solid #e5e7eb;
+}
+
+.room-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.room-card__name {
+  font-weight: 800;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.room-card__meta {
+  font-size: 0.75rem;
+  color: #666;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.room-card__status--open { color: #16a34a; }
+.room-card__status--full { color: #ea580c; }
+.room-card__status--play { color: #7c3aed; }
+
+.room-card__join {
+  padding: 8px 12px !important;
+  font-size: 0.8rem !important;
+  flex-shrink: 0;
+}
+
+.lobby__room-title {
+  text-align: center;
+  font-size: 1.2rem;
+  margin-bottom: 8px;
+  color: #1a472a;
 }
 
 .lobby__header {
@@ -593,51 +684,11 @@ body {
   font-size: 0.85rem;
 }
 
-.lobby__room-code {
-  text-align: center;
-  font-size: 1.1rem;
-  margin-bottom: 8px;
-}
-
-.lobby__room-code strong {
-  font-family: var(--font-display);
-  font-size: 1.6rem;
-  color: #1a472a;
-  letter-spacing: 0.15em;
-}
-
-.btn-copy {
-  background: none;
-  border: none;
-  font-size: 1.2rem;
-  cursor: pointer;
-  vertical-align: middle;
-  margin-left: 8px;
-}
-
 .lobby__room-count {
   text-align: center;
   color: #666;
   font-weight: 700;
-  margin-bottom: 8px;
-}
-
-.lobby__share {
-  text-align: center;
-  font-size: 0.75rem;
-  color: #888;
-  margin-bottom: 12px;
-  word-break: break-all;
-}
-
-.lobby__share code {
-  display: block;
-  margin-top: 4px;
-  background: #f1f5f9;
-  padding: 6px 8px;
-  border-radius: 6px;
-  font-size: 0.7rem;
-  color: #3b82f6;
+  margin-bottom: 16px;
 }
 
 .lobby__players {

@@ -19,14 +19,10 @@ async function init() {
   lobby.show();
   lobby.showView('menu');
 
-  const urlRoom = new URLSearchParams(location.search).get('room');
-  if (urlRoom) {
-    document.getElementById('join-code').value = urlRoom.toUpperCase();
-  }
+  network.onServerInfo = (info) => lobby.renderServerInfo(info);
 
   network.onLobbyUpdate = (state) => {
     lobby.renderRoom(state);
-    history.replaceState(null, '', `?room=${state.code}`);
   };
 
   network.onGameStart = (state) => {
@@ -45,7 +41,12 @@ async function init() {
 }
 
 function startGameUI(state) {
-  document.getElementById('game-layout').hidden = false;
+  const lobbyEl = document.getElementById('lobby');
+  const gameEl = document.getElementById('game-layout');
+  lobbyEl.hidden = true;
+  lobbyEl.style.display = 'none';
+  gameEl.hidden = false;
+  gameEl.style.display = '';
 
   ui = new UI(null, network);
   ui.mySlot = state.mySlot;

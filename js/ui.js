@@ -14,7 +14,7 @@ export class UI {
     this.gameLog = document.getElementById('game-log');
     this.die1 = document.getElementById('die1');
     this.die2 = document.getElementById('die2');
-    this.roomCodeEl = document.getElementById('room-code-display');
+    this.roomTitleEl = document.getElementById('room-title-display');
 
     document.getElementById('new-game').addEventListener('click', () => {
       if (confirm('Выйти из игры?')) location.reload();
@@ -65,8 +65,8 @@ export class UI {
 
   render(state) {
     if (state.mySlot !== undefined) this.mySlot = state.mySlot;
-    if (state.roomCode && this.roomCodeEl) {
-      this.roomCodeEl.textContent = state.roomCode;
+    if (state.roomName && this.roomTitleEl) {
+      this.roomTitleEl.textContent = state.roomName;
     }
 
     this.renderPlayers(state);
