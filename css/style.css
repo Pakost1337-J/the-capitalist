@@ -9,9 +9,9 @@
   --accent: #3b82f6;
   --green: #16a34a;
   --radius: 14px;
-  --rail-w: clamp(132px, 14vw, 168px);
-  --cell-w: clamp(28px, min(5.8vw, 7.2vh), 72px);
-  --cell-h: clamp(26px, min(5.2vw, 6.6vh), 64px);
+  --rail-w: 168px;
+  --cell-w: 64px;
+  --cell-h: 58px;
   --font: 'Manrope', system-ui, sans-serif;
   --shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
 }
@@ -200,20 +200,28 @@ button, input, select {
   padding: 6px 10px;
 }
 
-/* ── Game shell ── */
+/* ── Game shell: поле + игроки одним блоком на весь экран ── */
 .game-shell {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--rail-w);
-  gap: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
   height: 100dvh;
-  padding: clamp(6px, 1.2vw, 12px);
-  max-width: none;
-  margin: 0 auto;
-  align-items: stretch;
+  padding: 8px;
   box-sizing: border-box;
   overflow: hidden;
+}
+
+.game-stage {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 10px;
+  width: fit-content;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .game-main {
@@ -222,7 +230,6 @@ button, input, select {
   align-items: center;
   min-width: 0;
   min-height: 0;
-  overflow: auto;
 }
 
 /* ── Board (13×9 rectangle, start top-left) ── */
@@ -819,14 +826,18 @@ button, input, select {
   flex-shrink: 0;
 }
 
-/* ── Players rail (компактнее, ближе к полю) ── */
+/* ── Players rail — сразу справа от поля ── */
 .players-rail {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-width: 0;
+  width: var(--rail-w);
+  min-width: var(--rail-w);
+  max-width: var(--rail-w);
   overflow: auto;
   padding-right: 2px;
+  flex-shrink: 0;
+  align-self: stretch;
 }
 
 .p-card {
@@ -934,23 +945,27 @@ button, input, select {
   height: 18px;
 }
 
-/* Адаптив */
-@media (max-width: 1100px) {
-  :root { --rail-w: clamp(120px, 16vw, 150px); }
-}
-
+/* Адаптив (на узких экранах — колонка) */
 @media (max-width: 860px) {
   .game-shell {
-    grid-template-columns: 1fr;
-    grid-template-rows: minmax(0, 1fr) auto;
     height: auto;
     min-height: 100dvh;
     overflow: auto;
+    align-items: flex-start;
+  }
+
+  .game-stage {
+    flex-direction: column;
+    width: 100%;
+    align-items: center;
   }
 
   .players-rail {
     flex-direction: row;
     flex-wrap: wrap;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     gap: 6px;
   }
 
@@ -973,11 +988,6 @@ button, input, select {
 
   .hub__chat {
     order: 2;
-  }
-
-  :root {
-    --cell-w: clamp(24px, 7.2vw, 48px);
-    --cell-h: clamp(22px, 6.5vw, 44px);
   }
 }
 

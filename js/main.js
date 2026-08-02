@@ -57,10 +57,11 @@ function startGameUI(state) {
   lobbyEl.hidden = true;
   lobbyEl.style.display = 'none';
   gameEl.hidden = false;
-  gameEl.style.display = 'grid';
+  gameEl.style.display = 'flex';
 
   ui = new UI(null, network);
   ui.mySlot = state.mySlot;
+  ui.fitLayout();
   ui.render(state);
 }
 

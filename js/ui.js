@@ -49,11 +49,44 @@ export class UI {
 
     this.setupChat();
     this.buildBoard();
+    this.fitLayout();
 
     window.addEventListener('resize', () => {
       clearTimeout(this._resizeTimer);
-      this._resizeTimer = setTimeout(() => this.repositionTokens(), 80);
+      this._resizeTimer = setTimeout(() => {
+        this.fitLayout();
+        this.repositionTokens();
+      }, 80);
     });
+  }
+
+  /** Растягивает поле на весь экран; игроки остаются сразу справа от доски */
+  fitLayout() {
+    const shell = document.getElementById('game-layout');
+    if (!shell || shell.hidden) return;
+
+    const pad = 16;
+    const gap = 10;
+    const narrow = window.innerWidth <= 860;
+    const rail = narrow ? 0 : Math.round(Math.min(180, Math.max(140, window.innerWidth * 0.11)));
+    const availW = Math.max(320, shell.clientWidth - pad - (narrow ? 0 : rail + gap));
+    const availH = Math.max(280, shell.clientHeight - pad - (narrow ? 120 : 0));
+
+    // 13×9 клеток — заполняем доступное место
+    let cellW = Math.floor(availW / 13);
+    let cellH = Math.floor(availH / 9);
+
+    // чуть шире, чем выше — прямоугольное поле
+    if (cellW / cellH > 1.25) cellW = Math.floor(cellH * 1.2);
+    if (cellH / cellW > 1.05) cellH = Math.floor(cellW * 0.95);
+
+    cellW = Math.max(34, Math.min(cellW, 110));
+    cellH = Math.max(30, Math.min(cellH, 96));
+
+    const root = document.documentElement;
+    root.style.setProperty('--cell-w', `${cellW}px`);
+    root.style.setProperty('--cell-h', `${cellH}px`);
+    root.style.setProperty('--rail-w', narrow ? '100%' : `${rail}px`);
   }
 
   setupChat() {
