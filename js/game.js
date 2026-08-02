@@ -1,5 +1,5 @@
 import {
-  BOARD, CHANCE_CARDS, START_MONEY, GO_SALARY, JAIL_BAIL,
+  BOARD, CHANCE_CARDS, START_MONEY, GO_SALARY, JAIL_BAIL, JAIL_POS,
   MAX_HOUSES, PLAYER_SLOTS, getCell, getGroupProperties,
 } from './config.js';
 import { shuffle } from './utils.js';
@@ -267,7 +267,7 @@ export class GameEngine {
 
   sendToJail() {
     const p = this.currentPlayer;
-    p.position = 10;
+    p.position = JAIL_POS;
     p.inJail = true;
     p.jailTurns = 0;
     this.addLog(`${p.name} отправлен в тюрьму!`);

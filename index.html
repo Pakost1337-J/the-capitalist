@@ -71,66 +71,61 @@
         <div class="board" id="board">
           <div class="board__center" id="board-center">
             <div class="hub">
-              <div class="hub__status">
-                <div class="hub__log hub__log--top" id="game-log"></div>
-                <div class="hub__turn" id="hub-turn">ХОД ИГРОКА</div>
-              </div>
+              <div class="hub__main">
+                <div class="hub__status">
+                  <div class="hub__turn" id="hub-turn">ХОД ИГРОКА</div>
+                </div>
 
-              <div class="hub__arena">
-                <div class="hub__dice-row">
-                  <div class="table-toss" id="dice-stage">
-                    <div class="die-throw" id="die1-throw">
-                      <span class="die-shadow"></span>
-                      <div class="die-wrap">
-                        <div class="die-cube" id="die1" aria-label="Кубик 1"></div>
+                <div class="hub__arena">
+                  <div class="hub__dice-row">
+                    <div class="table-toss" id="dice-stage">
+                      <div class="die-throw" id="die1-throw">
+                        <span class="die-shadow"></span>
+                        <div class="die-wrap">
+                          <div class="die-cube" id="die1" aria-label="Кубик 1"></div>
+                        </div>
+                      </div>
+                      <div class="die-throw" id="die2-throw">
+                        <span class="die-shadow"></span>
+                        <div class="die-wrap">
+                          <div class="die-cube" id="die2" aria-label="Кубик 2"></div>
+                        </div>
                       </div>
                     </div>
-                    <div class="die-throw" id="die2-throw">
-                      <span class="die-shadow"></span>
-                      <div class="die-wrap">
-                        <div class="die-cube" id="die2" aria-label="Кубик 2"></div>
+                  </div>
+
+                  <div class="hub__player" id="hub-player">
+                    <div class="hub__player-name" id="hub-name">—</div>
+                    <div class="hub__stats">
+                      <div class="hub__stat">
+                        <span>Наличные</span>
+                        <strong id="hub-cash">$0</strong>
+                      </div>
+                      <div class="hub__stat">
+                        <span>Капитал</span>
+                        <strong id="hub-capital">$0</strong>
+                      </div>
+                      <div class="hub__stat">
+                        <span>Компании</span>
+                        <strong id="hub-companies">0</strong>
                       </div>
                     </div>
                   </div>
-                  <div class="hub__sum-circle" id="die-sum-wrap" aria-label="Сумма броска">
-                    <span id="die-sum">0</span>
-                  </div>
-                </div>
 
-                <div class="hub__player" id="hub-player">
-                  <div class="hub__player-name" id="hub-name">—</div>
-                  <div class="hub__stats">
-                    <div class="hub__stat">
-                      <span>Наличные</span>
-                      <strong id="hub-cash">$0</strong>
-                    </div>
-                    <div class="hub__stat">
-                      <span>Капитал</span>
-                      <strong id="hub-capital">$0</strong>
-                    </div>
-                    <div class="hub__stat">
-                      <span>Компании</span>
-                      <strong id="hub-companies">0</strong>
-                    </div>
-                  </div>
+                  <div class="hub__choice" id="choice-panel" hidden></div>
+                  <div class="hub__actions" id="action-area"></div>
+                  <button type="button" class="hub__exit-btn" id="new-game">Выйти</button>
                 </div>
-
-                <div class="hub__credit">
-                  <span>Кредитная линия: 0</span>
-                  <button type="button" class="hub__credit-btn" id="new-game">Выйти</button>
-                </div>
-
-                <div class="hub__choice" id="choice-panel" hidden></div>
-                <div class="hub__actions" id="action-area"></div>
               </div>
 
-              <div class="hub__chat">
+              <aside class="hub__chat">
+                <div class="hub__chat-messages" id="game-log"></div>
                 <div class="hub__chat-input">
                   <span class="hub__chat-emoji">😊</span>
                   <input type="text" id="chat-input" placeholder="Напишите сообщение..." maxlength="120" />
                   <button type="button" id="chat-send" title="Отправить">➤</button>
                 </div>
-              </div>
+              </aside>
             </div>
           </div>
         </div>

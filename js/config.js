@@ -7,6 +7,11 @@ export const MAX_HOUSES = 5;
 export const MAX_PLAYERS = 5;
 export const MIN_PLAYERS = 1;
 
+/** Позиции углов на прямоугольном поле 13×9 */
+export const JAIL_POS = 12;
+export const PARKING_POS = 20;
+export const GOTO_JAIL_POS = 32;
+
 /** Прямоугольное поле: 13 колонок × 9 рядов */
 export const BOARD_COLS = 13;
 export const BOARD_ROWS = 9;
@@ -19,21 +24,22 @@ export const PLAYER_SLOTS = [
   { id: 4, name: 'Розовая', color: '#db2777', colorSoft: '#fbcfe8', token: 'pawn', tokenImage: '' },
 ];
 
-/** Группы больше не красят клетку по умолчанию — только тёплый серый */
 export const GROUP_COLORS = {
-  brown: '#c4b8a8',
-  lightblue: '#c4b8a8',
-  pink: '#c4b8a8',
-  orange: '#c4b8a8',
-  red: '#c4b8a8',
-  yellow: '#c4b8a8',
-  green: '#c4b8a8',
-  darkblue: '#c4b8a8',
+  gb: '#c4b8a8',
+  cn: '#c4b8a8',
+  kr: '#c4b8a8',
+  fr: '#c4b8a8',
+  se: '#c4b8a8',
+  it: '#c4b8a8',
+  de: '#c4b8a8',
+  jp: '#c4b8a8',
+  us: '#c4b8a8',
+  ch: '#c4b8a8',
 };
 
 export const CELL_DEFAULT_BG = '#c9c2b6';
 
-/** SVG-флаги стран: /assets/icons/flags/{code}.svg */
+/** SVG-флаги стран */
 export const COUNTRY_FLAG_SRC = {
   GB: '/assets/icons/flags/gb.svg',
   CN: '/assets/icons/flags/cn.svg',
@@ -47,48 +53,73 @@ export const COUNTRY_FLAG_SRC = {
   IT: '/assets/icons/flags/it.svg',
 };
 
-// country = код страны; price — до ECONOMY_SCALE (как на скрине: 80 → $80K)
+/** Подпись страны на клетке (как в референсе) */
+export const COUNTRY_LABEL = {
+  GB: 'UK',
+  CN: 'China',
+  FR: 'France',
+  DE: 'Germany',
+  US: 'USA',
+  JP: 'Japan',
+  KR: 'S.Korea',
+  CH: 'Swiss',
+  SE: 'Sweden',
+  IT: 'Italy',
+};
+
+/**
+ * Доска строго по референсу «Капиталист».
+ * price до ×1000 (60 → $60K).
+ * Ход по часовой: Старт ↖ → Тюрьма ↗ → Парковка ↘ → Арест ↙.
+ */
 export const BOARD = [
-  { id: 0, type: 'go', name: 'Старт', icon: '🛟', brand: 'GO', country: '', flag: '' },
-  { id: 1, type: 'property', name: 'Shell', brand: 'SHELL', country: 'GB', flag: '🇬🇧', icon: '⛽', group: 'brown', price: 80, houseCost: 50, rent: [4, 20, 60, 180, 320, 450] },
-  { id: 2, type: 'chance', name: 'ШАНС', icon: '?', brand: '?', country: '', flag: '' },
-  { id: 3, type: 'property', name: 'BP', brand: 'BP', country: 'GB', flag: '🇬🇧', icon: '🛢️', group: 'brown', price: 150, houseCost: 50, rent: [10, 40, 120, 360, 500, 650] },
-  { id: 4, type: 'tax', name: 'НАЛОГ 5%', amount: 200, icon: '%', brand: 'TAX', country: '', flag: '' },
-  { id: 5, type: 'railroad', name: 'Port A', brand: 'PORT', country: '', flag: '⚓', icon: '🚢', price: 200, rent: [25, 50, 100, 200] },
-  { id: 6, type: 'property', name: 'Xiaomi', brand: 'Xiaomi', country: 'CN', flag: '🇨🇳', icon: '📱', group: 'lightblue', price: 130, houseCost: 50, rent: [8, 40, 120, 360, 500, 650] },
+  // Верх: Старт → Тюрьма
+  { id: 0, type: 'go', name: 'Старт', icon: '🏁', brand: 'GO', country: '', flag: '' },
+  { id: 1, type: 'property', name: 'Rolls-Royce', brand: 'Rolls-Royce', country: 'GB', flag: '🇬🇧', group: 'gb', price: 60, houseCost: 50, rent: [2, 10, 30, 90, 160, 250] },
+  { id: 2, type: 'property', name: 'Alibaba', brand: 'Alibaba', country: 'CN', flag: '🇨🇳', group: 'cn', price: 200, houseCost: 100, rent: [16, 80, 220, 600, 800, 1000] },
+  { id: 3, type: 'property', name: 'BP', brand: 'BP', country: 'GB', flag: '🇬🇧', group: 'gb', price: 60, houseCost: 50, rent: [4, 20, 60, 180, 320, 450] },
+  { id: 4, type: 'property', name: 'BBC', brand: 'BBC', country: 'GB', flag: '🇬🇧', group: 'gb', price: 80, houseCost: 50, rent: [6, 30, 90, 270, 400, 550] },
+  { id: 5, type: 'chance', name: 'ФОРС МАЖОР', icon: '⚠', brand: 'FM', country: '', flag: '' },
+  { id: 6, type: 'property', name: 'Samsung', brand: 'Samsung', country: 'KR', flag: '🇰🇷', group: 'kr', price: 150, houseCost: 100, rent: [12, 60, 180, 500, 700, 900] },
   { id: 7, type: 'chance', name: 'ШАНС', icon: '?', brand: '?', country: '', flag: '' },
-  { id: 8, type: 'property', name: 'Alibaba', brand: 'Alibaba', country: 'CN', flag: '🇨🇳', icon: '🛒', group: 'lightblue', price: 130, houseCost: 50, rent: [8, 40, 120, 360, 500, 650] },
-  { id: 9, type: 'property', name: 'Huawei', brand: 'Huawei', country: 'CN', flag: '🇨🇳', icon: '📡', group: 'lightblue', price: 120, houseCost: 50, rent: [8, 40, 100, 300, 450, 600] },
-  { id: 10, type: 'jail', name: 'Тюрьма', icon: '⛓️', brand: 'JAIL', country: '', flag: '' },
-  { id: 11, type: 'property', name: 'Renault', brand: 'Renault', country: 'FR', flag: '🇫🇷', icon: '🚗', group: 'pink', price: 145, houseCost: 100, rent: [12, 50, 150, 450, 625, 750] },
-  { id: 12, type: 'utility', name: 'Energy', brand: 'Energy', country: '', flag: '⚡', icon: '⚡', price: 150 },
-  { id: 13, type: 'property', name: "L'Oréal", brand: "L'Oréal", country: 'FR', flag: '🇫🇷', icon: '💄', group: 'pink', price: 145, houseCost: 100, rent: [12, 50, 150, 450, 625, 750] },
-  { id: 14, type: 'property', name: 'LVMH', brand: 'LVMH', country: 'FR', flag: '🇫🇷', icon: '👜', group: 'pink', price: 160, houseCost: 100, rent: [12, 60, 180, 500, 700, 900] },
-  { id: 15, type: 'railroad', name: 'Port B', brand: 'PORT', country: '', flag: '⚓', icon: '🚢', price: 200, rent: [25, 50, 100, 200] },
-  { id: 16, type: 'property', name: 'Adidas', brand: 'adidas', country: 'DE', flag: '🇩🇪', icon: '👟', group: 'orange', price: 100, houseCost: 100, rent: [10, 40, 120, 360, 500, 650] },
-  { id: 17, type: 'chance', name: 'ФОРС МАЖОР', icon: '⚠', brand: 'FM', country: '', flag: '' },
-  { id: 18, type: 'property', name: 'Siemens', brand: 'Siemens', country: 'DE', flag: '🇩🇪', icon: '⚙️', group: 'orange', price: 100, houseCost: 100, rent: [10, 40, 120, 360, 500, 650] },
-  { id: 19, type: 'property', name: 'BMW', brand: 'BMW', country: 'DE', flag: '🇩🇪', icon: '🚘', group: 'orange', price: 300, houseCost: 100, rent: [22, 100, 300, 750, 925, 1100] },
-  { id: 20, type: 'parking', name: 'Парковка', icon: '🏁', brand: 'FREE', country: '', flag: '' },
-  { id: 21, type: 'property', name: "McDonald's", brand: "McDonald's", country: 'US', flag: '🇺🇸', icon: '🍟', group: 'red', price: 220, houseCost: 150, rent: [18, 90, 250, 700, 875, 1050] },
-  { id: 22, type: 'chance', name: 'ШАНС', icon: '?', brand: '?', country: '', flag: '' },
-  { id: 23, type: 'property', name: 'Coca-Cola', brand: 'Coca-Cola', country: 'US', flag: '🇺🇸', icon: '🥤', group: 'red', price: 220, houseCost: 150, rent: [18, 90, 250, 700, 875, 1050] },
-  { id: 24, type: 'property', name: 'Apple', brand: 'Apple', country: 'US', flag: '🇺🇸', icon: '🍎', group: 'red', price: 240, houseCost: 150, rent: [20, 100, 300, 750, 925, 1100] },
-  { id: 25, type: 'railroad', name: 'Port C', brand: 'PORT', country: '', flag: '⚓', icon: '🚢', price: 200, rent: [25, 50, 100, 200] },
-  { id: 26, type: 'property', name: 'Sony', brand: 'Sony', country: 'JP', flag: '🇯🇵', icon: '🎮', group: 'yellow', price: 260, houseCost: 150, rent: [22, 110, 330, 800, 975, 1150] },
-  { id: 27, type: 'property', name: 'Canon', brand: 'Canon', country: 'JP', flag: '🇯🇵', icon: '📷', group: 'yellow', price: 280, houseCost: 150, rent: [22, 120, 360, 850, 1025, 1200] },
-  { id: 28, type: 'utility', name: 'Telecom', brand: 'Telecom', country: 'JP', flag: '🇯🇵', icon: '📶', price: 150 },
-  { id: 29, type: 'property', name: 'Toyota', brand: 'Toyota', country: 'JP', flag: '🇯🇵', icon: '🚗', group: 'yellow', price: 260, houseCost: 150, rent: [22, 110, 330, 800, 975, 1150] },
-  { id: 30, type: 'gotojail', name: 'Арест', icon: '🎲', brand: 'GO JAIL', country: '', flag: '' },
-  { id: 31, type: 'property', name: 'LG', brand: 'LG', country: 'KR', flag: '🇰🇷', icon: '📺', group: 'green', price: 380, houseCost: 200, rent: [30, 150, 450, 1000, 1200, 1400] },
-  { id: 32, type: 'property', name: 'Hyundai', brand: 'Hyundai', country: 'KR', flag: '🇰🇷', icon: '🚙', group: 'green', price: 300, houseCost: 200, rent: [26, 130, 390, 900, 1100, 1275] },
-  { id: 33, type: 'chance', name: 'ШАНС', icon: '?', brand: '?', country: '', flag: '' },
-  { id: 34, type: 'property', name: 'Samsung', brand: 'Samsung', country: 'KR', flag: '🇰🇷', icon: '📱', group: 'green', price: 320, houseCost: 200, rent: [28, 150, 450, 1000, 1200, 1400] },
-  { id: 35, type: 'railroad', name: 'Port D', brand: 'PORT', country: '', flag: '⚓', icon: '🚢', price: 200, rent: [25, 50, 100, 200] },
-  { id: 36, type: 'chance', name: 'ШАНС', icon: '?', brand: '?', country: '', flag: '' },
-  { id: 37, type: 'property', name: 'Nestlé', brand: 'Nestlé', country: 'CH', flag: '🇨🇭', icon: '🍫', group: 'darkblue', price: 550, houseCost: 200, rent: [50, 200, 600, 1400, 1700, 2000] },
-  { id: 38, type: 'tax', name: 'НАЛОГ 10%', amount: 100, icon: '%', brand: 'TAX', country: '', flag: '' },
-  { id: 39, type: 'property', name: 'Rolex', brand: 'Rolex', country: 'CH', flag: '🇨🇭', icon: '⌚', group: 'darkblue', price: 400, houseCost: 200, rent: [50, 200, 600, 1400, 1700, 2000] },
+  { id: 8, type: 'property', name: 'Danone', brand: 'Danone', country: 'FR', flag: '🇫🇷', group: 'fr', price: 100, houseCost: 50, rent: [8, 40, 100, 300, 450, 600] },
+  { id: 9, type: 'property', name: 'Hennessy', brand: 'Hennessy', country: 'FR', flag: '🇫🇷', group: 'fr', price: 100, houseCost: 50, rent: [8, 40, 100, 300, 450, 600] },
+  { id: 10, type: 'property', name: 'Lenovo', brand: 'Lenovo', country: 'CN', flag: '🇨🇳', group: 'cn', price: 200, houseCost: 100, rent: [16, 80, 220, 600, 800, 1000] },
+  { id: 11, type: 'property', name: "L'Oréal", brand: "L'Oréal", country: 'FR', flag: '🇫🇷', group: 'fr', price: 120, houseCost: 100, rent: [10, 50, 150, 450, 625, 750] },
+  { id: 12, type: 'jail', name: 'Тюрьма', icon: '⛓️', brand: 'JAIL', country: '', flag: '' },
+
+  // Право: Тюрьма → Парковка
+  { id: 13, type: 'property', name: 'IKEA', brand: 'IKEA', country: 'SE', flag: '🇸🇪', group: 'se', price: 140, houseCost: 100, rent: [10, 50, 150, 450, 625, 750] },
+  { id: 14, type: 'property', name: 'Volvo', brand: 'Volvo', country: 'SE', flag: '🇸🇪', group: 'se', price: 140, houseCost: 100, rent: [10, 50, 150, 450, 625, 750] },
+  { id: 15, type: 'property', name: 'Armani', brand: 'Armani', country: 'IT', flag: '🇮🇹', group: 'it', price: 180, houseCost: 100, rent: [14, 70, 200, 550, 750, 950] },
+  { id: 16, type: 'tax', name: 'НАЛОГ 6%', amount: 200, icon: '%', brand: 'TAX', country: '', flag: '' },
+  { id: 17, type: 'property', name: 'Versace', brand: 'Versace', country: 'IT', flag: '🇮🇹', group: 'it', price: 180, houseCost: 100, rent: [14, 70, 200, 550, 750, 950] },
+  { id: 18, type: 'property', name: 'Ferrari', brand: 'Ferrari', country: 'IT', flag: '🇮🇹', group: 'it', price: 200, houseCost: 100, rent: [16, 80, 220, 600, 800, 1000] },
+  { id: 19, type: 'chance', name: 'ШАНС', icon: '?', brand: '?', country: '', flag: '' },
+  { id: 20, type: 'parking', name: 'Парковка', icon: '🅿️', brand: 'FREE', country: '', flag: '' },
+
+  // Низ: Парковка → Арест (по полю слева от парковки)
+  { id: 21, type: 'property', name: 'Sony', brand: 'Sony', country: 'JP', flag: '🇯🇵', group: 'jp', price: 220, houseCost: 150, rent: [18, 90, 250, 700, 875, 1050] },
+  { id: 22, type: 'property', name: 'Huawei', brand: 'Huawei', country: 'CN', flag: '🇨🇳', group: 'cn', price: 200, houseCost: 100, rent: [16, 80, 220, 600, 800, 1000] },
+  { id: 23, type: 'property', name: 'Canon', brand: 'Canon', country: 'JP', flag: '🇯🇵', group: 'jp', price: 220, houseCost: 150, rent: [18, 90, 250, 700, 875, 1050] },
+  { id: 24, type: 'property', name: 'Toyota', brand: 'Toyota', country: 'JP', flag: '🇯🇵', group: 'jp', price: 240, houseCost: 150, rent: [20, 100, 300, 750, 925, 1100] },
+  { id: 25, type: 'chance', name: 'ФОРС МАЖОР', icon: '⚠', brand: 'FM', country: '', flag: '' },
+  { id: 26, type: 'property', name: 'Hyundai', brand: 'Hyundai', country: 'KR', flag: '🇰🇷', group: 'kr', price: 150, houseCost: 100, rent: [12, 60, 180, 500, 700, 900] },
+  { id: 27, type: 'chance', name: 'ШАНС', icon: '?', brand: '?', country: '', flag: '' },
+  { id: 28, type: 'property', name: 'Siemens', brand: 'Siemens', country: 'DE', flag: '🇩🇪', group: 'de', price: 260, houseCost: 150, rent: [22, 110, 330, 800, 975, 1150] },
+  { id: 29, type: 'property', name: 'Adidas', brand: 'adidas', country: 'DE', flag: '🇩🇪', group: 'de', price: 260, houseCost: 150, rent: [22, 110, 330, 800, 975, 1150] },
+  { id: 30, type: 'property', name: 'Xiaomi', brand: 'Xiaomi', country: 'CN', flag: '🇨🇳', group: 'cn', price: 200, houseCost: 100, rent: [16, 80, 220, 600, 800, 1000] },
+  { id: 31, type: 'property', name: 'Mercedes', brand: 'Mercedes', country: 'DE', flag: '🇩🇪', group: 'de', price: 280, houseCost: 150, rent: [24, 120, 360, 850, 1025, 1200] },
+  { id: 32, type: 'gotojail', name: 'Арест', icon: '🎲', brand: 'GO JAIL', country: '', flag: '' },
+
+  // Лево: Арест → Старт
+  { id: 33, type: 'property', name: 'Nestlé', brand: 'Nestlé', country: 'CH', flag: '🇨🇭', group: 'ch', price: 320, houseCost: 200, rent: [28, 150, 450, 1000, 1200, 1400] },
+  { id: 34, type: 'property', name: 'Rolex', brand: 'Rolex', country: 'CH', flag: '🇨🇭', group: 'ch', price: 320, houseCost: 200, rent: [28, 150, 450, 1000, 1200, 1400] },
+  { id: 35, type: 'tax', name: 'НАЛОГ 6%', amount: 200, icon: '%', brand: 'TAX', country: '', flag: '' },
+  { id: 36, type: 'property', name: "McDonald's", brand: "McDonald's", country: 'US', flag: '🇺🇸', group: 'us', price: 350, houseCost: 200, rent: [35, 175, 500, 1100, 1300, 1500] },
+  { id: 37, type: 'property', name: 'Disney', brand: 'Disney', country: 'US', flag: '🇺🇸', group: 'us', price: 350, houseCost: 200, rent: [35, 175, 500, 1100, 1300, 1500] },
+  { id: 38, type: 'property', name: 'Coca-Cola', brand: 'Coca-Cola', country: 'US', flag: '🇺🇸', group: 'us', price: 400, houseCost: 200, rent: [50, 200, 600, 1400, 1700, 2000] },
+  { id: 39, type: 'chance', name: 'ШАНС', icon: '?', brand: '?', country: '', flag: '' },
 ];
 
 const ECONOMY_SCALE = 1000;
@@ -137,7 +168,7 @@ export const CHANCE_CARDS = [
   { text: 'Ремонт: заплатите $40 000 за каждый филиал', repairPerHouse: 40_000 },
   { text: 'Продайте акции. Получите $150 000', money: 150_000 },
   { text: 'Вернитесь на 3 клетки назад', moveBack: 3 },
-  { text: 'Перейдите на Парковку', goTo: 20 },
+  { text: 'Перейдите на Парковку', goTo: PARKING_POS },
   { text: 'Получите $50 000', money: 50_000 },
   { text: 'Заплатите налог $75 000', money: -75_000 },
 ];
@@ -150,14 +181,10 @@ export function getGroupProperties(group) {
   return BOARD.filter(c => c.group === group);
 }
 
-/** Старт (0) — слева сверху, ход по часовой: верх → право → низ → лево */
+/** Старт (0) — слева сверху, ход по часовой */
 export function getGridPosition(index) {
-  // Верх: 0..12 слева направо
   if (index <= 12) return { row: 0, col: index };
-  // Право: 13..20 сверху вниз
   if (index <= 20) return { row: index - 12, col: BOARD_COLS - 1 };
-  // Низ: 21..32 справа налево
   if (index <= 32) return { row: BOARD_ROWS - 1, col: 32 - index };
-  // Лево: 33..39 снизу вверх
   return { row: 40 - index, col: 0 };
 }

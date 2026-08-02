@@ -1,4 +1,4 @@
-import { BOARD, COUNTRY_FLAG_SRC, GROUP_COLORS, JAIL_BAIL, getGridPosition } from './config.js';
+import { BOARD, COUNTRY_FLAG_SRC, COUNTRY_LABEL, GROUP_COLORS, JAIL_BAIL, getGridPosition } from './config.js';
 import { formatMoney, formatPriceShort, sleep } from './utils.js';
 import { PHASE } from './game.js';
 import { iconHTML, resolveIconSrc } from './icons.js';
@@ -30,7 +30,7 @@ export class UI {
     this.die2 = document.getElementById('die2');
     this.die1Throw = document.getElementById('die1-throw');
     this.die2Throw = document.getElementById('die2-throw');
-    this.dieSum = document.getElementById('die-sum');
+    this.dieSum = null;
     this.diceStage = document.getElementById('dice-stage');
     this.hubTurn = document.getElementById('hub-turn');
     this.hubName = document.getElementById('hub-name');
@@ -162,15 +162,16 @@ export class UI {
     let body;
     if (isCompany) {
       const country = cell.country || '';
+      const countryLabel = COUNTRY_LABEL[country] || country;
       const company = cell.name || cell.brand || '';
       const price = cell.price != null ? formatPriceShort(cell.price) : '';
       const flagSrc = COUNTRY_FLAG_SRC[country] || '';
       const flagHtml = flagSrc
-        ? `<img class="cell__flag-img" src="${flagSrc}" alt="${escapeHtml(country)}" />`
+        ? `<img class="cell__flag-img" src="${flagSrc}" alt="${escapeHtml(countryLabel)}" />`
         : (cell.flag ? `<span class="cell__flag">${cell.flag}</span>` : '');
       body = `
         ${flagHtml}
-        ${country ? `<span class="cell__country">${escapeHtml(country)}</span>` : ''}
+        ${countryLabel ? `<span class="cell__country">${escapeHtml(countryLabel)}</span>` : ''}
         <span class="cell__company">${escapeHtml(company)}</span>
         ${price ? `<span class="cell__price">${price}</span>` : ''}
       `;
@@ -345,7 +346,6 @@ export class UI {
     const d2 = clampDie(state.dice?.[1]);
     this.setDieFace(this.die1, d1);
     this.setDieFace(this.die2, d2);
-    if (this.dieSum) this.dieSum.textContent = String(d1 + d2);
     this.die1Throw?.classList.toggle('die-throw--doubles', !!state.doubles);
     this.die2Throw?.classList.toggle('die-throw--doubles', !!state.doubles);
   }
@@ -353,20 +353,13 @@ export class UI {
   async animateDiceThrow(state) {
     const d1 = clampDie(state.dice?.[0]);
     const d2 = clampDie(state.dice?.[1]);
-    const sum = d1 + d2;
     this.diceStage?.classList.remove('table-toss--landed');
-    if (this.dieSum) this.dieSum.textContent = '…';
     await throwDice(
       [this.die1Throw, this.die2Throw],
       [this.die1, this.die2],
       [d1, d2],
       { doubles: !!state.doubles, stageEl: this.diceStage },
     );
-    if (this.dieSum) this.dieSum.textContent = String(sum);
-    const sumWrap = document.getElementById('die-sum-wrap');
-    sumWrap?.classList.remove('hub__sum-circle--pop');
-    void sumWrap?.offsetWidth;
-    sumWrap?.classList.add('hub__sum-circle--pop');
   }
 
   ensureTokens(state) {
@@ -568,7 +561,9 @@ export class UI {
             <div class="p-card__name">${escapeHtml(p.name)}</div>
             <div class="p-card__badge">${p.isBot ? 'Бот' : (p.id === this.mySlot ? 'Вы' : 'Игрок')}${p.inJail ? ' · тюрьма' : ''}</div>
           </div>
-          <div class="p-card__chip" title="${escapeHtml(p.name)}"></div>
+          <div class="token p-card__token" title="${escapeHtml(p.name)}" style="--token-color: ${p.color}">
+            <span class="token__ring"></span><span class="token__core"></span>
+          </div>
           <div class="p-card__rows">
             <div><span>Баланс</span><strong class="money">${formatMoney(p.money)}</strong></div>
             <div><span>Капитал</span><strong>${formatMoney(capital)}</strong></div>

@@ -427,43 +427,49 @@ button, input, select { font-family: inherit; }
   overflow: visible;
 }
 
+/* Единая 3D-шайба: и на поле, и в списке игроков */
 .token,
 .token-fly {
   --token-color: #e11d48;
-  --token-size: clamp(22px, 2.6vw, 30px);
+  --token-size: clamp(24px, 2.8vw, 34px);
   width: var(--token-size);
-  height: calc(var(--token-size) * 0.72);
-  border-radius: 50% / 42%;
+  height: calc(var(--token-size) * 0.92);
+  border-radius: 50% / 46%;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   background:
-    radial-gradient(circle at 35% 28%, rgba(255,255,255,0.65), transparent 40%),
+    radial-gradient(ellipse 70% 45% at 50% 18%, rgba(255,255,255,0.75), transparent 55%),
+    radial-gradient(ellipse 80% 50% at 50% 100%, rgba(0,0,0,0.45), transparent 50%),
     linear-gradient(180deg,
-      color-mix(in srgb, var(--token-color) 92%, #fff),
-      color-mix(in srgb, var(--token-color) 70%, #000));
-  border: 2px solid rgba(255,255,255,0.55);
+      color-mix(in srgb, var(--token-color) 88%, #fff) 0%,
+      color-mix(in srgb, var(--token-color) 95%, #000) 42%,
+      color-mix(in srgb, var(--token-color) 55%, #000) 100%);
+  border: 2px solid rgba(255,255,255,0.45);
   box-shadow:
-    0 2px 0 color-mix(in srgb, var(--token-color) 40%, #000),
-    0 4px 6px rgba(0,0,0,0.35),
-    inset 0 -3px 4px rgba(0,0,0,0.25);
+    0 1px 0 rgba(255,255,255,0.35) inset,
+    0 -4px 6px rgba(0,0,0,0.35) inset,
+    0 3px 0 color-mix(in srgb, var(--token-color) 35%, #000),
+    0 5px 8px rgba(0,0,0,0.4);
 }
 
 .token__ring {
   position: absolute;
-  inset: 3px;
+  inset: 4px 4px 6px;
   border-radius: 50%;
-  border: 1.5px dashed rgba(255,255,255,0.7);
+  border: 1.5px dashed rgba(255,255,255,0.65);
   pointer-events: none;
 }
 
 .token__core {
-  width: 36%;
-  height: 36%;
+  width: 34%;
+  height: 30%;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--token-color) 55%, #fff);
-  box-shadow: 0 0 0 1px rgba(0,0,0,0.15);
+  background: color-mix(in srgb, var(--token-color) 45%, #fff);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.18),
+    0 1px 2px rgba(0,0,0,0.2);
 }
 
 .token img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
@@ -477,7 +483,7 @@ button, input, select { font-family: inherit; }
   margin: 0;
   will-change: transform;
   z-index: 9;
-  filter: drop-shadow(0 3px 2px rgba(0,0,0,0.4));
+  filter: drop-shadow(0 4px 3px rgba(0,0,0,0.45));
 }
 
 .token-fly--teleport {
@@ -488,35 +494,31 @@ button, input, select { font-family: inherit; }
 .hub {
   flex: 1;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: stretch;
   min-width: 0;
   min-height: 0;
   width: 100%;
   height: 100%;
-  padding: clamp(6px, 1vw, 12px);
-  gap: 6px;
+  padding: clamp(6px, 1vw, 10px);
+  gap: clamp(8px, 1.2vw, 14px);
   color: var(--ink-soft);
+  overflow: hidden;
+}
+
+.hub__main {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   overflow: hidden;
 }
 
 .hub__status {
   flex-shrink: 0;
   text-align: center;
-}
-
-.hub__log--top {
-  max-height: 42px;
-  overflow-y: auto;
-  font-size: clamp(0.58rem, 1vw, 0.7rem);
-  font-weight: 600;
-  color: rgba(243, 230, 212, 0.75);
-  margin-bottom: 2px;
-  text-align: left;
-}
-
-.hub__log--top .log-line:first-child {
-  color: #fff;
-  font-weight: 800;
 }
 
 .hub__turn {
@@ -540,13 +542,11 @@ button, input, select { font-family: inherit; }
   padding-top: 4px;
 }
 
-/* Ряд кубиков + сумма — отдельно от текста игрока */
 .hub__dice-row {
   position: relative;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: clamp(16px, 3vw, 28px);
   width: 100%;
   min-height: clamp(88px, 14vh, 120px);
   flex-shrink: 0;
@@ -576,43 +576,6 @@ button, input, select { font-family: inherit; }
   border-radius: 50%;
   background: radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.35), transparent 70%);
   pointer-events: none;
-}
-
-.hub__sum-circle {
-  position: relative;
-  z-index: 3;
-  width: clamp(56px, 8vw, 78px);
-  height: clamp(56px, 8vw, 78px);
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #6ea0ff, #2f6fed 55%, #1e4bb8);
-  border: 3px solid rgba(255,255,255,0.35);
-  box-shadow:
-    0 4px 0 #163a8a,
-    0 8px 16px rgba(0,0,0,0.35),
-    inset 0 2px 6px rgba(255,255,255,0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.hub__sum-circle span {
-  font-size: clamp(1.4rem, 3vw, 2rem);
-  font-weight: 800;
-  color: #fff;
-  text-shadow: 0 2px 0 rgba(0,0,0,0.25);
-  line-height: 1;
-}
-
-.hub__sum-circle--pop {
-  animation: sumPulse 0.45s ease;
-}
-
-@keyframes sumPulse {
-  0% { transform: scale(0.85); }
-  55% { transform: scale(1.08); }
-  100% { transform: scale(1); }
 }
 
 /* ── Realistic white dice ── */
@@ -721,7 +684,7 @@ button, input, select { font-family: inherit; }
   position: relative;
   z-index: 3;
   width: 100%;
-  max-width: 340px;
+  max-width: 220px;
   text-align: center;
   flex-shrink: 0;
   margin-top: 2px;
@@ -730,13 +693,13 @@ button, input, select { font-family: inherit; }
 .hub__player-name {
   font-weight: 800;
   font-size: clamp(0.85rem, 1.5vw, 1.1rem);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   color: #fff;
 }
 
 .hub__stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 6px;
 }
 
@@ -744,37 +707,29 @@ button, input, select { font-family: inherit; }
   background: rgba(0,0,0,0.28);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 8px;
-  padding: 6px 4px;
+  padding: 7px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
 }
 
 .hub__stat span {
-  display: block;
-  font-size: clamp(0.5rem, 0.9vw, 0.62rem);
+  font-size: clamp(0.55rem, 0.95vw, 0.68rem);
   font-weight: 700;
   color: var(--muted);
   text-transform: uppercase;
 }
 
 .hub__stat strong {
-  font-size: clamp(0.68rem, 1.15vw, 0.85rem);
+  font-size: clamp(0.72rem, 1.2vw, 0.9rem);
   color: #7ddea0;
 }
 
-.hub__credit {
+.hub__exit-btn {
   position: relative;
   z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  max-width: 340px;
-  font-size: clamp(0.65rem, 1.1vw, 0.78rem);
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.hub__credit-btn {
   background: rgba(0,0,0,0.35);
   color: #f3e6d4;
   border: 1px solid rgba(255,255,255,0.15);
@@ -783,6 +738,8 @@ button, input, select { font-family: inherit; }
   font-weight: 800;
   font-size: 0.72rem;
   cursor: pointer;
+  margin-top: 4px;
+  flex-shrink: 0;
 }
 
 .hub__actions {
@@ -862,32 +819,58 @@ button, input, select { font-family: inherit; }
   font-size: 0.8rem;
 }
 
-/* Chat bottom full width */
+/* Chat — справа на всю высоту хаба */
 .hub__chat {
-  flex-shrink: 0;
-  width: 100%;
-  margin-top: auto;
+  flex: 0 0 clamp(140px, 22%, 210px);
+  min-width: 120px;
+  max-width: 230px;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(0,0,0,0.22);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+}
+
+.hub__chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  font-size: clamp(0.58rem, 1vw, 0.72rem);
+  font-weight: 600;
+  color: rgba(243, 230, 212, 0.8);
+  text-align: left;
+  padding-right: 2px;
+}
+
+.hub__chat-messages .log-line:first-child {
+  color: #fff;
+  font-weight: 800;
 }
 
 .hub__chat-input {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 6px;
+  padding: 7px 10px;
   background: #fff;
   border-radius: 999px;
   border: 1px solid rgba(0,0,0,0.12);
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  flex-shrink: 0;
 }
 
-.hub__chat-emoji { font-size: 1rem; }
+.hub__chat-emoji { font-size: 0.9rem; }
 
 .hub__chat-input input {
   flex: 1;
   min-width: 0;
   border: none;
   outline: none;
-  font-size: clamp(0.75rem, 1.1vw, 0.88rem);
+  font-size: clamp(0.7rem, 1vw, 0.82rem);
   font-weight: 600;
   color: var(--ink);
   background: transparent;
@@ -897,15 +880,15 @@ button, input, select { font-family: inherit; }
   border: none;
   background: #2f6fed;
   color: #fff;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   flex-shrink: 0;
 }
 
-.log-line { padding: 1px 0; }
+.log-line { padding: 2px 0; }
 
 /* ── Players rail: ровно 5 карманов на всю высоту ── */
 .players-rail {
@@ -999,20 +982,9 @@ button, input, select { font-family: inherit; }
   color: #8eb6ff;
 }
 
-.p-card__chip {
-  width: clamp(34px, 3.2vw, 42px);
-  height: clamp(26px, 2.5vw, 32px);
-  border-radius: 50% / 42%;
-  background:
-    radial-gradient(circle at 35% 28%, rgba(255,255,255,0.7), transparent 42%),
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--pc) 90%, #fff),
-      color-mix(in srgb, var(--pc) 65%, #000));
-  border: 2px solid rgba(255,255,255,0.5);
-  box-shadow:
-    0 2px 0 color-mix(in srgb, var(--pc) 40%, #000),
-    0 3px 5px rgba(0,0,0,0.4),
-    inset 0 -2px 3px rgba(0,0,0,0.25);
+.p-card__token {
+  --token-size: clamp(32px, 3.2vw, 40px);
+  --token-color: var(--pc);
   flex-shrink: 0;
   align-self: start;
 }
@@ -1074,9 +1046,12 @@ button, input, select { font-family: inherit; }
 }
 
 @media (max-height: 700px) {
-  .hub__sum-circle {
-    width: 48px;
-    height: 48px;
-  }
   .hub__dice-row { min-height: 72px; }
+}
+
+@media (max-width: 1100px) {
+  .hub__chat {
+    flex-basis: 120px;
+    max-width: 150px;
+  }
 }
