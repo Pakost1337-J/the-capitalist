@@ -1,5 +1,5 @@
 import { BOARD, GROUP_COLORS, JAIL_BAIL, getGridPosition } from './config.js';
-import { formatMoney, sleep } from './utils.js';
+import { formatMoney, formatPriceShort, sleep } from './utils.js';
 import { PHASE } from './game.js';
 import { iconHTML, resolveIconSrc } from './icons.js';
 import {
@@ -163,14 +163,15 @@ export class UI {
     if (isCompany) {
       const country = cell.country || '';
       const company = cell.name || cell.brand || '';
-      const price = cell.price != null ? formatMoney(cell.price) : '';
+      const price = cell.price != null ? formatPriceShort(cell.price) : '';
       body = `
+        ${cell.flag ? `<span class="cell__flag">${cell.flag}</span>` : ''}
         ${country ? `<span class="cell__country">${escapeHtml(country)}</span>` : ''}
         <span class="cell__company">${escapeHtml(company)}</span>
         ${price ? `<span class="cell__price">${price}</span>` : ''}
       `;
     } else {
-      const price = cell.amount != null ? `<span class="cell__price">${formatMoney(cell.amount)}</span>` : '';
+      const price = cell.amount != null ? `<span class="cell__price">${formatPriceShort(cell.amount)}</span>` : '';
       body = `
         ${cell.icon ? iconHTML(cell.icon, 'cell__icon') : ''}
         <span class="cell__name">${escapeHtml(cell.name)}</span>
@@ -348,15 +349,20 @@ export class UI {
   async animateDiceThrow(state) {
     const d1 = clampDie(state.dice?.[0]);
     const d2 = clampDie(state.dice?.[1]);
+    const sum = d1 + d2;
     this.diceStage?.classList.remove('table-toss--landed');
-    if (this.dieSum) this.dieSum.textContent = String(d1 + d2);
+    if (this.dieSum) this.dieSum.textContent = '…';
     await throwDice(
       [this.die1Throw, this.die2Throw],
       [this.die1, this.die2],
       [d1, d2],
       { doubles: !!state.doubles, stageEl: this.diceStage },
     );
-    if (this.dieSum) this.dieSum.textContent = String(d1 + d2);
+    if (this.dieSum) this.dieSum.textContent = String(sum);
+    const sumWrap = document.getElementById('die-sum-wrap');
+    sumWrap?.classList.remove('hub__sum-circle--pop');
+    void sumWrap?.offsetWidth;
+    sumWrap?.classList.add('hub__sum-circle--pop');
   }
 
   ensureTokens(state) {
@@ -554,19 +560,16 @@ export class UI {
       return `
         <div class="p-card ${isTurn ? 'p-card--active' : ''} ${p.bankrupt ? 'p-card--out' : ''} ${p.id === this.mySlot ? 'p-card--me' : ''}"
              style="--pc: ${p.color}">
-          <div class="p-card__top">
-            <div class="p-card__avatar">${tokenDisplay(p)}</div>
-            <div>
-              <div class="p-card__name">${escapeHtml(p.name)}</div>
-              <div class="p-card__badge">${p.isBot ? 'Бот' : (p.id === this.mySlot ? 'Вы' : 'Игрок')}${p.inJail ? ' · тюрьма' : ''}</div>
-            </div>
+          <div class="p-card__info">
+            <div class="p-card__name">${escapeHtml(p.name)}</div>
+            <div class="p-card__badge">${p.isBot ? 'Бот' : (p.id === this.mySlot ? 'Вы' : 'Игрок')}${p.inJail ? ' · тюрьма' : ''}</div>
           </div>
+          <div class="p-card__chip" title="${escapeHtml(p.name)}"></div>
           <div class="p-card__rows">
             <div><span>Баланс</span><strong class="money">${formatMoney(p.money)}</strong></div>
             <div><span>Капитал</span><strong>${formatMoney(capital)}</strong></div>
-            <div><span>Компании</span><strong>${p.properties.length}</strong></div>
           </div>
-          ${isTurn && state.phase !== PHASE.GAME_OVER ? '<div class="p-card__turn">⏱ Ваш ход</div>' : ''}
+          ${isTurn && state.phase !== PHASE.GAME_OVER ? '<div class="p-card__turn">Ваш ход</div>' : ''}
         </div>
       `;
     }).join('');
@@ -723,14 +726,6 @@ function groupByPosition(players) {
 function clampDie(n) {
   const v = Number(n) || 1;
   return Math.min(6, Math.max(1, v));
-}
-
-function tokenDisplay(p) {
-  const src = resolveIconSrc(p.tokenImage || '');
-  if (src) {
-    return `<img class="player-card__token-img" src="${src}" alt="" style="width:18px;height:18px;border-radius:50%;object-fit:cover" />`;
-  }
-  return `<span class="chip" style="--pc:${p.color};background:${p.color}" title="${escapeHtml(p.name)}"></span>`;
 }
 
 function escapeHtml(s) {

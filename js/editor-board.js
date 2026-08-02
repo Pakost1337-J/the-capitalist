@@ -74,13 +74,17 @@ function cellHTML(data, index) {
   const isSide = (index >= 13 && index <= 20) || (index >= 33 && index <= 39);
   const base = BOARD[index];
   const colorBar = base.group ? `<div class="cell__color-bar"></div>` : '';
-  const price = base.price ? `<span class="cell__price">$${Number(base.price).toLocaleString('ru-RU')}</span>` : '';
+  const country = base.country || '';
+  const price = base.price
+    ? `<span class="cell__price">$${Math.round(base.price / 1000)}K</span>`
+    : '';
 
   return `
     ${colorBar}
     <div class="cell__body ${isSide ? 'cell__body--side' : ''} ${isCorner ? 'cell__body--corner' : ''}">
-      ${iconHTML(data.icon, 'cell__icon')}
-      <span class="cell__name">${escapeHtml(data.name)}</span>
+      ${base.flag ? `<span class="cell__flag">${base.flag}</span>` : iconHTML(data.icon, 'cell__icon')}
+      ${country ? `<span class="cell__country">${escapeHtml(country)}</span>` : ''}
+      <span class="cell__company">${escapeHtml(data.name)}</span>
       ${price}
     </div>
   `;
