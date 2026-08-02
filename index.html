@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Капиталист — Монополия онлайн</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <!-- Lobby -->
+  <div class="lobby" id="lobby">
+    <div class="lobby__card">
+      <div class="lobby__header">
+        <span class="lobby__icon">💰</span>
+        <h1>КАПИТАЛИСТ</h1>
+        <p>Монополия онлайн · до 5 игроков</p>
+      </div>
+
+      <div class="lobby__error" id="lobby-error" hidden></div>
+
+      <div id="lobby-menu">
+        <label class="lobby__field">
+          <span>Ваше имя</span>
+          <input type="text" id="player-name" maxlength="20" placeholder="Игрок" value="">
+        </label>
+
+        <label class="lobby__field">
+          <span>Игроков в комнате</span>
+          <select id="max-players">
+            <option value="2">2 игрока</option>
+            <option value="3">3 игрока</option>
+            <option value="4" selected>4 игрока</option>
+            <option value="5">5 игроков</option>
+          </select>
+        </label>
+
+        <button class="btn btn--roll lobby__btn" id="btn-create">🏠 Создать комнату</button>
+
+        <div class="lobby__divider">или</div>
+
+        <label class="lobby__field">
+          <span>Код комнаты</span>
+          <input type="text" id="join-code" maxlength="5" placeholder="ABCDE">
+        </label>
+        <button class="btn btn--end lobby__btn" id="btn-join">🚪 Войти в комнату</button>
+      </div>
+
+      <div id="lobby-room" hidden>
+        <div class="lobby__room-code">
+          Код комнаты: <strong id="room-code">-----</strong>
+          <button class="btn-copy" id="btn-copy" title="Скопировать">📋</button>
+        </div>
+        <p class="lobby__room-count">Игроков: <span id="room-count">0/4</span></p>
+        <p class="lobby__share">Ссылка для друзей:<br><code id="share-url"></code></p>
+        <div class="lobby__players" id="room-players"></div>
+        <p class="lobby__hint" id="host-hint" hidden>Ожидайте, пока хост начнёт игру</p>
+        <button class="btn btn--roll lobby__btn" id="btn-start">🎲 Начать игру</button>
+        <button class="btn btn--pass lobby__btn" id="btn-leave">← Выйти</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game -->
+  <div class="game-layout" id="game-layout" hidden>
+    <aside class="sidebar sidebar--left">
+      <div class="players-panel" id="players-panel"></div>
+    </aside>
+
+    <main class="board-area">
+      <div class="board" id="board">
+        <div class="board__center" id="board-center">
+          <div class="board__logo">
+            <span class="board__logo-icon">💰</span>
+            <h1>КАПИТАЛИСТ</h1>
+            <p>Комната: <span id="room-code-display">—</span></p>
+          </div>
+          <div class="dice-area" id="dice-area">
+            <div class="die" id="die1">1</div>
+            <div class="die" id="die2">1</div>
+          </div>
+          <div class="action-area" id="action-area"></div>
+          <div class="game-log" id="game-log"></div>
+        </div>
+      </div>
+    </main>
+
+    <aside class="sidebar sidebar--right">
+      <div class="info-panel">
+        <h3>📋 Правила</h3>
+        <ul>
+          <li>Бросайте кубики и ходите по полю</li>
+          <li>Покупайте предприятия</li>
+          <li>Соберите монополию сектора</li>
+          <li>Стройте филиалы (до 5)</li>
+          <li>Разорите соперников!</li>
+        </ul>
+        <p class="share-hint">Поделитесь кодом комнаты с друзьями!</p>
+        <button class="btn btn--new" id="new-game">🚪 Выйти</button>
+      </div>
+    </aside>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+  <script>
+    document.getElementById('btn-copy')?.addEventListener('click', () => {
+      const code = document.getElementById('room-code').textContent;
+      navigator.clipboard.writeText(code);
+      document.getElementById('btn-copy').textContent = '✓';
+      setTimeout(() => document.getElementById('btn-copy').textContent = '📋', 1500);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,536 @@
+import {
+  BOARD, CHANCE_CARDS, START_MONEY, GO_SALARY, JAIL_BAIL,
+  MAX_HOUSES, PLAYER_SLOTS, getCell, getGroupProperties,
+} from './config.js';
+import { shuffle } from './utils.js';
+
+export const PHASE = {
+  ROLL: 'roll',
+  MOVING: 'moving',
+  ACTION: 'action',
+  BUILD: 'build',
+  END: 'end',
+  GAME_OVER: 'game_over',
+};
+
+function createPlayer(slot, name, socketId, isBot) {
+  const cfg = PLAYER_SLOTS[slot];
+  return {
+    id: slot,
+    name,
+    color: cfg.color,
+    token: cfg.token,
+    socketId,
+    isBot,
+    money: START_MONEY,
+    position: 0,
+    inJail: false,
+    jailTurns: 0,
+    bankrupt: false,
+    properties: [],
+  };
+}
+
+export function createGame(playerConfigs) {
+  const engine = new GameEngine();
+  engine.players = playerConfigs.map((p, i) =>
+    createPlayer(i, p.name, p.socketId || null, p.isBot ?? false)
+  );
+  return engine;
+}
+
+export class GameEngine {
+  constructor() {
+    this.players = [];
+    this.currentPlayerIndex = 0;
+    this.phase = PHASE.ROLL;
+    this.dice = [1, 1];
+    this.doubles = false;
+    this.chanceDeck = shuffle(CHANCE_CARDS.map((_, i) => i));
+    this.chanceIndex = 0;
+    this.log = [];
+    this.winner = null;
+    this.pendingAction = null;
+    this.housesBuilt = 0;
+    this.maxHouses = 32;
+
+    this.propertyState = {};
+    for (const cell of BOARD) {
+      if (['property', 'railroad', 'utility'].includes(cell.type)) {
+        this.propertyState[cell.id] = { owner: null, houses: 0, mortgaged: false };
+      }
+    }
+  }
+
+  get currentPlayer() {
+    return this.players[this.currentPlayerIndex];
+  }
+
+  get activePlayers() {
+    return this.players.filter(p => !p.bankrupt);
+  }
+
+  getState() {
+    return {
+      players: this.players.map(p => ({ ...p })),
+      currentPlayerIndex: this.currentPlayerIndex,
+      phase: this.phase,
+      dice: [...this.dice],
+      doubles: this.doubles,
+      log: [...this.log],
+      winner: this.winner,
+      pendingAction: this.pendingAction ? { ...this.pendingAction } : null,
+      propertyState: JSON.parse(JSON.stringify(this.propertyState)),
+      housesBuilt: this.housesBuilt,
+    };
+  }
+
+  addLog(msg) {
+    this.log.unshift(msg);
+    if (this.log.length > 50) this.log.pop();
+  }
+
+  getPropertyOwner(cellId) {
+    const ps = this.propertyState[cellId];
+    if (!ps || ps.owner === null) return null;
+    return this.players[ps.owner];
+  }
+
+  ownsGroup(playerId, group) {
+    const props = getGroupProperties(group);
+    return props.every(p => this.propertyState[p.id]?.owner === playerId && !this.propertyState[p.id]?.mortgaged);
+  }
+
+  countRailroads(playerId) {
+    return BOARD.filter(c => c.type === 'railroad' && this.propertyState[c.id]?.owner === playerId).length;
+  }
+
+  countUtilities(playerId) {
+    return BOARD.filter(c => c.type === 'utility' && this.propertyState[c.id]?.owner === playerId).length;
+  }
+
+  calcRent(cellId) {
+    const cell = getCell(cellId);
+    const ps = this.propertyState[cellId];
+    if (!ps || ps.owner === null || ps.mortgaged) return 0;
+
+    if (cell.type === 'property') {
+      const hasMonopoly = this.ownsGroup(ps.owner, cell.group);
+      if (ps.houses > 0) return cell.rent[ps.houses];
+      return hasMonopoly ? cell.rent[0] * 2 : cell.rent[0];
+    }
+
+    if (cell.type === 'railroad') {
+      const count = this.countRailroads(ps.owner);
+      return cell.rent[count - 1] || cell.rent[0];
+    }
+
+    if (cell.type === 'utility') {
+      const count = this.countUtilities(ps.owner);
+      const mult = count >= 2 ? 10 : 4;
+      return (this.dice[0] + this.dice[1]) * mult;
+    }
+
+    return 0;
+  }
+
+  transferMoney(from, to, amount) {
+    from.money -= amount;
+    to.money += amount;
+  }
+
+  canAfford(player, amount) {
+    return player.money >= amount;
+  }
+
+  isOnlinePlayer(player) {
+    return !player.isBot && player.socketId;
+  }
+
+  rollDice() {
+    if (this.phase !== PHASE.ROLL) return false;
+    const p = this.currentPlayer;
+    if (p.bankrupt) return false;
+
+    this.dice = [rand(), rand()];
+    this.doubles = this.dice[0] === this.dice[1];
+    this.addLog(`${p.name} бросает ${this.dice[0]}:${this.dice[1]}`);
+
+    if (p.inJail) {
+      if (this.doubles) {
+        p.inJail = false;
+        p.jailTurns = 0;
+        this.addLog(`${p.name} выбросил дубль и выходит из тюрьмы!`);
+        this.movePlayer(this.dice[0] + this.dice[1]);
+      } else {
+        p.jailTurns++;
+        if (p.jailTurns >= 3) {
+          p.money -= JAIL_BAIL;
+          p.inJail = false;
+          p.jailTurns = 0;
+          this.addLog(`${p.name} платит $${JAIL_BAIL} и выходит из тюрьмы`);
+          this.movePlayer(this.dice[0] + this.dice[1]);
+        } else {
+          this.addLog(`${p.name} остаётся в тюрьме (${p.jailTurns}/3)`);
+          this.phase = PHASE.END;
+        }
+      }
+    } else {
+      this.movePlayer(this.dice[0] + this.dice[1]);
+    }
+
+    return true;
+  }
+
+  movePlayer(steps) {
+    const p = this.currentPlayer;
+    const oldPos = p.position;
+    p.position = (p.position + steps) % 40;
+
+    if (p.position < oldPos || (oldPos + steps >= 40)) {
+      p.money += GO_SALARY;
+      this.addLog(`${p.name} проходит Старт (+$${GO_SALARY})`);
+    }
+
+    this.phase = PHASE.MOVING;
+    this.landOnCell();
+  }
+
+  landOnCell() {
+    const p = this.currentPlayer;
+    const cell = getCell(p.position);
+    this.addLog(`${p.name} → ${cell.name}`);
+
+    switch (cell.type) {
+      case 'go':
+      case 'parking':
+      case 'jail':
+        this.afterAction();
+        break;
+      case 'property':
+      case 'railroad':
+      case 'utility':
+        this.handleProperty(cell);
+        break;
+      case 'chance':
+        this.drawChance();
+        break;
+      case 'tax':
+        this.payTax(cell.amount);
+        break;
+      case 'gotojail':
+        this.sendToJail();
+        break;
+    }
+  }
+
+  handleProperty(cell) {
+    const ps = this.propertyState[cell.id];
+    const p = this.currentPlayer;
+
+    if (ps.owner === null) {
+      this.pendingAction = { type: 'buy', cellId: cell.id, price: cell.price };
+      this.phase = PHASE.ACTION;
+    } else if (ps.owner !== p.id && !ps.mortgaged) {
+      const rent = this.calcRent(cell.id);
+      const owner = this.players[ps.owner];
+      this.payPlayer(p, owner, rent, `аренда ${cell.name}`);
+      this.afterAction();
+    } else {
+      this.afterAction();
+    }
+  }
+
+  payPlayer(from, to, amount, reason) {
+    if (amount <= 0) return;
+    if (from.money >= amount) {
+      this.transferMoney(from, to, amount);
+      this.addLog(`${from.name} платит ${to.name} $${amount} (${reason})`);
+    } else {
+      this.handleBankruptcy(from, to, amount);
+    }
+  }
+
+  payTax(amount) {
+    const p = this.currentPlayer;
+    if (p.money >= amount) {
+      p.money -= amount;
+      this.addLog(`${p.name} платит налог $${amount}`);
+      this.afterAction();
+    } else {
+      this.handleBankruptcy(p, null, amount);
+    }
+  }
+
+  sendToJail() {
+    const p = this.currentPlayer;
+    p.position = 10;
+    p.inJail = true;
+    p.jailTurns = 0;
+    this.addLog(`${p.name} отправлен в тюрьму!`);
+    this.phase = PHASE.END;
+  }
+
+  drawChance() {
+    const cardIdx = this.chanceDeck[this.chanceIndex % this.chanceDeck.length];
+    this.chanceIndex++;
+    const card = CHANCE_CARDS[cardIdx];
+    this.addLog(`Шанс: ${card.text}`);
+    this.applyChanceCard(card);
+  }
+
+  applyChanceCard(card) {
+    const p = this.currentPlayer;
+
+    if (card.money) {
+      if (card.money > 0) {
+        p.money += card.money;
+      } else if (p.money >= Math.abs(card.money)) {
+        p.money += card.money;
+      } else {
+        this.handleBankruptcy(p, null, Math.abs(card.money));
+        return;
+      }
+      this.afterAction();
+    } else if (card.birthday) {
+      for (const other of this.activePlayers) {
+        if (other.id !== p.id) {
+          const amt = Math.min(card.birthday, other.money);
+          this.transferMoney(other, p, amt);
+        }
+      }
+      this.afterAction();
+    } else if (card.goToStart) {
+      p.position = 0;
+      p.money += GO_SALARY;
+      this.afterAction();
+    } else if (card.goToJail) {
+      this.sendToJail();
+    } else if (card.goTo !== undefined) {
+      p.position = card.goTo;
+      this.afterAction();
+    } else if (card.moveBack) {
+      p.position = (p.position - card.moveBack + 40) % 40;
+      this.landOnCell();
+    } else if (card.repairPerHouse) {
+      let total = 0;
+      for (const pid of p.properties) {
+        total += this.propertyState[pid].houses * card.repairPerHouse;
+      }
+      if (p.money >= total) {
+        p.money -= total;
+        this.addLog(`${p.name} платит $${total} за ремонт`);
+      } else {
+        this.handleBankruptcy(p, null, total);
+        return;
+      }
+      this.afterAction();
+    } else {
+      this.afterAction();
+    }
+  }
+
+  buyProperty() {
+    if (this.pendingAction?.type !== 'buy') return false;
+    const { cellId, price } = this.pendingAction;
+    const p = this.currentPlayer;
+    const cell = getCell(cellId);
+    if (!this.canAfford(p, price)) return false;
+
+    p.money -= price;
+    p.properties.push(cellId);
+    this.propertyState[cellId].owner = p.id;
+    this.addLog(`${p.name} покупает ${cell.name} за $${price}`);
+    this.pendingAction = null;
+    this.afterAction();
+    return true;
+  }
+
+  passProperty() {
+    if (this.pendingAction?.type !== 'buy') return false;
+    const cell = getCell(this.pendingAction.cellId);
+    this.addLog(`${this.currentPlayer.name} отказывается от ${cell.name}`);
+    this.pendingAction = null;
+    this.afterAction();
+    return true;
+  }
+
+  buildHouse(cellId) {
+    const p = this.currentPlayer;
+    const cell = getCell(cellId);
+    const ps = this.propertyState[cellId];
+
+    if (cell.type !== 'property') return false;
+    if (ps.owner !== p.id) return false;
+    if (!this.ownsGroup(p.id, cell.group)) return false;
+    if (ps.houses >= MAX_HOUSES) return false;
+    if (this.housesBuilt >= this.maxHouses) return false;
+    if (!this.canAfford(p, cell.houseCost)) return false;
+
+    const group = getGroupProperties(cell.group);
+    const minHouses = Math.min(...group.map(g => this.propertyState[g.id].houses));
+    if (ps.houses > minHouses) return false;
+
+    p.money -= cell.houseCost;
+    ps.houses++;
+    this.housesBuilt++;
+    this.addLog(`${p.name} строит филиал на ${cell.name} ($${cell.houseCost})`);
+    return true;
+  }
+
+  getBuildableProperties(playerId) {
+    const p = this.players[playerId];
+    const result = [];
+    for (const cellId of p.properties) {
+      const cell = getCell(cellId);
+      const ps = this.propertyState[cellId];
+      if (cell.type !== 'property') continue;
+      if (!this.ownsGroup(playerId, cell.group)) continue;
+      if (ps.houses >= MAX_HOUSES) continue;
+      if (this.housesBuilt >= this.maxHouses) continue;
+      const group = getGroupProperties(cell.group);
+      const minHouses = Math.min(...group.map(g => this.propertyState[g.id].houses));
+      if (ps.houses <= minHouses && p.money >= cell.houseCost) {
+        result.push(cellId);
+      }
+    }
+    return result;
+  }
+
+  afterAction() {
+    const p = this.currentPlayer;
+    const buildable = this.getBuildableProperties(p.id);
+    if (buildable.length > 0 && this.isOnlinePlayer(p)) {
+      this.phase = PHASE.BUILD;
+      this.pendingAction = { type: 'build', options: buildable };
+    } else if (buildable.length > 0 && p.isBot) {
+      for (const cellId of buildable) {
+        if (p.money >= getCell(cellId).houseCost + 150) {
+          this.buildHouse(cellId);
+        }
+      }
+      this.phase = PHASE.END;
+    } else {
+      this.phase = PHASE.END;
+    }
+  }
+
+  finishBuild() {
+    this.pendingAction = null;
+    this.phase = PHASE.END;
+  }
+
+  endTurn() {
+    if (this.phase !== PHASE.END && this.phase !== PHASE.BUILD) return false;
+
+    if (this.activePlayers.length <= 1) {
+      this.winner = this.activePlayers[0];
+      this.phase = PHASE.GAME_OVER;
+      this.addLog(`🏆 ${this.winner.name} побеждает!`);
+      return true;
+    }
+
+    let next = (this.currentPlayerIndex + 1) % this.players.length;
+    while (this.players[next].bankrupt) {
+      next = (next + 1) % this.players.length;
+    }
+
+    this.currentPlayerIndex = next;
+    this.phase = PHASE.ROLL;
+    this.doubles = false;
+    this.pendingAction = null;
+    this.addLog(`— Ход: ${this.currentPlayer.name} —`);
+    return true;
+  }
+
+  handleBankruptcy(debtor, creditor, amount) {
+    this.addLog(`💀 ${debtor.name} обанкротился!`);
+    this.liquidatePlayer(debtor, creditor);
+
+    if (this.activePlayers.length <= 1) {
+      this.winner = this.activePlayers[0] || creditor;
+      this.phase = PHASE.GAME_OVER;
+      this.addLog(`🏆 ${this.winner?.name} побеждает!`);
+    } else {
+      this.phase = PHASE.END;
+    }
+    this.pendingAction = null;
+  }
+
+  liquidatePlayer(player, creditor) {
+    for (const pid of [...player.properties]) {
+      const cell = getCell(pid);
+      const ps = this.propertyState[pid];
+      if (creditor && !creditor.bankrupt) {
+        creditor.properties.push(pid);
+        this.propertyState[pid].owner = creditor.id;
+        this.addLog(`${cell.name} → ${creditor.name}`);
+      } else {
+        this.propertyState[pid].owner = null;
+        this.propertyState[pid].houses = 0;
+      }
+      ps.mortgaged = false;
+    }
+    if (creditor && !creditor.bankrupt) {
+      creditor.money += Math.max(0, player.money);
+    }
+    player.properties = [];
+    player.money = 0;
+    player.bankrupt = true;
+  }
+
+  payJailBail() {
+    const p = this.currentPlayer;
+    if (!p.inJail || !this.canAfford(p, JAIL_BAIL)) return false;
+    p.money -= JAIL_BAIL;
+    p.inJail = false;
+    p.jailTurns = 0;
+    this.addLog(`${p.name} платит залог $${JAIL_BAIL}`);
+    return true;
+  }
+
+  applyAction(action, playerId) {
+    if (this.currentPlayer.id !== playerId) return { ok: false, error: 'Не ваш ход' };
+    const p = this.currentPlayer;
+
+    switch (action.type) {
+      case 'roll':
+        if (this.phase !== PHASE.ROLL) return { ok: false, error: 'Сейчас нельзя бросать' };
+        this.rollDice();
+        return { ok: true };
+
+      case 'buy':
+        if (!this.buyProperty()) return { ok: false, error: 'Нельзя купить' };
+        return { ok: true };
+
+      case 'pass':
+        if (!this.passProperty()) return { ok: false, error: 'Нельзя отказаться' };
+        return { ok: true };
+
+      case 'build':
+        if (!this.buildHouse(action.cellId)) return { ok: false, error: 'Нельзя построить' };
+        return { ok: true };
+
+      case 'finishBuild':
+        if (this.phase !== PHASE.BUILD) return { ok: false, error: 'Не фаза строительства' };
+        this.finishBuild();
+        return { ok: true };
+
+      case 'endTurn':
+        if (this.phase !== PHASE.END && this.phase !== PHASE.BUILD) return { ok: false, error: 'Нельзя завершить ход' };
+        this.endTurn();
+        return { ok: true };
+
+      case 'payJailBail':
+        if (!this.payJailBail()) return { ok: false, error: 'Нельзя заплатить залог' };
+        return { ok: true };
+
+      default:
+        return { ok: false, error: 'Неизвестное действие' };
+    }
+  }
+}
+
+function rand() {
+  return Math.floor(Math.random() * 6) + 1;
+}
