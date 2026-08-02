@@ -1,4 +1,4 @@
-import { BOARD, GROUP_COLORS, JAIL_BAIL, getGridPosition } from './config.js';
+import { BOARD, COUNTRY_FLAG_SRC, GROUP_COLORS, JAIL_BAIL, getGridPosition } from './config.js';
 import { formatMoney, formatPriceShort, sleep } from './utils.js';
 import { PHASE } from './game.js';
 import { iconHTML, resolveIconSrc } from './icons.js';
@@ -77,7 +77,7 @@ export class UI {
     const pad = 16;
     const gap = 10;
     const narrow = window.innerWidth <= 860;
-    const rail = narrow ? 0 : Math.round(Math.min(180, Math.max(140, window.innerWidth * 0.11)));
+    const rail = narrow ? 0 : Math.round(Math.min(230, Math.max(188, window.innerWidth * 0.15)));
     const availW = Math.max(320, shell.clientWidth - pad - (narrow ? 0 : rail + gap));
     const availH = Math.max(280, shell.clientHeight - pad - (narrow ? 120 : 0));
 
@@ -164,8 +164,12 @@ export class UI {
       const country = cell.country || '';
       const company = cell.name || cell.brand || '';
       const price = cell.price != null ? formatPriceShort(cell.price) : '';
+      const flagSrc = COUNTRY_FLAG_SRC[country] || '';
+      const flagHtml = flagSrc
+        ? `<img class="cell__flag-img" src="${flagSrc}" alt="${escapeHtml(country)}" />`
+        : (cell.flag ? `<span class="cell__flag">${cell.flag}</span>` : '');
       body = `
-        ${cell.flag ? `<span class="cell__flag">${cell.flag}</span>` : ''}
+        ${flagHtml}
         ${country ? `<span class="cell__country">${escapeHtml(country)}</span>` : ''}
         <span class="cell__company">${escapeHtml(company)}</span>
         ${price ? `<span class="cell__price">${price}</span>` : ''}

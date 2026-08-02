@@ -340,6 +340,16 @@ button, input, select { font-family: inherit; }
   filter: drop-shadow(0 1px 0 rgba(255,255,255,0.4));
 }
 
+.cell__flag-img {
+  width: clamp(16px, 2.2vw, 26px);
+  height: auto;
+  max-height: clamp(11px, 1.5vw, 16px);
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  display: block;
+}
+
 .cell__country {
   font-size: clamp(0.38rem, 0.85vw, 0.55rem);
   font-weight: 800;
@@ -523,33 +533,46 @@ button, input, select { font-family: inherit; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
+  justify-content: flex-start;
+  gap: 8px;
   position: relative;
   overflow: hidden;
+  padding-top: 4px;
 }
 
-/* Стол для кубиков — участок кожи, без окна */
-.table-toss {
-  position: absolute;
-  inset: 8% 12% 28%;
+/* Ряд кубиков + сумма — отдельно от текста игрока */
+.hub__dice-row {
+  position: relative;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: clamp(36px, 6vw, 64px);
-  padding-bottom: 8%;
+  gap: clamp(16px, 3vw, 28px);
+  width: 100%;
+  min-height: clamp(88px, 14vh, 120px);
+  flex-shrink: 0;
+  z-index: 2;
+}
+
+.table-toss {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: clamp(28px, 5vw, 48px);
+  height: 100%;
+  min-width: clamp(140px, 22vw, 200px);
+  padding-bottom: 6px;
   perspective: 800px;
   pointer-events: none;
-  z-index: 2;
 }
 
 .table-toss::before {
   content: '';
   position: absolute;
-  left: 10%;
-  right: 10%;
-  bottom: 4%;
-  height: 28%;
+  left: 5%;
+  right: 5%;
+  bottom: 0;
+  height: 22%;
   border-radius: 50%;
   background: radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.35), transparent 70%);
   pointer-events: none;
@@ -560,6 +583,7 @@ button, input, select { font-family: inherit; }
   z-index: 3;
   width: clamp(56px, 8vw, 78px);
   height: clamp(56px, 8vw, 78px);
+  flex-shrink: 0;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #6ea0ff, #2f6fed 55%, #1e4bb8);
   border: 3px solid rgba(255,255,255,0.35);
@@ -699,6 +723,8 @@ button, input, select { font-family: inherit; }
   width: 100%;
   max-width: 340px;
   text-align: center;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .hub__player-name {
@@ -769,6 +795,8 @@ button, input, select { font-family: inherit; }
   align-items: center;
   gap: 6px;
   min-height: 36px;
+  margin-top: auto;
+  flex-shrink: 0;
 }
 
 .wait-turn {
@@ -879,7 +907,7 @@ button, input, select { font-family: inherit; }
 
 .log-line { padding: 1px 0; }
 
-/* ── Players rail (leather pockets) ── */
+/* ── Players rail: ровно 5 карманов на всю высоту ── */
 .players-rail {
   display: flex;
   flex-direction: column;
@@ -887,10 +915,11 @@ button, input, select { font-family: inherit; }
   width: var(--rail-w);
   min-width: var(--rail-w);
   max-width: var(--rail-w);
-  overflow: auto;
+  overflow: hidden;
   padding: 10px 8px;
   flex-shrink: 0;
   align-self: stretch;
+  height: auto;
   background: var(--leather-grad);
   border-radius: 14px;
   border: 3px solid #2a1a12;
@@ -900,9 +929,11 @@ button, input, select { font-family: inherit; }
 }
 
 .p-card {
+  flex: 1 1 0;
+  min-height: 0;
   background: rgba(0,0,0,0.28);
   border-radius: 12px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border: 1px solid rgba(0,0,0,0.35);
   box-shadow:
     inset 0 2px 8px rgba(0,0,0,0.45),
@@ -911,7 +942,8 @@ button, input, select { font-family: inherit; }
   overflow: hidden;
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 6px 8px;
+  grid-template-rows: auto 1fr auto;
+  gap: 4px 10px;
   align-items: center;
 }
 
@@ -928,7 +960,7 @@ button, input, select { font-family: inherit; }
 
 .p-card__name {
   font-weight: 800;
-  font-size: 0.72rem;
+  font-size: clamp(0.78rem, 1.1vw, 0.95rem);
   color: #fff;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -936,7 +968,7 @@ button, input, select { font-family: inherit; }
 }
 
 .p-card__badge {
-  font-size: 0.58rem;
+  font-size: clamp(0.62rem, 0.9vw, 0.72rem);
   font-weight: 700;
   color: var(--muted);
 }
@@ -944,9 +976,10 @@ button, input, select { font-family: inherit; }
 .p-card__rows {
   grid-column: 1 / -1;
   display: grid;
-  gap: 2px;
-  font-size: 0.6rem;
+  gap: 3px;
+  font-size: clamp(0.68rem, 0.95vw, 0.78rem);
   font-weight: 700;
+  align-content: end;
 }
 
 .p-card__rows div {
@@ -967,8 +1000,8 @@ button, input, select { font-family: inherit; }
 }
 
 .p-card__chip {
-  width: 28px;
-  height: 22px;
+  width: clamp(34px, 3.2vw, 42px);
+  height: clamp(26px, 2.5vw, 32px);
   border-radius: 50% / 42%;
   background:
     radial-gradient(circle at 35% 28%, rgba(255,255,255,0.7), transparent 42%),
@@ -981,6 +1014,7 @@ button, input, select { font-family: inherit; }
     0 3px 5px rgba(0,0,0,0.4),
     inset 0 -2px 3px rgba(0,0,0,0.25);
   flex-shrink: 0;
+  align-self: start;
 }
 
 .chip {
@@ -1044,5 +1078,5 @@ button, input, select { font-family: inherit; }
     width: 48px;
     height: 48px;
   }
-  .table-toss { inset: 4% 10% 32%; }
+  .hub__dice-row { min-height: 72px; }
 }
