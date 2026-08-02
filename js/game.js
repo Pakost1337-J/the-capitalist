@@ -529,6 +529,35 @@ export class GameEngine {
     this.phase = PHASE.END;
   }
 
+  /** Заложить компанию — половина цены, иконка замка на клетке */
+  mortgageProperty(cellId) {
+    const p = this.currentPlayer;
+    const cell = getCell(cellId);
+    const ps = this.propertyState[cellId];
+    if (!cell || !ps || ps.owner !== p.id || ps.mortgaged) return false;
+    if (ps.houses > 0) return false;
+    if (!['property', 'railroad', 'utility'].includes(cell.type)) return false;
+    const cash = Math.floor((cell.price || 0) / 2);
+    ps.mortgaged = true;
+    p.money += cash;
+    this.addLog(`${p.name} закладывает «${cell.name}» (+$${cash.toLocaleString('ru-RU')})`);
+    return true;
+  }
+
+  /** Выкупить из залога — цена ×0.55 */
+  unmortgageProperty(cellId) {
+    const p = this.currentPlayer;
+    const cell = getCell(cellId);
+    const ps = this.propertyState[cellId];
+    if (!cell || !ps || ps.owner !== p.id || !ps.mortgaged) return false;
+    const cost = Math.floor((cell.price || 0) * 0.55);
+    if (!this.canAfford(p, cost)) return false;
+    p.money -= cost;
+    ps.mortgaged = false;
+    this.addLog(`${p.name} выкупает «${cell.name}» (−$${cost.toLocaleString('ru-RU')})`);
+    return true;
+  }
+
   endTurn() {
     if (this.phase !== PHASE.END && this.phase !== PHASE.BUILD) return false;
 
@@ -641,6 +670,20 @@ export class GameEngine {
 
       case 'payJailBail':
         if (!this.payJailBail()) return { ok: false, error: 'Нельзя заплатить залог' };
+        return { ok: true };
+
+      case 'mortgage':
+        if (this.phase !== PHASE.END && this.phase !== PHASE.BUILD) {
+          return { ok: false, error: 'Сейчас нельзя закладывать' };
+        }
+        if (!this.mortgageProperty(action.cellId)) return { ok: false, error: 'Нельзя заложить' };
+        return { ok: true };
+
+      case 'unmortgage':
+        if (this.phase !== PHASE.END && this.phase !== PHASE.BUILD) {
+          return { ok: false, error: 'Сейчас нельзя выкупить' };
+        }
+        if (!this.unmortgageProperty(action.cellId)) return { ok: false, error: 'Нельзя выкупить' };
         return { ok: true };
 
       default:

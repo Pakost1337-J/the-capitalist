@@ -81,14 +81,13 @@ export class UI {
     const availW = Math.max(320, shell.clientWidth - pad - (narrow ? 0 : rail + gap));
     const availH = Math.max(280, shell.clientHeight - pad - (narrow ? 120 : 0));
 
-    // Линии делителей board-frame.png (1024×698) → 13×8, 38 клеток
-    // Координаты — металлопланки с кадра (top/bot + центр)
+    // Линии делителей — SVG-сетка на кадре 1024×698 (файл сетки 1024×699, −1px по Y)
+    // 13×8 → 38 клеток: угол + 11 mid + угол / угол + 6 mid + угол
     const IMG_W = 1024;
     const IMG_H = 698;
     const ASPECT = IMG_W / IMG_H;
-    // Чуть сдвигаем клетки к центру: больше внешний кант, глубже внутрь
-    const WOOD_X = [18, 148, 214, 280, 346, 412, 478, 544, 610, 676, 742, 808, 874, 1006];
-    const WOOD_Y = [18, 145, 212, 279, 346, 413, 480, 547, 680];
+    const WOOD_X = [0, 153, 218, 284, 349, 414, 479, 544, 610, 674, 740, 805, 870, 1023];
+    const WOOD_Y = [0, 154, 220, 285, 350, 415, 480, 546, 697];
 
     let boardW = availW;
     let boardH = Math.floor(boardW / ASPECT);
@@ -257,11 +256,22 @@ export class UI {
       const priceEl = price ? `<span class="cell__price">${price}</span>` : '';
       const flagEl = `<div class="cell__country-slot">${flagHtml}</div>`;
       const shares = `<div class="cell__shares" data-houses="${index}" aria-label="Акции"></div>`;
-      // Верх/низ: флаг у края → лого → цена. Бока: лого → цена → флаг
+      const ownerMark = `
+        <div class="cell__owner" data-owner="${index}" hidden></div>
+        <img class="cell__lock" data-lock="${index}" src="/assets/ownership/lock.png" alt="" hidden />`;
+      // Верх/низ: флаг у края → лого → цена
+      // Бока (как Ferrari): стопка лого+цена к центру, флаг к внешнему краю
       if (side === 'left' || side === 'right') {
-        body = `${logo}${priceEl}${flagEl}${shares}`;
+        body = `
+          ${ownerMark}
+          <div class="cell__stack">
+            ${logo}
+            ${priceEl}
+          </div>
+          ${flagEl}
+          ${shares}`;
       } else {
-        body = `${flagEl}${logo}${priceEl}${shares}`;
+        body = `${ownerMark}${flagEl}${logo}${priceEl}${shares}`;
       }
     } else if (cell.type === 'tax') {
       const pct = cell.taxPercent != null ? `${cell.taxPercent}%` : '6%';
@@ -496,9 +506,9 @@ export class UI {
   tokenImgHtml(p) {
     const img = resolveIconSrc(p.tokenImage || '');
     if (img) {
-      return `<div class="token token--img p-card__token" title="${escapeHtml(p.name)}" style="--token-color: ${p.color}"><img src="${img}" alt="" /></div>`;
+      return `<img class="p-card__chip" src="${img}" alt="" title="${escapeHtml(p.name)}" width="56" height="56" />`;
     }
-    return `<div class="token p-card__token" title="${escapeHtml(p.name)}" style="--token-color: ${p.color}"><span class="token__ring"></span><span class="token__core"></span></div>`;
+    return `<div class="p-card__chip p-card__chip--fallback" title="${escapeHtml(p.name)}" style="--token-color: ${p.color}"></div>`;
   }
 
   getCellPoint(index, stackIndex = 0, stackCount = 1) {
@@ -506,18 +516,32 @@ export class UI {
     if (!cell || !this.boardEl) return { x: 0, y: 0 };
     const boardRect = this.boardEl.getBoundingClientRect();
     const cellRect = cell.getBoundingClientRect();
-    // absolute-слой считается от padding-edge — вычитаем padding доски
     const cs = getComputedStyle(this.boardEl);
     const padL = parseFloat(cs.paddingLeft) || 0;
     const padT = parseFloat(cs.paddingTop) || 0;
+
+    // Фишка в углу у края к центру доски (как в Monopoly Club), внутри клетки
+    const side = this.cellSide(index);
+    let fx = 0.5;
+    let fy = 0.5;
+    if (side === 'top') { fx = 0.72; fy = 0.78; }       // низ-право
+    else if (side === 'right') { fx = 0.26; fy = 0.72; }  // низ-лево
+    else if (side === 'bottom') { fx = 0.28; fy = 0.26; } // верх-лево
+    else if (side === 'left') { fx = 0.74; fy = 0.28; }   // верх-право
+    else if (index === 0) { fx = 0.68; fy = 0.68; }
+    else if (index === 12) { fx = 0.32; fy = 0.68; }
+    else if (index === 19) { fx = 0.32; fy = 0.32; }
+    else if (index === 31) { fx = 0.68; fy = 0.32; }
+
     const cols = Math.min(2, stackCount);
     const col = stackIndex % cols;
     const row = Math.floor(stackIndex / cols);
-    const ox = (col - (cols - 1) / 2) * Math.min(14, cellRect.width * 0.22);
-    const oy = (row - (Math.ceil(stackCount / cols) - 1) / 2) * Math.min(12, cellRect.height * 0.2);
+    const ox = (col - (cols - 1) / 2) * Math.min(11, cellRect.width * 0.16);
+    const oy = (row - (Math.ceil(stackCount / cols) - 1) / 2) * Math.min(10, cellRect.height * 0.15);
+
     return {
-      x: cellRect.left - boardRect.left - padL + cellRect.width * 0.5 + ox,
-      y: cellRect.top - boardRect.top - padT + cellRect.height * 0.5 + oy,
+      x: cellRect.left - boardRect.left - padL + cellRect.width * fx + ox,
+      y: cellRect.top - boardRect.top - padT + cellRect.height * fy + oy,
     };
   }
 
@@ -633,49 +657,90 @@ export class UI {
     this.playersPanel.innerHTML = state.players.map((p, i) => {
       const capital = this.calcCapital(p, state);
       const isTurn = i === state.currentPlayerIndex;
+      const jailNote = p.inJail ? ' · тюрьма' : '';
+      const props = (p.properties || []).map(id => {
+        const cell = BOARD[id];
+        const ps = state.propertyState[id];
+        if (!cell || !ps) return '';
+        const locked = ps.mortgaged || p.bankrupt;
+        const title = locked ? `${cell.name} (залог)` : cell.name;
+        return `
+          <span class="p-card__prop ${locked ? 'p-card__prop--locked' : ''}" title="${escapeHtml(title)}"
+                style="--pc: ${p.color}">
+            ${locked ? '<img class="p-card__prop-lock" src="/assets/ownership/lock.png" alt="" />' : ''}
+          </span>`;
+      }).join('');
       return `
         <div class="p-card ${isTurn ? 'p-card--active' : ''} ${p.bankrupt ? 'p-card--out' : ''} ${p.id === this.mySlot ? 'p-card--me' : ''}"
              style="--pc: ${p.color}">
-          <div class="p-card__info">
-            <div class="p-card__name">${escapeHtml(p.name)}</div>
-            <div class="p-card__badge">${p.isBot ? 'Бот' : (p.id === this.mySlot ? 'Вы' : 'Игрок')}${p.inJail ? ' · тюрьма' : ''}</div>
+          <div class="p-card__inner">
+            <div class="p-card__head">
+              <svg class="p-card__mail" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="currentColor" d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+              </svg>
+              <div class="p-card__name">${escapeHtml(p.name)}</div>
+            </div>
+            <div class="p-card__cash">${formatMoney(p.money)}</div>
+            <div class="p-card__capital">Капитал: ${formatMoney(capital)}${jailNote}</div>
+            ${props ? `<div class="p-card__props">${props}</div>` : ''}
+            ${this.tokenImgHtml(p)}
           </div>
-          ${this.tokenImgHtml(p)}
-          <div class="p-card__rows">
-            <div><span>Баланс</span><strong class="money">${formatMoney(p.money)}</strong></div>
-            <div><span>Капитал</span><strong>${formatMoney(capital)}</strong></div>
-          </div>
-          ${isTurn && state.phase !== PHASE.GAME_OVER ? '<div class="p-card__turn">Ваш ход</div>' : ''}
         </div>
       `;
     }).join('');
   }
 
+  ownershipAsset(ownerSlot, side, mortgaged) {
+    const sideKey = ['top', 'right', 'bottom', 'left'].includes(side) ? side : 'top';
+    if (mortgaged) return `/assets/ownership/dark_${sideKey}.png`;
+    const n = (Number(ownerSlot) % 5) + 1; // слоты 0..4 → chip 1..5
+    return `/assets/ownership/${n}_${sideKey}.png`;
+  }
+
   renderHouses(state) {
     document.querySelectorAll('[data-houses]').forEach(el => { el.innerHTML = ''; });
     document.querySelectorAll('.cell').forEach(c => {
-      c.classList.remove('cell--owned');
+      c.classList.remove('cell--owned', 'cell--mortgaged');
       c.style.removeProperty('--owner-color');
     });
+    document.querySelectorAll('[data-owner]').forEach(el => {
+      el.hidden = true;
+      el.style.backgroundImage = '';
+    });
+    document.querySelectorAll('[data-lock]').forEach(el => { el.hidden = true; });
 
     for (const [cellId, ps] of Object.entries(state.propertyState)) {
-      if (ps.houses > 0) {
+      const owner = ps.owner != null ? state.players[ps.owner] : null;
+      const cellEl = this.cells[cellId];
+      const side = this.cellSide(Number(cellId));
+
+      if (ps.houses > 0 && owner) {
         const container = document.querySelector(`[data-houses="${cellId}"]`);
-        const owner = state.players[ps.owner];
         if (container) {
           for (let i = 0; i < ps.houses; i++) {
             const house = document.createElement('div');
             house.className = 'house';
-            house.style.background = owner?.color || '#666';
+            house.style.background = owner.color || '#666';
             container.appendChild(house);
           }
         }
       }
-      const cell = this.cells[cellId];
-      if (cell && ps.owner !== null) {
-        cell.classList.add('cell--owned');
-        cell.style.setProperty('--owner-color', state.players[ps.owner]?.color);
+
+      if (!cellEl || ps.owner == null || !owner) continue;
+
+      const mortgaged = !!ps.mortgaged || !!owner.bankrupt;
+      cellEl.classList.add('cell--owned');
+      if (mortgaged) cellEl.classList.add('cell--mortgaged');
+      cellEl.style.setProperty('--owner-color', owner.color);
+
+      const mark = cellEl.querySelector(`[data-owner="${cellId}"]`);
+      if (mark && side !== 'corner') {
+        mark.hidden = false;
+        mark.style.backgroundImage = `url("${this.ownershipAsset(owner.id, side, mortgaged)}")`;
       }
+
+      const lock = cellEl.querySelector(`[data-lock="${cellId}"]`);
+      if (lock && mortgaged) lock.hidden = false;
     }
   }
 
@@ -776,6 +841,33 @@ export class UI {
     }
 
     if (state.phase === PHASE.END || (state.phase === PHASE.BUILD && !state.pendingAction)) {
+      if (isMyTurn && p) {
+        const mortgageable = p.properties.filter(id => {
+          const ps = state.propertyState[id];
+          const cell = BOARD[id];
+          return ps && !ps.mortgaged && (ps.houses || 0) === 0 && cell?.price;
+        });
+        const unmortgageable = p.properties.filter(id => state.propertyState[id]?.mortgaged);
+        if (mortgageable.length || unmortgageable.length) {
+          const box = document.createElement('div');
+          box.className = 'mortgage-prompt';
+          box.innerHTML = `
+            ${mortgageable.slice(0, 4).map(id => `
+              <button class="btn btn--pass" data-mortgage="${id}">🔒 ${escapeHtml(BOARD[id].name)}</button>
+            `).join('')}
+            ${unmortgageable.slice(0, 4).map(id => `
+              <button class="btn btn--buy" data-unmortgage="${id}">🔓 ${escapeHtml(BOARD[id].name)}</button>
+            `).join('')}
+          `;
+          box.querySelectorAll('[data-mortgage]').forEach(btn => {
+            btn.addEventListener('click', () => this.doAction({ type: 'mortgage', cellId: Number(btn.dataset.mortgage) }));
+          });
+          box.querySelectorAll('[data-unmortgage]').forEach(btn => {
+            btn.addEventListener('click', () => this.doAction({ type: 'unmortgage', cellId: Number(btn.dataset.unmortgage) }));
+          });
+          this.actionArea.appendChild(box);
+        }
+      }
       const endBtn = document.createElement('button');
       endBtn.className = 'btn btn--end';
       endBtn.textContent = '➡️ Завершить ход';
