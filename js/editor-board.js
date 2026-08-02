@@ -70,14 +70,19 @@ function buildBoard() {
 }
 
 function cellHTML(data, index) {
-  const isCorner = [0, 12, 20, 32].includes(index);
-  const isSide = (index >= 13 && index <= 20) || (index >= 33 && index <= 39);
+  const isCorner = [0, 12, 19, 31].includes(index);
+  const isSide = (index >= 13 && index <= 18) || (index >= 32 && index <= 37);
   const base = BOARD[index];
+  if (isCorner || ['go', 'jail', 'parking', 'gotojail'].includes(base.type)) {
+    return `<div class="cell__body cell__body--corner"></div>`;
+  }
   const colorBar = base.group ? `<div class="cell__color-bar"></div>` : '';
   const country = base.country || '';
-  const price = base.price
-    ? `<span class="cell__price">$${Math.round(base.price / 1000)}K</span>`
-    : '';
+  const price = base.type === 'utility' && base.rent?.[0]
+    ? `<span class="cell__price">$${Math.round(base.rent[0] / 1000)}K ×</span>`
+    : (base.price
+      ? `<span class="cell__price">$${Math.round(base.price / 1000)}K</span>`
+      : '');
 
   return `
     ${colorBar}

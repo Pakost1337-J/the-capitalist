@@ -1,13 +1,14 @@
 :root {
-  --bg: #cba173;
-  --field-brown: #cba173;
+  --bg: #6e5238;
+  --field-brown: #6e5238;
+  /* как у карточек игроков (.p-card) */
+  --field-solid: #6e5238;
   --leather: #5c4033;
   --leather-dark: #3d2a20;
   --leather-light: #7a5644;
   --wood: #e8d4b0;
   --wood-dark: #c9b089;
-  --board-wood: #cba173;
-  --board-wood-img: url('/assets/ui/board-wood.png');
+  --board-wood: #6e5238;
   --ink: #2a1c14;
   --ink-soft: #f3e6d4;
   --muted: #b8a090;
@@ -47,9 +48,7 @@ html, body { height: 100%; }
 
 body {
   font-family: var(--font);
-  background:
-    var(--board-wood-img) center / 120px 90px repeat,
-    var(--board-wood);
+  background: var(--field-solid);
   color: var(--ink-soft);
   min-height: 100vh;
   min-height: 100dvh;
@@ -313,10 +312,7 @@ button, input, select { font-family: inherit; }
   padding: 8px;
   box-sizing: border-box;
   overflow: hidden;
-  /* тот же светлый дуб, что у клеток доски */
-  background:
-    var(--board-wood-img) center / 120px 90px repeat,
-    var(--board-wood);
+  background: var(--field-solid);
 }
 
 .game-stage {
@@ -350,10 +346,10 @@ button, input, select { font-family: inherit; }
   width: fit-content;
   height: fit-content;
   max-width: 100%;
-  background: #1a120c url('/assets/board/board-frame.png') center / 100% 100% no-repeat;
+  background: transparent url('/assets/board/board-frame.png') center / 100% 100% no-repeat;
   border-radius: 10px;
   border: none;
-  box-shadow: var(--shadow);
+  box-shadow: 0 8px 24px rgba(40, 22, 12, 0.35);
   overflow: hidden;
   flex-shrink: 0;
   padding: var(--frame-pad-y) var(--frame-pad-xr) var(--frame-pad-yb) var(--frame-pad-x);
@@ -432,7 +428,10 @@ button, input, select { font-family: inherit; }
   background-repeat: no-repeat;
   background-position: center;
   background-size: 100% 100%;
+  /* временно скрыто — под лого/текстом вернём позже */
+  display: none !important;
 }
+/* OWNERSHIP_TEMP_HIDE */
 
 .cell__lock {
   position: absolute;
@@ -475,7 +474,8 @@ button, input, select { font-family: inherit; }
   min-height: 0;
   min-width: 0;
   position: relative;
-  z-index: 1;
+  /* над закрасом (.cell__owner z-index: 0) */
+  z-index: 2;
 }
 
 /* Верх/низ: флаг у внешнего края */
@@ -1550,10 +1550,7 @@ button, input, select { font-family: inherit; }
   flex-shrink: 0;
   align-self: stretch;
   height: auto;
-  background:
-    linear-gradient(160deg, rgba(90, 60, 35, 0.18), rgba(70, 45, 25, 0.22)),
-    var(--board-wood-img) center / 120px 90px repeat,
-    var(--board-wood);
+  background: var(--field-solid);
   border-radius: 14px;
   border: 3px solid #8a6a48;
   box-shadow:

@@ -8,38 +8,55 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, '..', 'data');
 const CUSTOM_PATH = join(DATA_DIR, 'custom.json');
 
-function ensureDefaults(board) {
-  return board.map(cell => ({
-    ...cell,
-    icon: cell.icon || DEFAULT_CELL_ICONS[cell.id] || '⬜',
-  }));
+/** Снимок имён/иконок до применения custom.json — для честного сброса */
+const PRISTINE_BOARD = BOARD.map(c => ({
+  id: c.id,
+  name: c.name,
+  icon: c.icon || DEFAULT_CELL_ICONS[c.id] || '⬜',
+  brand: c.brand,
+  flag: c.flag,
+}));
+const PRISTINE_PLAYERS = PLAYER_SLOTS.map(p => ({
+  id: p.id,
+  token: p.token,
+  tokenImage: p.tokenImage || '',
+  tokenBoardImage: p.tokenBoardImage || '',
+  nameHint: '',
+}));
+
+function boardFromPristine() {
+  return PRISTINE_BOARD.map(c => ({ ...c }));
 }
 
-let customBoard = ensureDefaults(structuredClone(BOARD));
-let customPlayers = structuredClone(PLAYER_SLOTS);
+function playersFromPristine() {
+  return PRISTINE_PLAYERS.map(p => ({ ...p }));
+}
+
+let customBoard = boardFromPristine();
+let customPlayers = playersFromPristine();
 
 export function loadCustom() {
   try {
     if (!existsSync(CUSTOM_PATH)) {
-      customBoard = ensureDefaults(structuredClone(BOARD));
-      customPlayers = structuredClone(PLAYER_SLOTS);
+      customBoard = boardFromPristine();
+      customPlayers = playersFromPristine();
       syncRuntimeConfig();
       return getCustomPayload();
     }
     const raw = JSON.parse(readFileSync(CUSTOM_PATH, 'utf8'));
     if (Array.isArray(raw.board)) {
-      customBoard = BOARD.map((base, i) => {
-        const ov = raw.board.find(b => b.id === base.id) || raw.board[i] || {};
+      customBoard = PRISTINE_BOARD.map((base) => {
+        const ov = raw.board.find(b => b.id === base.id) || {};
         return {
           ...base,
           name: ov.name ?? base.name,
-          icon: ov.icon || base.icon || DEFAULT_CELL_ICONS[base.id] || '⬜',
+          icon: ov.icon || base.icon,
         };
       });
     }
     if (Array.isArray(raw.players)) {
-      customPlayers = PLAYER_SLOTS.map((base, i) => {
-        const ov = raw.players.find(p => p.id === base.id) || raw.players[i] || {};
+      customPlayers = PRISTINE_PLAYERS.map((base) => {
+        const ov = raw.players.find(p => p.id === base.id) || {};
         return {
           ...base,
           token: ov.token ?? base.token,
@@ -76,18 +93,18 @@ export function saveCustom(payload) {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
 
   if (Array.isArray(payload.board)) {
-    customBoard = BOARD.map((base) => {
+    customBoard = PRISTINE_BOARD.map((base) => {
       const ov = payload.board.find(b => b.id === base.id) || {};
       return {
         ...base,
         name: (ov.name ?? base.name).toString().slice(0, 32),
-        icon: (ov.icon || base.icon || DEFAULT_CELL_ICONS[base.id] || '⬜').toString().slice(0, 120),
+        icon: (ov.icon || base.icon || '⬜').toString().slice(0, 120),
       };
     });
   }
 
   if (Array.isArray(payload.players)) {
-    customPlayers = PLAYER_SLOTS.map((base) => {
+    customPlayers = PRISTINE_PLAYERS.map((base) => {
       const ov = payload.players.find(p => p.id === base.id) || {};
       return {
         ...base,
@@ -131,10 +148,24 @@ export function resetCustom() {
   if (existsSync(CUSTOM_PATH)) {
     try { unlinkSync(CUSTOM_PATH); } catch (_) {}
   }
-  // Полный сброс — перезапустите сервер после reset, либо задайте дефолты вручную в редакторе
-  customBoard = ensureDefaults(structuredClone(BOARD));
-  customPlayers = structuredClone(PLAYER_SLOTS);
-  syncRuntimeConfig();
+  customBoard = boardFromPristine();
+  customPlayers = playersFromPristine();
+  // Вернуть runtime BOARD к эталону (не к испорченным именам)
+  for (const p of PRISTINE_BOARD) {
+    const base = BOARD.find(b => b.id === p.id);
+    if (!base) continue;
+    base.name = p.name;
+    base.icon = p.icon;
+    if (p.brand) base.brand = p.brand;
+    if (p.flag !== undefined) base.flag = p.flag;
+  }
+  for (const p of PRISTINE_PLAYERS) {
+    const base = PLAYER_SLOTS.find(s => s.id === p.id);
+    if (!base) continue;
+    base.token = p.token;
+    base.tokenImage = p.tokenImage;
+    base.tokenBoardImage = p.tokenBoardImage;
+  }
   return getCustomPayload();
 }
 

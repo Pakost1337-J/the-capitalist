@@ -1,7 +1,8 @@
-import { Network, LobbyUI } from './network.js';
+﻿import { Network, LobbyUI } from './network.js';
 import { UI } from './ui.js';
 import { PHASE } from './game.js';
 import { applyTheme } from './config.js';
+import { initLayoutTweak } from './layout-tweak.js';
 
 const network = new Network();
 const lobby = new LobbyUI(network);
@@ -14,8 +15,34 @@ async function loadTheme() {
   } catch (_) {}
 }
 
+function startLayoutPreview() {
+  const lobbyEl = document.getElementById('lobby');
+  const gameEl = document.getElementById('game-layout');
+  if (lobbyEl) {
+    lobbyEl.hidden = true;
+    lobbyEl.style.display = 'none';
+  }
+  if (gameEl) {
+    gameEl.hidden = false;
+    gameEl.style.display = 'flex';
+  }
+  // Доска без сетевой игры — только для правки лого/флагов
+  ui = new UI(null, null);
+  ui.fitLayout();
+  document.body.classList.add('layout-preview');
+}
+
 async function init() {
   await loadTheme();
+
+  const editMode = new URLSearchParams(location.search).has('edit');
+  if (editMode) {
+    startLayoutPreview();
+    initLayoutTweak();
+    return;
+  }
+
+  initLayoutTweak();
 
   try {
     await network.connect();

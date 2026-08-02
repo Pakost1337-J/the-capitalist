@@ -1,0 +1,204 @@
+/**
+ * Per-cell layout editor (no ownership fills for now)
+ */
+.cell__logo,
+.cell__country-slot,
+.cell__price,
+.cell__tax {
+  transform-origin: center center;
+  will-change: transform;
+}
+
+body.layout-edit .cell__logo,
+body.layout-edit .cell__country-slot,
+body.layout-edit .cell__price,
+body.layout-edit .cell__tax {
+  outline: 1px dashed rgba(30, 100, 220, 0.7);
+  outline-offset: 0;
+  cursor: grab;
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 20;
+}
+body.layout-edit .cell__logo.is-focus,
+body.layout-edit .cell__country-slot.is-focus,
+body.layout-edit .cell__price.is-focus,
+body.layout-edit .cell__tax.is-focus {
+  outline: 2px solid #e11d48;
+}
+body.layout-edit .cell__logo:active,
+body.layout-edit .cell__country-slot:active,
+body.layout-edit .cell__price:active,
+body.layout-edit .cell__tax:active { cursor: grabbing; }
+body.layout-edit .board__tokens { pointer-events: none !important; opacity: 0.25; }
+body.layout-edit .cell__owner { display: none !important; }
+
+.layout-panel {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 99999;
+  width: min(360px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(30, 20, 14, 0.94);
+  color: #f3e6d4;
+  font: 600 12px/1.35 PTNarrow, system-ui, sans-serif;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+}
+.layout-panel[hidden] { display: none !important; }
+.layout-panel h2 { font-size: 14px; margin: 0 0 6px; }
+.layout-panel__hint { opacity: 0.85; margin-bottom: 8px; font-size: 11px; }
+.layout-panel__focus {
+  margin-bottom: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.08);
+  font-size: 11px;
+}
+.layout-panel label {
+  display: grid;
+  grid-template-columns: 1fr 48px;
+  gap: 2px 6px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.layout-panel input[type="range"] { width: 100%; grid-column: 1 / -1; }
+.layout-panel__val { text-align: right; font-variant-numeric: tabular-nums; opacity: 0.85; }
+.layout-panel__row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.layout-panel button {
+  flex: 1;
+  min-width: 90px;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  background: #3f9e45;
+  color: #122;
+}
+.layout-panel button.secondary { background: #c4a070; color: #2a1c14; }
+.layout-panel button.danger { background: #8b3a3a; color: #fff; }
+.layout-panel textarea {
+  width: 100%;
+  min-height: 120px;
+  margin-top: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(0,0,0,0.35);
+  color: #e8dcc8;
+  font: 11px/1.35 Consolas, monospace;
+  padding: 8px;
+  resize: vertical;
+}
+.layout-fab {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  z-index: 99998;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font: 700 12px/1 PTNarrow, system-ui, sans-serif;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  background: #2f6fed;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+}
+
+/* Per-cell layout */
+.cell[data-id="1"] .cell__logo { transform: translate(1px, 3px) scale(2); }
+.cell[data-id="1"] .cell__country-slot { transform: translate(0px, -9px) scale(1.8); }
+.cell[data-id="1"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="2"] .cell__country-slot { transform: translate(0px, -9px) scale(1.8); }
+.cell[data-id="2"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="2"] .cell__logo { transform: translate(0px, 0px) scale(2.2); }
+.cell[data-id="3"] .cell__country-slot { transform: translate(0px, -9px) scale(1.8); }
+.cell[data-id="3"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="3"] .cell__logo { transform: translate(0px, 0px) scale(1.8); }
+.cell[data-id="4"] .cell__country-slot { transform: translate(0px, -9px) scale(1.8); }
+.cell[data-id="4"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="4"] .cell__logo { transform: translate(1px, -4px) scale(2.15); }
+.cell[data-id="5"] .cell__tax { transform: translate(0px, 0px) scale(1.15); }
+.cell[data-id="6"] .cell__country-slot { transform: translate(0px, -9px) scale(1.8); }
+.cell[data-id="6"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="6"] .cell__logo { transform: translate(0px, 0px) scale(2.1); }
+.cell[data-id="7"] .cell__tax { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="8"] .cell__country-slot { transform: translate(0px, -9px) scale(1.8); }
+.cell[data-id="8"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="8"] .cell__logo { transform: translate(0px, 0px) scale(2.2); }
+.cell[data-id="9"] .cell__country-slot { transform: translate(0px, -9px) scale(1.8); }
+.cell[data-id="9"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="9"] .cell__logo { transform: translate(0px, 0px) scale(2.1); }
+.cell[data-id="10"] .cell__country-slot { transform: translate(0px, -9px) scale(1.8); }
+.cell[data-id="10"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="10"] .cell__logo { transform: translate(0px, 3px) scale(2.15); }
+.cell[data-id="11"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="11"] .cell__country-slot { transform: translate(0px, -8px) scale(1.8); }
+.cell[data-id="11"] .cell__logo { transform: translate(1px, 4px) scale(2); }
+.cell[data-id="13"] .cell__logo { transform: translate(28px, -8px) scale(0.9); }
+.cell[data-id="13"] .cell__price { transform: translate(25px, -21px) scale(1.65); }
+.cell[data-id="13"] .cell__country-slot { transform: translate(-31px, 0px) scale(1.8); }
+.cell[data-id="14"] .cell__logo { transform: translate(25px, -5px) scale(0.6); }
+.cell[data-id="14"] .cell__price { transform: translate(25px, -21px) scale(1.65); }
+.cell[data-id="14"] .cell__country-slot { transform: translate(-31px, 0px) scale(1.8); }
+.cell[data-id="15"] .cell__country-slot { transform: translate(-31px, 0px) scale(1.8); }
+.cell[data-id="15"] .cell__price { transform: translate(25px, -21px) scale(1.65); }
+.cell[data-id="15"] .cell__logo { transform: translate(26px, -3px) scale(0.8); }
+.cell[data-id="16"] .cell__tax { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="17"] .cell__logo { transform: translate(27px, -3px) scale(0.75); }
+.cell[data-id="17"] .cell__country-slot { transform: translate(-31px, 0px) scale(1.8); }
+.cell[data-id="17"] .cell__price { transform: translate(25px, -21px) scale(1.65); }
+.cell[data-id="18"] .cell__country-slot { transform: translate(-31px, 0px) scale(1.8); }
+.cell[data-id="18"] .cell__logo { transform: translate(26px, -5px) scale(0.65); }
+.cell[data-id="18"] .cell__price { transform: translate(25px, -21px) scale(1.65); }
+.cell[data-id="20"] .cell__country-slot { transform: translate(0px, 9px) scale(1.8); }
+.cell[data-id="20"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="20"] .cell__logo { transform: translate(0px, 0px) scale(2.25); }
+.cell[data-id="21"] .cell__country-slot { transform: translate(0px, 9px) scale(1.8); }
+.cell[data-id="21"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="21"] .cell__logo { transform: translate(0px, 0px) scale(1.7); }
+.cell[data-id="22"] .cell__country-slot { transform: translate(0px, 9px) scale(1.8); }
+.cell[data-id="22"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="22"] .cell__logo { transform: translate(0px, 0px) scale(2.2); }
+.cell[data-id="23"] .cell__country-slot { transform: translate(0px, 9px) scale(1.8); }
+.cell[data-id="23"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="23"] .cell__logo { transform: translate(0px, 0px) scale(1.95); }
+.cell[data-id="24"] .cell__tax { transform: translate(0px, 0px) scale(1.15); }
+.cell[data-id="25"] .cell__country-slot { transform: translate(0px, 9px) scale(1.8); }
+.cell[data-id="25"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="25"] .cell__logo { transform: translate(0px, 0px) scale(2.15); }
+.cell[data-id="26"] .cell__tax { transform: translate(0px, 0px) scale(1.6); }
+.cell[data-id="27"] .cell__country-slot { transform: translate(0px, 9px) scale(1.8); }
+.cell[data-id="27"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="27"] .cell__logo { transform: translate(0px, 0px) scale(2.2); }
+.cell[data-id="28"] .cell__country-slot { transform: translate(0px, 9px) scale(1.8); }
+.cell[data-id="28"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="28"] .cell__logo { transform: translate(0px, 0px) scale(2.1); }
+.cell[data-id="29"] .cell__country-slot { transform: translate(0px, 9px) scale(1.8); }
+.cell[data-id="29"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="29"] .cell__logo { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="30"] .cell__country-slot { transform: translate(0px, 9px) scale(1.8); }
+.cell[data-id="30"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="30"] .cell__logo { transform: translate(0px, 0px) scale(2); }
+.cell[data-id="32"] .cell__logo { transform: translate(-24px, -4px) scale(0.9); }
+.cell[data-id="32"] .cell__country-slot { transform: translate(32px, 0px) scale(1.8); }
+.cell[data-id="32"] .cell__price { transform: translate(-18px, -18px) scale(1.65); }
+.cell[data-id="33"] .cell__country-slot { transform: translate(32px, 0px) scale(1.8); }
+.cell[data-id="33"] .cell__logo { transform: translate(-24px, -6px) scale(0.75); }
+.cell[data-id="33"] .cell__price { transform: translate(-18px, -18px) scale(1.65); }
+.cell[data-id="34"] .cell__country-slot { transform: translate(32px, 0px) scale(1.8); }
+.cell[data-id="34"] .cell__logo { transform: translate(-24px, -6px) scale(0.65); }
+.cell[data-id="34"] .cell__price { transform: translate(-18px, -18px) scale(1.65); }
+.cell[data-id="35"] .cell__country-slot { transform: translate(32px, 0px) scale(1.8); }
+.cell[data-id="35"] .cell__tax { transform: translate(0px, 0px) scale(1.65); }
+.cell[data-id="36"] .cell__logo { transform: translate(-24px, 5px) scale(0.85); }
+.cell[data-id="36"] .cell__country-slot { transform: translate(32px, 0px) scale(1.8); }
+.cell[data-id="36"] .cell__price { transform: translate(-18px, -18px) scale(1.65); }
+.cell[data-id="37"] .cell__country-slot { transform: translate(32px, 0px) scale(1.8); }
+.cell[data-id="37"] .cell__logo { transform: translate(-24px, -12px) scale(0.9); }
+.cell[data-id="37"] .cell__price { transform: translate(-18px, -18px) scale(1.65); }

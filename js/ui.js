@@ -184,7 +184,7 @@ export class UI {
       if (!text || !this.lastState) return;
       const me = this.lastState.players.find(p => p.id === this.mySlot);
       const line = `${me?.name || 'Игрок'}: ${text}`;
-      this.network.socket?.emit('chat', { text });
+      this.network?.socket?.emit('chat', { text });
       this.appendChat(line);
       input.value = '';
     };
@@ -194,8 +194,8 @@ export class UI {
       if (e.key === 'Enter') submit();
     });
 
-    this.network.socket?.on('chat-message', (msg) => {
-      if (msg?.from === this.network.socket.id) return;
+    this.network?.socket?.on('chat-message', (msg) => {
+      if (msg?.from === this.network?.socket?.id) return;
       this.appendChat(`${msg.name}: ${msg.text}`);
     });
   }
@@ -243,6 +243,8 @@ export class UI {
   }
 
   cellSide(index) {
+    // углы 38-клеточной доски: 0 старт, 12 тюрьма, 19 отдых, 31 арест
+    if ([0, 12, 19, 31].includes(index)) return 'corner';
     if (index >= 1 && index <= 11) return 'top';
     if (index >= 13 && index <= 18) return 'right';
     if (index >= 20 && index <= 30) return 'bottom';
@@ -259,7 +261,9 @@ export class UI {
     if (isCompany) {
       const country = cell.country || '';
       const company = cell.name || cell.brand || '';
-      const price = cell.price != null ? formatPriceShort(cell.price) : '';
+      const price = cell.type === 'utility' && cell.rent?.[0] != null
+        ? `${formatPriceShort(cell.rent[0])} ×`
+        : (cell.price != null ? formatPriceShort(cell.price) : '');
       const flagSrc = COUNTRY_FLAG_SRC[country] || '';
       const flagHtml = flagSrc
         ? `<img class="cell__flag-img" src="${flagSrc}" alt="" />`
@@ -293,16 +297,16 @@ export class UI {
           <span class="cell__tax-pct">${escapeHtml(pct)}</span>
         </div>
       `;
-    } else if (isCorner) {
-      // Углы — только арт с board-frame, без надписей
+    } else if (isCorner || ['go', 'jail', 'parking', 'gotojail'].includes(cell.type)) {
+      // Углы (старт / тюрьма / отдых / арест) — только арт с board-frame
       body = '';
     } else if (cell.type === 'chance' || cell.type === 'forcemajeure') {
       const title = cell.type === 'chance' ? 'ШАНС' : 'ФОРС';
-      const sub = cell.type === 'chance' ? '?' : 'МАЖОР';
+      const sub = cell.type === 'chance' ? '' : 'МАЖОР';
       body = `
         <div class="cell__tax cell__special">
           <span class="cell__tax-title">${title}</span>
-          <span class="cell__tax-pct">${sub}</span>
+          ${sub ? `<span class="cell__tax-pct">${sub}</span>` : ''}
         </div>
       `;
     } else {

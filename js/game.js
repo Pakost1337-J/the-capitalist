@@ -157,8 +157,10 @@ export class GameEngine {
 
     if (cell.type === 'utility') {
       const count = this.countUtilities(ps.owner);
-      const mult = count >= 2 ? 10 : 4;
-      return (this.dice[0] + this.dice[1]) * mult;
+      const diceSum = (this.dice[0] || 0) + (this.dice[1] || 0);
+      // Monopoly Club: rent[] уже ×1000 → $25K / $50K за очко кости
+      const perPip = cell.rent?.[count >= 2 ? 1 : 0] || 25_000;
+      return diceSum * perPip;
     }
 
     return 0;
