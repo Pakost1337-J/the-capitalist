@@ -425,21 +425,56 @@ button, input, select { font-family: inherit; }
 }
 
 /*
- * Закрас: PNG уже «цвет у внешнего края → чёрный к центру».
- * Просто на всю клетку, ПОД текстом/флагом. Без inset — иначе обрезается.
+ * Закрас купленной клетки: цвет у внешнего края → прозрачность к центру.
+ * Цвет: --own-tint (4 варианта top/right/bottom/left настраиваются в теме).
  */
 .cell__owner {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 100% 100%;
-  /* временно скрыто — под лого/текстом вернём позже */
-  display: none !important;
+  display: block;
+  opacity: 0.92;
+  background: transparent;
 }
-/* OWNERSHIP_TEMP_HIDE */
+
+.cell__owner[data-side="top"] {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--own-tint, var(--owner-color, #888)) 88%, transparent) 0%,
+    color-mix(in srgb, var(--own-tint, var(--owner-color, #888)) 35%, transparent) 42%,
+    transparent 78%
+  );
+}
+.cell__owner[data-side="bottom"] {
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--own-tint, var(--owner-color, #888)) 88%, transparent) 0%,
+    color-mix(in srgb, var(--own-tint, var(--owner-color, #888)) 35%, transparent) 42%,
+    transparent 78%
+  );
+}
+.cell__owner[data-side="left"] {
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--own-tint, var(--owner-color, #888)) 88%, transparent) 0%,
+    color-mix(in srgb, var(--own-tint, var(--owner-color, #888)) 35%, transparent) 42%,
+    transparent 78%
+  );
+}
+.cell__owner[data-side="right"] {
+  background: linear-gradient(
+    to left,
+    color-mix(in srgb, var(--own-tint, var(--owner-color, #888)) 88%, transparent) 0%,
+    color-mix(in srgb, var(--own-tint, var(--owner-color, #888)) 35%, transparent) 42%,
+    transparent 78%
+  );
+}
+
+.cell--mortgaged .cell__owner {
+  filter: grayscale(0.55) brightness(0.55);
+  opacity: 0.7;
+}
 
 .cell__lock {
   position: absolute;
@@ -956,6 +991,17 @@ button, input, select { font-family: inherit; }
   overflow: hidden;
 }
 
+/* Меню хода / долг / сделка — кости прячем, чтобы кнопки не обрезались */
+.hub--roll-timed .hub__arena,
+.hub--rent .hub__arena,
+.hub--auction .hub__arena {
+  justify-content: flex-start;
+  gap: 6px;
+  padding-top: 4px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 /* Тост после покупки компании */
 .own-toast {
   position: absolute;
@@ -1065,12 +1111,15 @@ button, input, select { font-family: inherit; }
   align-items: stretch;
   justify-content: center;
   width: 100%;
-  min-height: clamp(110px, 16vh, 150px);
+  min-height: clamp(130px, 20vh, 180px);
   flex-shrink: 0;
   z-index: 2;
 }
 
-.hub--auction .hub__dice-row {
+.hub--auction .hub__dice-row,
+.hub--roll-timed .hub__dice-row,
+.hub--rent .hub__dice-row,
+.hub--choice .hub__dice-row {
   display: none;
 }
 
@@ -1169,12 +1218,17 @@ button, input, select { font-family: inherit; }
   align-items: center;
   gap: 8px;
   min-height: 40px;
-  flex-shrink: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 4px;
 }
 
-/* Перед ходом: две кнопки + таймер */
+/* Перед ходом: кнопки + таймер на всю высоту арены */
 .hub--roll-timed .hub__actions {
-  max-width: min(100%, 280px);
+  max-width: min(100%, 300px);
+  justify-content: center;
 }
 
 .roll-panel {
@@ -1459,11 +1513,6 @@ button, input, select { font-family: inherit; }
   max-width: min(100%, 560px);
 }
 
-.hub--rent .hub__dice-row,
-.hub--rent .table-toss {
-  display: none;
-}
-
 /* Панель долга (чужое поле) — старый стиль Club */
 .rent-panel {
   width: 100%;
@@ -1738,6 +1787,13 @@ button, input, select { font-family: inherit; }
 .auction-panel__meta,
 .auction-panel__bid,
 .auction-panel__next { font-size: 0.78rem; font-weight: 700; }
+.auction-panel__watch {
+  font-size: 0.8rem;
+  font-weight: 700;
+  opacity: 0.9;
+  margin-top: 6px;
+  line-height: 1.35;
+}
 .auction-panel .btn { margin-top: 4px; }
 
 .hub__chat {

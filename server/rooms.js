@@ -182,7 +182,11 @@ export function getGameState(room, socketId) {
     ),
     canRespondDeal: !!(deal && member && deal.toId === member.slot),
     isDealParty,
-    canAuctionBid: !!(isAuction && me && !me.bankrupt),
+    canAuctionBid: !!(isAuction && me && !me.bankrupt && room.game.canPlayerAuctionBid?.(member.slot)),
+    canAuctionLeave: !!(isAuction && me && !me.bankrupt
+      && state.auction?.startedBy !== member.slot
+      && !(state.auction?.optedOut || []).includes(member.slot)),
+    auctionSpectator: !!(isAuction && me && state.auction?.startedBy === member.slot),
     nextAuctionPrice: room.game.nextAuctionPrice?.() ?? null,
     dealableCompanies: room.game.dealableCompanies?.(member?.slot) || [],
     myTradeableCompanies: room.game.ownedTradeable?.(member?.slot) || [],
@@ -258,13 +262,14 @@ export function scheduleTurnTimers(room, io) {
     return;
   }
 
-  if (game.phase === 'roll' && game.turnEndsAt && !game.dealUiOpen && !game.shareUiOpen) {
+  // Таймер хода идёт и при открытой сделке/акциях — по истечении автобросок / выкуп
+  if (game.phase === 'roll' && game.turnEndsAt && !game.deal) {
     const delay = Math.max(200, game.turnEndsAt - Date.now());
     room._turnTimer = setTimeout(() => {
       room._turnTimer = null;
-      if (!room.game || room.game.phase !== 'roll' || room.game.deal || room.game.dealUiOpen || room.game.shareUiOpen) return;
-      const rolled = room.game.finishTurnTimeout();
-      if (rolled) {
+      if (!room.game || room.game.phase !== 'roll' || room.game.deal) return;
+      const acted = room.game.finishTurnTimeout();
+      if (acted) {
         scheduleRentEnd(room, io);
         if (room.game.phase === 'auction') scheduleAuctionEnd(room, io);
       }

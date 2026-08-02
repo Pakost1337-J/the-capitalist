@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Конструктор доски — Капиталист</title>
+  <title>Цвета закраса — Капиталист</title>
   <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/editor.css">
@@ -12,61 +12,62 @@
   <header class="ctor-bar">
     <div class="ctor-bar__left">
       <a href="/" class="ctor-link">← В игру</a>
-      <h1>🛠️ Конструктор доски</h1>
+      <h1>Цвета закраса</h1>
     </div>
-    <p class="ctor-hint">Кликните по клетке, чтобы изменить название и иконку</p>
+    <p class="ctor-hint">Выберите фишку и настройте цвет + 4 варианта (верх / право / низ / лево)</p>
     <div class="ctor-bar__right">
       <span class="ctor-status" id="status">Загрузка…</span>
       <button class="btn btn--pass" id="btn-reset">Сброс</button>
-      <button class="btn btn--roll" id="btn-save">💾 Сохранить</button>
+      <button class="btn btn--roll" id="btn-save">Сохранить</button>
     </div>
   </header>
 
-  <div class="ctor-layout">
+  <div class="ctor-layout ctor-layout--colors">
     <main class="ctor-board-wrap">
-      <div class="board ctor-board" id="board">
-        <div class="board__center ctor-center">
-          <div class="board__logo">
-            <span class="board__logo-icon">💰</span>
-            <h1>КАПИТАЛИСТ</h1>
-            <p>Нажмите на клетку</p>
-          </div>
-          <div class="ctor-players" id="players-strip"></div>
-        </div>
+      <div class="ctor-swatches" id="players-strip"></div>
+      <div class="ctor-preview-own" id="own-preview" aria-hidden="true">
+        <div class="ctor-preview-own__cell" data-side="top"></div>
+        <div class="ctor-preview-own__cell" data-side="right"></div>
+        <div class="ctor-preview-own__cell" data-side="bottom"></div>
+        <div class="ctor-preview-own__cell" data-side="left"></div>
       </div>
     </main>
 
     <aside class="ctor-panel" id="panel">
       <div class="ctor-panel__empty" id="panel-empty">
-        <div class="ctor-panel__empty-icon">👆</div>
-        <p>Выберите клетку на доске<br>или фишку игрока внизу</p>
+        <div class="ctor-panel__empty-icon">🎨</div>
+        <p>Выберите фишку слева,<br>чтобы настроить цвета закраса</p>
       </div>
 
       <div class="ctor-panel__form" id="panel-form" hidden>
-        <div class="ctor-panel__preview" id="preview">🍋</div>
-        <div class="ctor-panel__id" id="edit-label">Клетка #1</div>
+        <div class="ctor-panel__id" id="edit-label">Фишка</div>
 
         <label class="ctor-field">
-          <span>Название</span>
-          <input type="text" id="field-name" maxlength="32" placeholder="Название" />
+          <span>Основной цвет</span>
+          <input type="color" id="field-color" />
         </label>
 
         <label class="ctor-field">
-          <span>Иконка — эмодзи или файл (kiosk.png)</span>
-          <input type="text" id="field-icon" maxlength="120" placeholder="🍋 или cafe.png" />
+          <span>Верх (top)</span>
+          <input type="color" id="field-own-top" />
+        </label>
+        <label class="ctor-field">
+          <span>Право (right)</span>
+          <input type="color" id="field-own-right" />
+        </label>
+        <label class="ctor-field">
+          <span>Низ (bottom)</span>
+          <input type="color" id="field-own-bottom" />
+        </label>
+        <label class="ctor-field">
+          <span>Лево (left)</span>
+          <input type="color" id="field-own-left" />
         </label>
 
-        <div class="ctor-field">
-          <span>Быстрые эмодзи</span>
-          <div class="ctor-emojis" id="emoji-picker"></div>
-        </div>
-
-        <p class="ctor-tip">
-          Свои картинки: положите файл в <code>assets/icons/</code>
-          и впишите имя, например <code>bank.png</code>
-        </p>
-
-        <button class="btn btn--end ctor-apply" id="btn-apply" type="button">Применить к клетке</button>
+        <button class="btn btn--club-muted ctor-apply" id="btn-fill-all" type="button">
+          Залить все 4 стороны основным
+        </button>
+        <button class="btn btn--end ctor-apply" id="btn-apply" type="button">Применить</button>
       </div>
     </aside>
   </div>

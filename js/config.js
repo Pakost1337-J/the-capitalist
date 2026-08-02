@@ -30,14 +30,31 @@ export const BOARD_ROWS = 8;
 export const SIDE_MID = 6;
 export const LONG_MID = 11;
 
+/** ownTop/Right/Bottom/Left — 4 варианта закраса купленных клеток (настраиваются в теме) */
 export const PLAYER_SLOTS = [
-  // tokenImage — у карточки игрока; tokenBoardImage — на поле
-  { id: 0, name: 'Красная', color: '#e11d48', colorSoft: '#fecdd3', token: 'pawn', tokenImage: '/assets/chips/chip_red_board.png', tokenBoardImage: '/assets/chips/chip_red_board.png' },
-  { id: 1, name: 'Синяя', color: '#2563eb', colorSoft: '#bfdbfe', token: 'pawn', tokenImage: '/assets/chips/chip_blue_board.png', tokenBoardImage: '/assets/chips/chip_blue_board.png' },
-  { id: 2, name: 'Жёлтая', color: '#ca8a04', colorSoft: '#fef08a', token: 'pawn', tokenImage: '/assets/chips/chip_yellow_board.png', tokenBoardImage: '/assets/chips/chip_yellow_board.png' },
-  { id: 3, name: 'Зелёная', color: '#16a34a', colorSoft: '#bbf7d0', token: 'pawn', tokenImage: '/assets/chips/chip_green_board.png', tokenBoardImage: '/assets/chips/chip_green_board.png' },
-  { id: 4, name: 'Розовая', color: '#db2777', colorSoft: '#fbcfe8', token: 'pawn', tokenImage: '/assets/chips/chip_pink_board.png', tokenBoardImage: '/assets/chips/chip_pink_board.png' },
+  { id: 0, name: 'Красная', color: '#e11d48', colorSoft: '#fecdd3', ownTop: '#e11d48', ownRight: '#e11d48', ownBottom: '#e11d48', ownLeft: '#e11d48', token: 'pawn', tokenImage: '/assets/chips/chip_red_board.png', tokenBoardImage: '/assets/chips/chip_red_board.png' },
+  { id: 1, name: 'Синяя', color: '#2563eb', colorSoft: '#bfdbfe', ownTop: '#2563eb', ownRight: '#2563eb', ownBottom: '#2563eb', ownLeft: '#2563eb', token: 'pawn', tokenImage: '/assets/chips/chip_blue_board.png', tokenBoardImage: '/assets/chips/chip_blue_board.png' },
+  { id: 2, name: 'Жёлтая', color: '#ca8a04', colorSoft: '#fef08a', ownTop: '#ca8a04', ownRight: '#ca8a04', ownBottom: '#ca8a04', ownLeft: '#ca8a04', token: 'pawn', tokenImage: '/assets/chips/chip_yellow_board.png', tokenBoardImage: '/assets/chips/chip_yellow_board.png' },
+  { id: 3, name: 'Зелёная', color: '#16a34a', colorSoft: '#bbf7d0', ownTop: '#16a34a', ownRight: '#16a34a', ownBottom: '#16a34a', ownLeft: '#16a34a', token: 'pawn', tokenImage: '/assets/chips/chip_green_board.png', tokenBoardImage: '/assets/chips/chip_green_board.png' },
+  { id: 4, name: 'Розовая', color: '#db2777', colorSoft: '#fbcfe8', ownTop: '#db2777', ownRight: '#db2777', ownBottom: '#db2777', ownLeft: '#db2777', token: 'pawn', tokenImage: '/assets/chips/chip_pink_board.png', tokenBoardImage: '/assets/chips/chip_pink_board.png' },
 ];
+
+const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+export function normalizeHexColor(value, fallback = '#888888') {
+  const s = String(value || '').trim();
+  if (!HEX_RE.test(s)) return fallback;
+  if (s.length === 4) {
+    return `#${s[1]}${s[1]}${s[2]}${s[2]}${s[3]}${s[3]}`.toLowerCase();
+  }
+  return s.toLowerCase();
+}
+
+export function playerOwnTint(playerOrSlot, side) {
+  const key = ({ top: 'ownTop', right: 'ownRight', bottom: 'ownBottom', left: 'ownLeft' })[side] || 'ownTop';
+  const c = playerOrSlot?.[key] || playerOrSlot?.color || '#888888';
+  return normalizeHexColor(c, '#888888');
+}
 
 /** Логотипы компаний (есть файл → картинка, иначе текст) */
 export const BRAND_LOGO_SRC = {
@@ -196,27 +213,23 @@ for (const cell of BOARD) {
 }
 
 export function applyTheme(theme) {
-  if (!theme?.board) return;
-  for (const ov of theme.board) {
-    const cell = BOARD.find(c => c.id === ov.id);
-    if (!cell) continue;
-    // Углы и спецклетки не переименовываем темой (иначе «Парковка» съезжает на Sony)
-    if (['go', 'jail', 'parking', 'gotojail', 'tax', 'chance', 'forcemajeure'].includes(cell.type)) {
-      continue;
+  // Тема теперь только цвета фишек / закраса (4 стороны). Имена/лого/флаги не трогаем.
+  if (!Array.isArray(theme?.players)) return;
+  for (const ov of theme.players) {
+    const slot = PLAYER_SLOTS.find(p => p.id === ov.id);
+    if (!slot) continue;
+    if (ov.color) {
+      slot.color = normalizeHexColor(ov.color, slot.color);
+      slot.colorSoft = normalizeHexColor(ov.colorSoft || ov.color, slot.colorSoft || slot.color);
     }
-    if (ov.name) cell.name = ov.name;
-    if (ov.icon) cell.icon = ov.icon;
-    if (ov.brand) cell.brand = ov.brand;
-    if (ov.flag !== undefined) cell.flag = ov.flag;
-  }
-  if (Array.isArray(theme.players)) {
-    for (const ov of theme.players) {
-      const slot = PLAYER_SLOTS.find(p => p.id === ov.id);
-      if (!slot) continue;
-      if (ov.token) slot.token = ov.token;
-      if (ov.tokenImage !== undefined) slot.tokenImage = ov.tokenImage;
-      if (ov.tokenBoardImage !== undefined) slot.tokenBoardImage = ov.tokenBoardImage;
+    if (ov.colorSoft) slot.colorSoft = normalizeHexColor(ov.colorSoft, slot.colorSoft);
+    for (const key of ['ownTop', 'ownRight', 'ownBottom', 'ownLeft']) {
+      if (ov[key]) slot[key] = normalizeHexColor(ov[key], slot.color);
+      else if (ov.color) slot[key] = slot.color;
     }
+    if (ov.token) slot.token = ov.token;
+    if (ov.tokenImage !== undefined) slot.tokenImage = ov.tokenImage;
+    if (ov.tokenBoardImage !== undefined) slot.tokenBoardImage = ov.tokenBoardImage;
   }
 }
 

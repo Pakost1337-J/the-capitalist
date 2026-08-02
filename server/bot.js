@@ -98,6 +98,7 @@ function tryBotAuctionBid(game) {
 
   for (const p of game.activePlayers) {
     if (!p.isBot) continue;
+    if (!game.canPlayerAuctionBid?.(p.id)) continue;
     if (game.auction.highBidder === p.id) continue;
     if (p.money < next) continue;
     if (shouldBotBid(p, cell, next, game) && Math.random() > 0.4) {

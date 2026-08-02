@@ -278,6 +278,111 @@
 
 .ctor-apply {
   width: 100%;
+  margin-top: 8px;
+}
+
+.ctor-layout--colors {
+  grid-template-columns: minmax(280px, 1fr) 320px;
+}
+
+.ctor-layout--colors .ctor-board-wrap {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 20px;
+  padding: 16px;
+  background: rgba(250, 248, 240, 0.92);
+  border-radius: 16px;
+}
+
+.ctor-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ctor-chip__swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.ctor-preview-own {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.ctor-preview-own__cell {
+  position: relative;
+  height: 88px;
+  border-radius: 10px;
+  background: #c9c2b6;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.ctor-preview-own__cell::before {
+  content: attr(data-side);
+  position: absolute;
+  z-index: 2;
+  left: 8px;
+  top: 6px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #1a120c;
+  text-transform: uppercase;
+}
+
+.ctor-preview-own__cell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.ctor-preview-own__cell[data-side="top"]::after {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--own-tint, #888) 88%, transparent) 0%,
+    color-mix(in srgb, var(--own-tint, #888) 35%, transparent) 42%,
+    transparent 78%
+  );
+}
+.ctor-preview-own__cell[data-side="bottom"]::after {
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--own-tint, #888) 88%, transparent) 0%,
+    color-mix(in srgb, var(--own-tint, #888) 35%, transparent) 42%,
+    transparent 78%
+  );
+}
+.ctor-preview-own__cell[data-side="left"]::after {
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--own-tint, #888) 88%, transparent) 0%,
+    color-mix(in srgb, var(--own-tint, #888) 35%, transparent) 42%,
+    transparent 78%
+  );
+}
+.ctor-preview-own__cell[data-side="right"]::after {
+  background: linear-gradient(
+    to left,
+    color-mix(in srgb, var(--own-tint, #888) 88%, transparent) 0%,
+    color-mix(in srgb, var(--own-tint, #888) 35%, transparent) 42%,
+    transparent 78%
+  );
+}
+
+.ctor-field input[type="color"] {
+  width: 100%;
+  height: 42px;
+  padding: 4px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
 }
 
 @media (max-width: 900px) {

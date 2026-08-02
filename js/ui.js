@@ -1,6 +1,6 @@
 import {
   BOARD, BOARD_SIZE, BRAND_LOGO_SRC, COUNTRY_FLAG_SRC, COUNTRY_LABEL_RU, GROUP_COLORS,
-  JAIL_BAIL, AUCTION_STEP, getGridPosition,
+  JAIL_BAIL, AUCTION_STEP, getGridPosition, playerOwnTint,
 } from './config.js';
 import { formatMoney, formatPriceShort, sleep } from './utils.js';
 import { PHASE } from './game.js';
@@ -309,7 +309,7 @@ export class UI {
     }
 
     const ownerLayer = isCompany
-      ? `<div class="cell__owner" data-owner="${index}" hidden></div>
+      ? `<div class="cell__owner" data-owner="${index}" data-side="${side === 'corner' ? 'top' : side}" hidden></div>
          <img class="cell__lock" data-lock="${index}" src="/assets/ownership/lock.png" alt="" hidden />`
       : '';
 
@@ -325,6 +325,7 @@ export class UI {
   showChoiceButtons({ title, left, right, onLeft, onRight }) {
     if (!this.choicePanel) return;
     this.choicePanel.hidden = false;
+    document.querySelector('.hub')?.classList.add('hub--choice');
     this.choicePanel.innerHTML = `
       <div class="choice-buttons">
         <div class="choice-buttons__title">${escapeHtml(title)}</div>
@@ -348,6 +349,7 @@ export class UI {
     if (!this.choicePanel) return;
     this.choicePanel.hidden = true;
     this.choicePanel.innerHTML = '';
+    document.querySelector('.hub')?.classList.remove('hub--choice');
   }
 
   hideChoiceSlider() {
@@ -413,6 +415,7 @@ export class UI {
 
   diceChanged(prev, state) {
     if (!prev) return false;
+    if ((state.rollSeq || 0) !== (prev.rollSeq || 0)) return true;
     const rolled = (state.log || []).find(l => /бросает\s+\d+\s*:\s*\d+/.test(l));
     if (!rolled) return false;
     return !(prev.log || []).includes(rolled);
@@ -754,13 +757,6 @@ export class UI {
     }).join('');
   }
 
-  ownershipAsset(ownerSlot, side, mortgaged) {
-    const sideKey = ['top', 'right', 'bottom', 'left'].includes(side) ? side : 'top';
-    if (mortgaged) return `/assets/ownership/dark_${sideKey}.png`;
-    const n = (Number(ownerSlot) % 5) + 1; // слоты 0..4 → chip 1..5
-    return `/assets/ownership/${n}_${sideKey}.png`;
-  }
-
   /** Спрайт акций / маркеров страны на клетке */
   shareSpriteSrc(kind, count, vertical) {
     const n = Math.max(1, Math.min(Number(count) || 1, kind === 'ko' ? 2 : kind === 'chn' ? 4 : 5));
@@ -791,10 +787,11 @@ export class UI {
     document.querySelectorAll('.cell').forEach(c => {
       c.classList.remove('cell--owned', 'cell--mortgaged');
       c.style.removeProperty('--owner-color');
+      c.style.removeProperty('--own-tint');
     });
     document.querySelectorAll('[data-owner]').forEach(el => {
       el.hidden = true;
-      el.style.backgroundImage = '';
+      el.style.removeProperty('--own-tint');
     });
     document.querySelectorAll('[data-lock]').forEach(el => { el.hidden = true; });
 
@@ -836,8 +833,10 @@ export class UI {
 
       const mark = cellEl.querySelector(`[data-owner="${cellId}"]`);
       if (mark && side !== 'corner') {
+        const sideKey = ['top', 'right', 'bottom', 'left'].includes(side) ? side : 'top';
         mark.hidden = false;
-        mark.style.backgroundImage = `url("${this.ownershipAsset(owner.id, side, mortgaged)}")`;
+        mark.dataset.side = sideKey;
+        mark.style.setProperty('--own-tint', playerOwnTint(owner, sideKey));
       }
 
       const lock = cellEl.querySelector(`[data-lock="${cellId}"]`);
@@ -970,9 +969,12 @@ export class UI {
     const isBuy = state.phase === PHASE.ACTION && state.pendingAction?.type === 'buy';
     const isRollTimed = state.phase === PHASE.ROLL && state.isMyTurn && !state.deal;
     const isDeal = !!state.deal;
+    const menuOpen = !!(isRent || isBuy || isDeal || this._dealCompose || this._shareBuy || state.dealUiOpen || state.shareUiOpen);
+    // Кнопки хода (бросок/сделка/акции) — без костей, иначе меню обрезается
+    const rollMenu = !!(isRollTimed && !menuOpen);
     hub?.classList.toggle('hub--auction', !!isAuction);
-    hub?.classList.toggle('hub--rent', !!(isRent || isBuy || isDeal || this._dealCompose || this._shareBuy));
-    hub?.classList.toggle('hub--roll-timed', !!(isRollTimed && !this._dealCompose && !this._shareBuy && !state.dealUiOpen && !state.shareUiOpen));
+    hub?.classList.toggle('hub--rent', menuOpen);
+    hub?.classList.toggle('hub--roll-timed', rollMenu);
 
     if (!isRent) {
       this._rentMortgagePick = false;
@@ -1109,10 +1111,11 @@ export class UI {
       : (state.shareBuyOptions || []);
     const me = state.players.find(pl => pl.id === this.mySlot);
 
+    const leftMs = this.turnLeftMs(state);
     this.actionArea.innerHTML = `
       <div class="deal-panel">
         <p class="deal-panel__title">Купить акции</p>
-        <p class="deal-panel__hint">Монополия страны · у вас ${formatMoney(me?.money || 0)}</p>
+        <p class="deal-panel__hint">1 акция за ход · у вас ${formatMoney(me?.money || 0)}</p>
         <div class="deal-panel__list">
           ${options.length
             ? options.map(o => `
@@ -1120,9 +1123,10 @@ export class UI {
                   ${escapeHtml(o.name)} · ${o.houses}/${o.max} · ${formatMoney(o.price)}
                 </button>
               `).join('')
-            : '<p class="deal-empty">Нечего покупать</p>'}
+            : `<p class="deal-empty">${(state.sharesBoughtThisTurn || 0) >= 1 ? 'На этот ход акция уже куплена' : 'Нечего покупать'}</p>`}
         </div>
         <button type="button" class="btn btn--club-muted" id="btn-shares-done">Готово</button>
+        ${state.phase === PHASE.ROLL ? this.flipTimerHtml(leftMs) : ''}
       </div>
     `;
 
@@ -1620,7 +1624,29 @@ export class UI {
     const next = state.nextAuctionPrice ?? (a.highBidder == null ? a.startPrice : a.currentBid + (a.step || AUCTION_STEP));
     const leftMs = this.turnLeftMs(state);
     const me = state.players.find(p => p.id === this.mySlot);
-    const canBid = state.canAuctionBid && me && me.money >= next && a.highBidder !== this.mySlot;
+    const canBid = !!state.canAuctionBid && me && me.money >= next && a.highBidder !== this.mySlot;
+    const canLeave = !!state.canAuctionLeave;
+    const spectator = !!state.auctionSpectator;
+    const starter = state.players[a.startedBy];
+
+    let actionsHtml;
+    if (spectator) {
+      actionsHtml = `<p class="auction-panel__watch">Вы выставили поле — наблюдаете за аукционом</p>`;
+    } else if ((a.optedOut || []).includes(this.mySlot)) {
+      actionsHtml = `<p class="auction-panel__watch">Вы не участвуете в аукционе</p>`;
+    } else {
+      actionsHtml = `
+        <div class="auction-panel__next">След. ставка: <strong>${formatMoney(next)}</strong></div>
+        <button class="btn btn--club" id="btn-auction-bid" ${canBid ? '' : 'disabled'}>
+          Поставить ${formatMoney(next)}
+        </button>
+        ${canLeave ? `
+          <button type="button" class="btn btn--club-muted" id="btn-auction-leave">
+            Не участвовать в аукционе
+          </button>
+        ` : ''}
+      `;
+    }
 
     this.actionArea.innerHTML = `
       <div class="auction-panel">
@@ -1628,20 +1654,21 @@ export class UI {
         ${this.flipTimerHtml(leftMs)}
         <div class="auction-panel__meta">
           Старт: ${formatMoney(a.startPrice)} · шаг ${formatMoney(a.step || AUCTION_STEP)}
+          ${starter ? ` · от ${escapeHtml(starter.name)}` : ''}
         </div>
         <div class="auction-panel__bid">
           ${leader
             ? `Лидер: <strong>${escapeHtml(leader.name)}</strong> — ${formatMoney(a.currentBid)}`
             : 'Ставок пока нет'}
         </div>
-        <div class="auction-panel__next">След. ставка: <strong>${formatMoney(next)}</strong></div>
-        <button class="btn btn--club" id="btn-auction-bid" ${canBid ? '' : 'disabled'}>
-          Поставить ${formatMoney(next)}
-        </button>
+        ${actionsHtml}
       </div>
     `;
     document.getElementById('btn-auction-bid')?.addEventListener('click', () => {
       this.doAction({ type: 'auctionBid' });
+    });
+    document.getElementById('btn-auction-leave')?.addEventListener('click', () => {
+      this.doAction({ type: 'auctionLeave' });
     });
   }
 }

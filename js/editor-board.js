@@ -1,109 +1,34 @@
-import { BOARD, GROUP_COLORS, PLAYER_SLOTS, getGridPosition, applyTheme } from './config.js';
-import { iconHTML, resolveIconSrc } from './icons.js';
+import { PLAYER_SLOTS, applyTheme, normalizeHexColor } from './config.js';
 
-const EMOJIS = [
-  '🍋', '🏪', '🚕', '🚌', '☕', '🍽️', '🏨', '🛒', '🏬', '🏢',
-  '🏭', '⚙️', '💻', '🚀', '🏦', '📈', '🛢️', '👑', '💎', '⚡',
-  '💧', '🚂', '❓', '🔒', '👮', '🅿️', '🏁', '💰', '🚗', '🚢',
-  '🎩', '🐕', '🏠', '⭐', '🔥', '🎯', '🃏', '📌',
-];
+let theme = { players: [] };
+let selectedId = null;
 
-let theme = { board: [], players: [] };
-let selected = null; // { type: 'cell'|'player', id }
-
-const boardEl = document.getElementById('board');
 const statusEl = document.getElementById('status');
 const panelEmpty = document.getElementById('panel-empty');
 const panelForm = document.getElementById('panel-form');
-const previewEl = document.getElementById('preview');
 const editLabel = document.getElementById('edit-label');
-const fieldName = document.getElementById('field-name');
-const fieldIcon = document.getElementById('field-icon');
-const emojiPicker = document.getElementById('emoji-picker');
 const playersStrip = document.getElementById('players-strip');
+const ownPreview = document.getElementById('own-preview');
 
-const cells = {};
+const fieldColor = document.getElementById('field-color');
+const fieldTop = document.getElementById('field-own-top');
+const fieldRight = document.getElementById('field-own-right');
+const fieldBottom = document.getElementById('field-own-bottom');
+const fieldLeft = document.getElementById('field-own-left');
 
 function setStatus(text) {
   statusEl.textContent = text;
 }
 
-function getCellData(id) {
-  return theme.board.find(c => c.id === id) || { id, name: BOARD[id].name, icon: BOARD[id].icon };
-}
-
 function getPlayerData(id) {
   return theme.players.find(p => p.id === id) || {
     id,
-    token: PLAYER_SLOTS[id].token,
-    tokenImage: PLAYER_SLOTS[id].tokenImage || '',
+    color: PLAYER_SLOTS[id].color,
+    ownTop: PLAYER_SLOTS[id].ownTop || PLAYER_SLOTS[id].color,
+    ownRight: PLAYER_SLOTS[id].ownRight || PLAYER_SLOTS[id].color,
+    ownBottom: PLAYER_SLOTS[id].ownBottom || PLAYER_SLOTS[id].color,
+    ownLeft: PLAYER_SLOTS[id].ownLeft || PLAYER_SLOTS[id].color,
   };
-}
-
-function renderPreview(icon) {
-  const src = resolveIconSrc(icon);
-  if (src) {
-    previewEl.innerHTML = `<img src="${src}" alt="" onerror="this.parentElement.textContent='❓'" />`;
-  } else {
-    previewEl.textContent = icon || '⬜';
-  }
-}
-
-function buildBoard() {
-  for (let i = 0; i < BOARD.length; i++) {
-    const pos = getGridPosition(i);
-    const base = BOARD[i];
-    const data = getCellData(i);
-    const el = document.createElement('button');
-    el.type = 'button';
-    el.className = `cell cell--${base.type}`;
-    el.dataset.id = i;
-    el.style.gridRow = pos.row + 1;
-    el.style.gridColumn = pos.col + 1;
-    if (base.group) el.style.setProperty('--group-color', GROUP_COLORS[base.group]);
-
-    el.innerHTML = cellHTML(data, i);
-    el.addEventListener('click', () => selectCell(i));
-    boardEl.appendChild(el);
-    cells[i] = el;
-  }
-}
-
-function cellHTML(data, index) {
-  const isCorner = [0, 12, 19, 31].includes(index);
-  const isSide = (index >= 13 && index <= 18) || (index >= 32 && index <= 37);
-  const base = BOARD[index];
-  if (isCorner || ['go', 'jail', 'parking', 'gotojail'].includes(base.type)) {
-    return `<div class="cell__body cell__body--corner"></div>`;
-  }
-  const colorBar = base.group ? `<div class="cell__color-bar"></div>` : '';
-  const country = base.country || '';
-  const price = base.type === 'utility' && base.rent?.[0]
-    ? `<span class="cell__price">$${Math.round(base.rent[0] / 1000)}K ×</span>`
-    : (base.price
-      ? `<span class="cell__price">$${Math.round(base.price / 1000)}K</span>`
-      : '');
-
-  return `
-    ${colorBar}
-    <div class="cell__body ${isSide ? 'cell__body--side' : ''} ${isCorner ? 'cell__body--corner' : ''}">
-      ${base.flag ? `<span class="cell__flag">${base.flag}</span>` : iconHTML(data.icon, 'cell__icon')}
-      ${country ? `<span class="cell__country">${escapeHtml(country)}</span>` : ''}
-      <span class="cell__company">${escapeHtml(data.name)}</span>
-      ${price}
-    </div>
-  `;
-}
-
-function refreshCell(id) {
-  const el = cells[id];
-  if (!el) return;
-  el.innerHTML = cellHTML(getCellData(id), id);
-  el.classList.toggle('cell--selected', selected?.type === 'cell' && selected.id === id);
-}
-
-function refreshAllCells() {
-  for (let i = 0; i < BOARD.length; i++) refreshCell(i);
 }
 
 function chipLabel(id) {
@@ -112,16 +37,11 @@ function chipLabel(id) {
 
 function renderPlayers() {
   playersStrip.innerHTML = theme.players.map(p => {
-    const icon = p.tokenImage || p.token;
-    const src = resolveIconSrc(icon);
-    const color = PLAYER_SLOTS[p.id]?.color || '#888';
-    const iconInner = src
-      ? `<img src="${src}" alt="" />`
-      : `<span class="chip" style="background:${color}"></span>`;
-    const selectedCls = selected?.type === 'player' && selected.id === p.id ? 'ctor-chip--selected' : '';
+    const color = normalizeHexColor(p.color, '#888');
+    const selectedCls = selectedId === p.id ? 'ctor-chip--selected' : '';
     return `
-      <button type="button" class="ctor-chip ${selectedCls}" data-player="${p.id}" style="border-color:${color}">
-        <span class="ctor-chip__icon">${iconInner}</span>
+      <button type="button" class="ctor-chip ${selectedCls}" data-player="${p.id}" style="border-color:${color}; --chip:${color}">
+        <span class="ctor-chip__swatch" style="background:${color}"></span>
         <span>${chipLabel(p.id)}</span>
       </button>
     `;
@@ -132,146 +52,117 @@ function renderPlayers() {
   });
 }
 
-function selectCell(id) {
-  selected = { type: 'cell', id };
-  document.querySelectorAll('.cell--selected').forEach(c => c.classList.remove('cell--selected'));
-  cells[id]?.classList.add('cell--selected');
-  renderPlayers();
-
-  const data = getCellData(id);
-  panelEmpty.hidden = true;
-  panelForm.hidden = false;
-  editLabel.textContent = `Клетка #${id}`;
-  fieldName.value = data.name || '';
-  fieldName.disabled = false;
-  fieldIcon.value = data.icon || '';
-  fieldName.placeholder = 'Название клетки';
-  fieldIcon.placeholder = '🍋 или cafe.png';
-  renderPreview(data.icon);
+function paintPreview(p) {
+  if (!ownPreview) return;
+  const map = {
+    top: p.ownTop || p.color,
+    right: p.ownRight || p.color,
+    bottom: p.ownBottom || p.color,
+    left: p.ownLeft || p.color,
+  };
+  ownPreview.querySelectorAll('.ctor-preview-own__cell').forEach((el) => {
+    const side = el.dataset.side;
+    el.style.setProperty('--own-tint', normalizeHexColor(map[side], p.color));
+    el.dataset.side = side;
+  });
 }
 
 function selectPlayer(id) {
-  selected = { type: 'player', id };
-  document.querySelectorAll('.cell--selected').forEach(c => c.classList.remove('cell--selected'));
+  selectedId = id;
   renderPlayers();
-
   const data = getPlayerData(id);
   panelEmpty.hidden = true;
   panelForm.hidden = false;
-  editLabel.textContent = `Фишка игрока ${id + 1}`;
-  fieldName.value = data.token || '';
-  fieldName.disabled = false;
-  fieldName.placeholder = 'Эмодзи фишки';
-  fieldIcon.value = data.tokenImage || '';
-  fieldIcon.placeholder = 'player1.png (необязательно)';
-  renderPreview(data.tokenImage || data.token);
+  editLabel.textContent = chipLabel(id);
+  fieldColor.value = normalizeHexColor(data.color, '#888888');
+  fieldTop.value = normalizeHexColor(data.ownTop || data.color, data.color);
+  fieldRight.value = normalizeHexColor(data.ownRight || data.color, data.color);
+  fieldBottom.value = normalizeHexColor(data.ownBottom || data.color, data.color);
+  fieldLeft.value = normalizeHexColor(data.ownLeft || data.color, data.color);
+  paintPreview(data);
 }
 
 function applyCurrent() {
-  if (!selected) return;
-
-  if (selected.type === 'cell') {
-    const cell = theme.board.find(c => c.id === selected.id);
-    if (!cell) return;
-    cell.name = fieldName.value.trim() || cell.name;
-    cell.icon = fieldIcon.value.trim() || cell.icon;
-    refreshCell(selected.id);
-    renderPreview(cell.icon);
-    setStatus(`Обновлено: ${cell.name}`);
-  } else {
-    const p = theme.players.find(x => x.id === selected.id);
-    if (!p) return;
-    p.token = fieldName.value.trim() || p.token;
-    p.tokenImage = fieldIcon.value.trim();
-    renderPlayers();
-    renderPreview(p.tokenImage || p.token);
-    setStatus(`Фишка игрока ${p.id + 1} обновлена`);
-  }
+  if (selectedId == null) return;
+  const p = theme.players.find(x => x.id === selectedId);
+  if (!p) return;
+  p.color = fieldColor.value;
+  p.colorSoft = fieldColor.value;
+  p.ownTop = fieldTop.value;
+  p.ownRight = fieldRight.value;
+  p.ownBottom = fieldBottom.value;
+  p.ownLeft = fieldLeft.value;
+  renderPlayers();
+  paintPreview(p);
+  setStatus(`Обновлено: ${chipLabel(p.id)}`);
 }
 
-function buildEmojiPicker() {
-  emojiPicker.innerHTML = EMOJIS.map(e =>
-    `<button type="button" class="ctor-emoji" data-emoji="${e}">${e}</button>`
-  ).join('');
-
-  emojiPicker.querySelectorAll('[data-emoji]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (!selected) return;
-      if (selected.type === 'cell') {
-        fieldIcon.value = btn.dataset.emoji;
-      } else {
-        // для фишки эмодзи идёт в token (название-поле), картинка отдельно
-        fieldName.value = btn.dataset.emoji;
-        fieldIcon.value = '';
-      }
-      renderPreview(btn.dataset.emoji);
-      applyCurrent();
-    });
-  });
+function fillAllFromMain() {
+  if (selectedId == null) return;
+  const c = fieldColor.value;
+  fieldTop.value = c;
+  fieldRight.value = c;
+  fieldBottom.value = c;
+  fieldLeft.value = c;
+  applyCurrent();
 }
 
 async function load() {
   const res = await fetch('/api/theme');
   const data = await res.json();
-  theme.board = data.board.map(c => ({ id: c.id, name: c.name, icon: c.icon || '' }));
-  theme.players = data.players.map(p => ({
-    id: p.id,
-    token: p.token || '',
-    tokenImage: p.tokenImage || '',
-  }));
-  applyTheme(data);
-  buildBoard();
+  const list = Array.isArray(data.players) ? data.players : [];
+  theme.players = PLAYER_SLOTS.map((slot) => {
+    const ov = list.find(p => p.id === slot.id) || {};
+    const color = normalizeHexColor(ov.color || slot.color, slot.color);
+    return {
+      id: slot.id,
+      color,
+      colorSoft: normalizeHexColor(ov.colorSoft || color, color),
+      ownTop: normalizeHexColor(ov.ownTop || color, color),
+      ownRight: normalizeHexColor(ov.ownRight || color, color),
+      ownBottom: normalizeHexColor(ov.ownBottom || color, color),
+      ownLeft: normalizeHexColor(ov.ownLeft || color, color),
+    };
+  });
+  applyTheme({ players: theme.players });
   renderPlayers();
-  buildEmojiPicker();
-  setStatus('Готово — кликните клетку');
+  setStatus('Выберите фишку');
+  selectPlayer(0);
 }
 
 async function save() {
   setStatus('Сохранение…');
-  // синхронизировать текущую форму
   applyCurrent();
   const res = await fetch('/api/theme', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(theme),
+    body: JSON.stringify({ players: theme.players }),
   });
   const data = await res.json();
   if (data.ok) {
-    setStatus('✅ Сохранено для всех игроков');
+    applyTheme(data.theme || { players: theme.players });
+    setStatus('Сохранено на сервере');
   } else {
-    setStatus('❌ ' + (data.error || 'Ошибка'));
+    setStatus(data.error || 'Ошибка');
   }
 }
 
 async function reset() {
-  if (!confirm('Сбросить все названия и иконки?')) return;
+  if (!confirm('Сбросить цвета к стандартным?')) return;
   const res = await fetch('/api/theme/reset', { method: 'POST' });
   const data = await res.json();
-  if (!data.ok) return setStatus('❌ Ошибка сброса');
+  if (!data.ok) return setStatus('Ошибка сброса');
   location.reload();
 }
 
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-fieldIcon.addEventListener('input', () => {
-  if (selected?.type === 'cell') renderPreview(fieldIcon.value);
-  else renderPreview(fieldIcon.value || fieldName.value);
-});
-
-fieldName.addEventListener('input', () => {
-  if (selected?.type === 'player') renderPreview(fieldIcon.value || fieldName.value);
-});
-
-fieldName.addEventListener('change', applyCurrent);
-fieldIcon.addEventListener('change', applyCurrent);
+fieldColor.addEventListener('input', applyCurrent);
+fieldTop.addEventListener('input', applyCurrent);
+fieldRight.addEventListener('input', applyCurrent);
+fieldBottom.addEventListener('input', applyCurrent);
+fieldLeft.addEventListener('input', applyCurrent);
 document.getElementById('btn-apply').addEventListener('click', applyCurrent);
+document.getElementById('btn-fill-all').addEventListener('click', fillAllFromMain);
 document.getElementById('btn-save').addEventListener('click', save);
 document.getElementById('btn-reset').addEventListener('click', reset);
 
-load().catch(err => setStatus('❌ ' + err.message));
+load().catch(err => setStatus(String(err.message || err)));
