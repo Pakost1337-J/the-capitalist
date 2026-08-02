@@ -266,8 +266,12 @@ export class GameEngine {
     }
 
     if (!offerMoney && !askMoney && !offerCells.length && !askCells.length) return false;
-    if (!this.canAfford(from, offerMoney)) return false;
-    if (!this.canAfford(to, askMoney)) return false;
+    // Пустой обмен равных сумм без компаний — бессмысленно
+    if (!offerCells.length && !askCells.length && offerMoney === askMoney) return false;
+    // Деньги можно с обеих сторон (обмен деньгами): платёжеспособность по нетто
+    const netCash = offerMoney - askMoney;
+    if (netCash > 0 && !this.canAfford(from, netCash)) return false;
+    if (netCash < 0 && !this.canAfford(to, -netCash)) return false;
     if (!this._cellsOwnedBy(offerCells, fromId)) return false;
     if (!this._cellsOwnedBy(askCells, to.id)) return false;
 
@@ -311,7 +315,13 @@ export class GameEngine {
     const offerCells = this._normalizeDealCells(d.offerCells);
     const askCells = this._normalizeDealCells(d.askCells);
 
-    if (!this.canAfford(from, offerMoney) || !this.canAfford(to, askMoney)) {
+    const netCash = offerMoney - askMoney;
+    if (netCash > 0 && !this.canAfford(from, netCash)) {
+      this.addLog('Сделка сорвалась: не хватает денег');
+      this.clearDeal(true);
+      return false;
+    }
+    if (netCash < 0 && !this.canAfford(to, -netCash)) {
       this.addLog('Сделка сорвалась: не хватает денег');
       this.clearDeal(true);
       return false;
@@ -322,13 +332,13 @@ export class GameEngine {
       return false;
     }
 
-    if (offerMoney) {
-      from.money -= offerMoney;
-      to.money += offerMoney;
-    }
-    if (askMoney) {
-      to.money -= askMoney;
-      from.money += askMoney;
+    // Нетто по деньгам (можно обменивать деньги на деньги)
+    if (netCash > 0) {
+      from.money -= netCash;
+      to.money += netCash;
+    } else if (netCash < 0) {
+      to.money -= -netCash;
+      from.money += -netCash;
     }
     this._transferCells(from, to, offerCells);
     this._transferCells(to, from, askCells);

@@ -51,7 +51,8 @@ export function runBotTurn(game, onDone) {
 
 function handleAfterRoll(game, onDone) {
   const steps = (game.dice?.[0] || 0) + (game.dice?.[1] || 0);
-  const animWait = 1100 + Math.min(steps, 12) * 190;
+  // Ждём полный бросок 3D (~2.5s) + ход фишки, иначе клиент пропускает анимацию ботов
+  const animWait = 2800 + Math.min(steps, 12) * 240;
 
   setTimeout(() => {
     if (game.phase === PHASE.ACTION && game.pendingAction?.type === 'buy') {
@@ -198,7 +199,9 @@ function settleBotDeal(game) {
 
   const giveValue = offerMoney + offerCells.reduce((s, id) => s + (getCell(id)?.price || 0), 0);
   const takeValue = askMoney + askCells.reduce((s, id) => s + (getCell(id)?.price || 0), 0);
-  const okMoney = to.money >= askMoney;
+  // Платёж по нетто: бот платит только если ask > offer
+  const netPay = Math.max(0, askMoney - offerMoney);
+  const okMoney = to.money >= netPay;
   const fair = takeValue <= 0 || giveValue >= takeValue * 0.75;
   if (okMoney && fair && Math.random() > 0.3) {
     game.acceptDeal(to.id);

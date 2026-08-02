@@ -19,6 +19,7 @@ export class UI {
     this.tokenEls = {};
     this.animating = false;
     this.pendingState = null;
+    this._throwQueue = [];
     this._resizeTimer = null;
 
     this.boardEl = document.getElementById('board');
@@ -253,8 +254,9 @@ export class UI {
     if (isCompany) {
       const country = cell.country || '';
       const company = cell.name || cell.brand || '';
-      const price = cell.type === 'utility' && cell.rent?.[0] != null
-        ? `${formatPriceShort(cell.rent[0])} ×`
+      const isUtilityMult = cell.type === 'utility' && cell.rent?.[0] != null;
+      const priceVal = isUtilityMult
+        ? formatPriceShort(cell.rent[0])
         : (cell.price != null ? formatPriceShort(cell.price) : '');
       const flagSrc = COUNTRY_FLAG_SRC[country] || '';
       const flagHtml = flagSrc
@@ -268,7 +270,14 @@ export class UI {
         : `<div class="cell__logo" title="${escapeHtml(company)}">
              <span class="cell__logo-text">${escapeHtml(company)}</span>
            </div>`;
-      const priceEl = price ? `<span class="cell__price">${price}</span>` : '';
+      const priceEl = priceVal
+        ? `<span class="cell__price${isUtilityMult ? ' cell__price--mult' : ''}">
+             <span class="cell__price-core">
+               <span class="cell__price-val">${priceVal}</span>
+               ${isUtilityMult ? '<span class="cell__price-x" aria-hidden="true">×</span>' : ''}
+             </span>
+           </span>`
+        : '';
       const flagEl = `<div class="cell__country-slot">${flagHtml}</div>`;
       const shares = `<div class="cell__shares" data-houses="${index}" aria-label="Акции"></div>`;
       // Верх/низ: флаг у внешнего края → лого → цена
@@ -361,6 +370,21 @@ export class UI {
       this.pendingState = state;
       // обновляем панели, но позиции фишек — после анимации
       if (state.mySlot !== undefined) this.mySlot = state.mySlot;
+      // Не пропускаем броски ботов, пришедшие во время чужой анимации
+      const prevSeq = this._animRollSeq ?? this.lastState?.rollSeq ?? 0;
+      if ((state.rollSeq || 0) > prevSeq) {
+        const lastQ = this._throwQueue[this._throwQueue.length - 1];
+        if (!lastQ || lastQ.rollSeq !== state.rollSeq) {
+          const fromPrev = lastQ?.state || this.lastState;
+          this._throwQueue.push({
+            rollSeq: state.rollSeq,
+            dice: [...(state.dice || [1, 1])],
+            doubles: !!state.doubles,
+            movers: this.findMovers(fromPrev, state),
+            state,
+          });
+        }
+      }
       this.renderHub(state);
       this.renderPlayers(state);
       this.renderHouses(state);
@@ -440,6 +464,7 @@ export class UI {
 
   async runTurnAnimations(state, { diceChanged, movers }) {
     this.animating = true;
+    this._animRollSeq = state.rollSeq || 0;
     const hub = document.querySelector('.hub');
     hub?.classList.add('hub--throwing');
     // Во время броска/хода прячем кнопки, но не трогаем локальные флаги меню
@@ -454,7 +479,7 @@ export class UI {
 
     try {
       if (diceChanged) {
-        await this.animateDiceThrow(state);
+        await this.animateDiceThrow(state.dice, state.doubles);
       } else {
         this.syncDiceFaces(state);
       }
@@ -467,8 +492,23 @@ export class UI {
       }
 
       this.layoutTokenStacks(state);
+
+      // Доигрываем броски, пришедшие во время анимации (боты)
+      while (this._throwQueue.length) {
+        const job = this._throwQueue.shift();
+        this._animRollSeq = job.rollSeq || this._animRollSeq;
+        this.lastState = job.state;
+        await this.animateDiceThrow(job.dice, job.doubles);
+        this.ensureTokens(job.state);
+        const sum = (job.dice?.[0] || 0) + (job.dice?.[1] || 0);
+        for (const m of job.movers || []) {
+          await this.animateTokenMove(m.id, m.from, m.to, sum, m.player);
+        }
+        this.layoutTokenStacks(job.state);
+      }
     } finally {
       this.animating = false;
+      this._animRollSeq = null;
       hub?.classList.remove('hub--throwing');
       this._dealCompose = savedDeal;
       this._shareBuy = savedShare;
@@ -476,7 +516,7 @@ export class UI {
       this._rentSharesPick = savedSharesPick;
       const next = this.pendingState;
       this.pendingState = null;
-      if (next && next !== state) {
+      if (next) {
         this.render(next);
       } else {
         this.syncTimedUi(state);
@@ -495,12 +535,13 @@ export class UI {
     );
   }
 
-  async animateDiceThrow(state) {
+  async animateDiceThrow(dice, doubles = false) {
     if (!this.dice3d) return;
+    const d = Array.isArray(dice) ? dice : [1, 1];
     await this.dice3d.throw(
-      clampDie(state.dice?.[0]),
-      clampDie(state.dice?.[1]),
-      { doubles: !!state.doubles },
+      clampDie(d[0]),
+      clampDie(d[1]),
+      { doubles: !!doubles },
     );
   }
 
@@ -852,6 +893,7 @@ export class UI {
   async doAction(action) {
     const res = await this.network.sendAction(action);
     if (!res?.ok) console.warn('Action failed:', res?.error);
+    return res;
   }
 
   renderActions(state) {
@@ -1022,15 +1064,72 @@ export class UI {
   }
 
   refreshFlipTimers(state) {
-    const well = this.actionArea?.querySelector('.flip-timer');
-    if (!well) return;
-    // На паузе хода (сборка сделки) — замороженные секунды
+    const timer = this.actionArea?.querySelector('.flip-timer');
+    if (!timer) return;
     const leftMs = this.turnLeftMs(state);
-    const html = this.flipTimerHtml(leftMs);
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html.trim();
-    const next = tmp.firstElementChild;
-    if (next) well.replaceWith(next);
+    const total = Math.max(0, Math.ceil(leftMs / 1000));
+    const mm = String(Math.floor(total / 60)).padStart(2, '0');
+    const ss = String(total % 60).padStart(2, '0');
+    const chars = [...mm, ...ss];
+    timer.setAttribute('aria-label', `${mm}:${ss}`);
+    const digits = timer.querySelectorAll('.flip-timer__digit');
+    digits.forEach((el, i) => {
+      const next = chars[i];
+      if (!next || el.dataset.val === next) return;
+      this.flipDigit(el, next);
+    });
+  }
+
+  setFlipDigitFace(el, val) {
+    const v = String(val);
+    el.dataset.val = v;
+    const base = el.querySelector('.flip-timer__base');
+    const top = el.querySelector('.flip-timer__top');
+    const bottom = el.querySelector('.flip-timer__bottom');
+    if (base) base.textContent = v;
+    if (top) top.innerHTML = `<span>${v}</span>`;
+    if (bottom) bottom.innerHTML = `<span>${v}</span>`;
+  }
+
+  /** Перелистывание одной цифры flip-clock */
+  flipDigit(el, nextVal) {
+    const prev = el.dataset.val ?? '0';
+    if (String(prev) === String(nextVal)) return;
+    if (el.classList.contains('is-flipping')) {
+      el.querySelector('.flip-timer__flap')?.remove();
+      el.classList.remove('is-flipping');
+      this.setFlipDigitFace(el, nextVal);
+      return;
+    }
+
+    const top = el.querySelector('.flip-timer__top');
+    const bottom = el.querySelector('.flip-timer__bottom');
+    const base = el.querySelector('.flip-timer__base');
+    // Сверху сразу новая, снизу старая — flap перекидывает
+    if (base) base.textContent = nextVal;
+    if (top) top.innerHTML = `<span>${nextVal}</span>`;
+    if (bottom) bottom.innerHTML = `<span>${prev}</span>`;
+    el.dataset.val = String(nextVal);
+
+    const flap = document.createElement('span');
+    flap.className = 'flip-timer__flap';
+    flap.innerHTML = `
+      <span class="flip-timer__flap-front"><span>${prev}</span></span>
+      <span class="flip-timer__flap-back"><span>${nextVal}</span></span>
+    `;
+    el.appendChild(flap);
+    el.classList.add('is-flipping');
+
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      if (bottom) bottom.innerHTML = `<span>${nextVal}</span>`;
+      flap.remove();
+      el.classList.remove('is-flipping');
+    };
+    flap.addEventListener('animationend', finish, { once: true });
+    setTimeout(finish, 520);
   }
 
   renderRollActions(state) {
@@ -1255,7 +1354,7 @@ export class UI {
     this.actionArea.innerHTML = `
       <div class="deal-panel deal-panel--compose">
         <p class="deal-panel__title">Сделка с ${escapeHtml(partner?.name || 'игроком')}</p>
-        <p class="deal-panel__hint">Можно выбрать сумму, компанию или и то и другое</p>
+        <p class="deal-panel__hint">Деньги на деньги, компании или всё вместе. По деньгам спишется разница.</p>
 
         <div class="deal-compose__block">
           <div class="deal-compose__label">Вы отдадите</div>
@@ -1305,21 +1404,27 @@ export class UI {
     this.actionArea.querySelectorAll('[data-ask-cell]').forEach(btn => {
       btn.addEventListener('click', () => toggleChip('askCells', Number(btn.dataset.askCell)));
     });
-    document.getElementById('deal-offer-money')?.addEventListener('change', (e) => {
-      this._dealCompose.offerMoney = Math.max(0, Math.floor(Number(e.target.value) || 0));
-    });
-    document.getElementById('deal-ask-money')?.addEventListener('change', (e) => {
-      this._dealCompose.askMoney = Math.max(0, Math.floor(Number(e.target.value) || 0));
-    });
-    document.getElementById('deal-send')?.addEventListener('click', () => {
-      const offerMoney = Math.max(0, Math.floor(Number(document.getElementById('deal-offer-money')?.value) || 0));
-      const askMoney = Math.max(0, Math.floor(Number(document.getElementById('deal-ask-money')?.value) || 0));
+    const syncMoney = () => {
+      if (!this._dealCompose) return;
+      this._dealCompose.offerMoney = Math.max(0, Math.floor(Number(document.getElementById('deal-offer-money')?.value) || 0));
+      this._dealCompose.askMoney = Math.max(0, Math.floor(Number(document.getElementById('deal-ask-money')?.value) || 0));
+    };
+    document.getElementById('deal-offer-money')?.addEventListener('input', syncMoney);
+    document.getElementById('deal-ask-money')?.addEventListener('input', syncMoney);
+    document.getElementById('deal-send')?.addEventListener('click', async () => {
+      syncMoney();
+      const offerMoney = this._dealCompose.offerMoney || 0;
+      const askMoney = this._dealCompose.askMoney || 0;
       const offerCells = this._dealCompose.offerCells || [];
       const askCells = this._dealCompose.askCells || [];
       if (!offerMoney && !askMoney && !offerCells.length && !askCells.length) return;
+      if (!offerCells.length && !askCells.length && offerMoney === askMoney) {
+        console.warn('Сделка: равные суммы без компаний не имеют смысла');
+        return;
+      }
       const toId = this._dealCompose.toId;
-      this._dealCompose = null;
-      this.doAction({ type: 'proposeDeal', toId, offerMoney, askMoney, offerCells, askCells });
+      const res = await this.doAction({ type: 'proposeDeal', toId, offerMoney, askMoney, offerCells, askCells });
+      if (res?.ok) this._dealCompose = null;
     });
     document.getElementById('deal-back')?.addEventListener('click', () => {
       this._dealCompose = { step: 'partner', toId: null, offerMoney: 0, askMoney: 0, offerCells: [], askCells: [] };
@@ -1405,7 +1510,11 @@ export class UI {
           ${digits.map(ch => (
             ch === ':'
               ? '<span class="flip-timer__colon" aria-hidden="true"></span>'
-              : `<span class="flip-timer__digit"><span>${ch}</span></span>`
+              : `<span class="flip-timer__digit" data-val="${ch}">
+                   <span class="flip-timer__base" aria-hidden="true">${ch}</span>
+                   <span class="flip-timer__top" aria-hidden="true"><span>${ch}</span></span>
+                   <span class="flip-timer__bottom" aria-hidden="true"><span>${ch}</span></span>
+                 </span>`
           )).join('')}
         </div>
       </div>

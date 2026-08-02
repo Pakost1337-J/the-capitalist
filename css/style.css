@@ -439,6 +439,11 @@ button, input, select { font-family: inherit; }
   transform-origin: center center;
 }
 
+/* display:block выше иначе перебивает атрибут hidden — серый градиент на некупленных */
+.cell__owner[hidden] {
+  display: none !important;
+}
+
 .cell__owner[data-side="top"] {
   background: linear-gradient(
     to bottom,
@@ -511,7 +516,7 @@ button, input, select { font-family: inherit; }
   flex: 1;
   display: flex;
   align-items: center;
-  justify-content: space-evenly;
+  justify-content: space-between;
   padding: 5px 3px;
   text-align: center;
   gap: 2px;
@@ -635,13 +640,6 @@ button, input, select { font-family: inherit; }
   min-width: 0;
 }
 
-.cell__body--left .cell__shares,
-.cell__body--right .cell__shares {
-  position: absolute;
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-}
 
 .cell__logo-text,
 .cell__company {
@@ -758,6 +756,9 @@ button, input, select { font-family: inherit; }
 }
 
 .cell__price {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   font-family: var(--font);
   font-size: clamp(0.58rem, 1.25vw, 0.82rem);
   font-weight: 500;
@@ -766,9 +767,35 @@ button, input, select { font-family: inherit; }
   flex-shrink: 0;
   letter-spacing: 0.02em;
   white-space: nowrap;
+  width: 100%;
 }
 
+.cell__price-core {
+  position: relative;
+  display: inline-block;
+}
+
+.cell__price-val {
+  display: inline-block;
+}
+
+/* × не входит в ширину центрируемого блока — сумма остаётся по центру */
+.cell__price--mult .cell__price-x {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 0.12em;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+}
+
+/* Акции поверх клетки — не участвуют во flex, лого/цена не уезжают */
 .cell__shares {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
@@ -776,13 +803,23 @@ button, input, select { font-family: inherit; }
   gap: 0;
   min-height: 0;
   min-width: 0;
-  flex-shrink: 0;
+  max-width: 94%;
   line-height: 0;
   pointer-events: none;
-  z-index: 2;
+  z-index: 3;
 }
 .cell__shares:empty {
   display: none;
+}
+.cell__body--top .cell__shares {
+  bottom: 2px;
+}
+.cell__body--bottom .cell__shares {
+  top: 2px;
+}
+.cell__body--left .cell__shares,
+.cell__body--right .cell__shares {
+  bottom: 2px;
 }
 
 .share-mark {
@@ -953,19 +990,18 @@ button, input, select { font-family: inherit; }
   transition: transform 0.55s cubic-bezier(0.4, 0.05, 0.2, 1), opacity 0.55s ease;
 }
 
-/* ── Hub: кости/кнопки слева, чат справа ── */
+/* ── Hub: меню по центру кожи, чат поверх справа ── */
 .hub {
   position: relative;
   flex: 1;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: stretch;
   min-width: 0;
   min-height: 0;
   width: 100%;
   height: 100%;
   padding: clamp(8px, 1.2vw, 14px);
-  gap: clamp(8px, 1.2vw, 14px);
   color: var(--ink-soft);
   overflow: hidden;
   font-family: var(--font);
@@ -975,9 +1011,12 @@ button, input, select { font-family: inherit; }
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* Место справа под чат, но контент арены центрируется по всей ширине */
+  padding-right: 0;
 }
 
 .hub__arena {
@@ -992,14 +1031,15 @@ button, input, select { font-family: inherit; }
   overflow: hidden;
 }
 
-/* Длинные меню — скролл, но по центру (не прижимать к верху) */
+/* Меню в центре арены; длинные — скролл у .hub__actions */
 .hub--roll-timed .hub__arena,
 .hub--rent .hub__arena,
-.hub--auction .hub__arena {
+.hub--auction .hub__arena,
+.hub--choice .hub__arena {
   justify-content: center;
+  align-items: center;
   gap: 8px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 /* Во время броска кости всегда видны по центру */
@@ -1231,19 +1271,22 @@ button, input, select { font-family: inherit; }
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  min-height: 40px;
-  flex: 1 1 auto;
+  min-height: 0;
+  /* Не растягивать на всю арену — иначе меню прилипает к верху */
+  flex: 0 1 auto;
   min-width: 0;
+  max-height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
   padding-bottom: 4px;
+  margin-block: auto;
 }
 
-/* Перед ходом: кнопки + таймер на всю высоту арены */
+/* Перед ходом: кнопки + таймер */
 .hub--roll-timed .hub__actions {
   max-width: min(100%, 300px);
-  justify-content: center;
 }
 
 .roll-panel {
@@ -1613,7 +1656,7 @@ button, input, select { font-family: inherit; }
   color: #3d2a20;
 }
 
-/* Flip-clock таймер */
+/* Flip-clock таймер с перелистыванием */
 .flip-timer {
   display: flex;
   justify-content: center;
@@ -1633,23 +1676,71 @@ button, input, select { font-family: inherit; }
 }
 
 .flip-timer__digit {
+  --flip-w: 1.35em;
+  --flip-h: 1.7em;
   position: relative;
-  width: 1.35em;
-  height: 1.7em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(180deg, #3a3a3a 0%, #222 48%, #1a1a1a 52%, #111 100%);
-  border-radius: 4px;
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  width: var(--flip-w);
+  height: var(--flip-h);
   font-family: 'PTNarrow', Consolas, monospace;
   font-size: clamp(1.15rem, 2vw, 1.45rem);
   font-weight: 700;
   color: #5dff5a;
   text-shadow: 0 0 6px rgba(60, 255, 70, 0.55);
   line-height: 1;
+  border-radius: 4px;
+  perspective: 280px;
+  background: #111;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.flip-timer__base {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #3a3a3a 0%, #222 48%, #1a1a1a 52%, #111 100%);
+  z-index: 0;
+}
+
+.flip-timer__top,
+.flip-timer__bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50%;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.flip-timer__top {
+  top: 0;
+  align-items: flex-start;
+  background: linear-gradient(180deg, #3a3a3a 0%, #262626 100%);
+  border-radius: 4px 4px 0 0;
+}
+
+.flip-timer__bottom {
+  bottom: 0;
+  align-items: flex-end;
+  background: linear-gradient(180deg, #1a1a1a 0%, #111 100%);
+  border-radius: 0 0 4px 4px;
+}
+
+.flip-timer__top > *,
+.flip-timer__bottom > *,
+.flip-timer__flap-front > *,
+.flip-timer__flap-back > * {
+  display: block;
+  height: var(--flip-h);
+  line-height: var(--flip-h);
+  text-align: center;
 }
 
 .flip-timer__digit::after {
@@ -1659,8 +1750,66 @@ button, input, select { font-family: inherit; }
   right: 0;
   top: 50%;
   height: 1px;
-  background: rgba(0, 0, 0, 0.65);
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 5;
   pointer-events: none;
+}
+
+.flip-timer__flap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 50%;
+  z-index: 4;
+  transform-origin: bottom center;
+  transform-style: preserve-3d;
+  animation: flip-timer-leaf 0.45s ease-in forwards;
+}
+
+.flip-timer__flap-front,
+.flip-timer__flap-back {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.flip-timer__flap-front {
+  align-items: flex-start;
+  background: linear-gradient(180deg, #404040 0%, #2a2a2a 100%);
+  border-radius: 4px 4px 0 0;
+}
+
+.flip-timer__flap-back {
+  align-items: flex-end;
+  background: linear-gradient(180deg, #222 0%, #141414 100%);
+  border-radius: 0 0 4px 4px;
+  transform: rotateX(180deg);
+}
+
+.flip-timer__flap-back > * {
+  transform: translateY(-50%);
+}
+
+.flip-timer__top > * {
+  transform: translateY(0);
+}
+
+.flip-timer__bottom > * {
+  transform: translateY(-50%);
+}
+
+.flip-timer__flap-front > * {
+  transform: translateY(0);
+}
+
+@keyframes flip-timer-leaf {
+  0% { transform: rotateX(0deg); }
+  100% { transform: rotateX(-180deg); }
 }
 
 .flip-timer__colon {
@@ -1783,12 +1932,13 @@ button, input, select { font-family: inherit; }
 }
 
 .auction-panel {
-  width: 100%;
-  max-width: 320px;
+  width: min(100%, 340px);
+  margin-inline: auto;
   text-align: center;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
   color: #f3e6d4;
 }
 
@@ -1799,6 +1949,7 @@ button, input, select { font-family: inherit; }
   gap: 8px;
   font-weight: 800;
   font-size: 0.95rem;
+  width: 100%;
 }
 .auction-panel__label {
   font-size: 0.85rem;
@@ -1826,31 +1977,60 @@ button, input, select { font-family: inherit; }
   color: #ffe08a;
   line-height: 1;
 }
+.auction-panel .flip-timer {
+  width: 100%;
+  justify-content: center;
+}
 .auction-panel__meta,
 .auction-panel__bid,
-.auction-panel__next { font-size: 0.78rem; font-weight: 700; }
+.auction-panel__next,
 .auction-panel__watch {
-  font-size: 0.8rem;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 6px;
+  box-sizing: border-box;
+  text-align: center;
+  font-size: 0.78rem;
   font-weight: 700;
-  opacity: 0.9;
-  margin-top: 6px;
   line-height: 1.35;
 }
-.auction-panel .btn { margin-top: 4px; }
+.auction-panel__watch {
+  font-size: 0.8rem;
+  opacity: 0.9;
+  margin-top: 2px;
+}
+.auction-panel .btn {
+  margin-top: 4px;
+  width: min(100%, 280px);
+  align-self: center;
+}
+
+.hub--auction .hub__actions {
+  max-width: min(100%, 360px);
+  margin-inline: auto;
+  align-items: center;
+}
 
 .hub__chat {
-  flex: 0 0 clamp(180px, 28%, 260px);
-  min-width: 160px;
-  max-width: 280px;
-  align-self: stretch;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  width: clamp(168px, 28%, 260px);
   display: flex;
   flex-direction: column;
   min-height: 0;
-  gap: 8px;
-  padding: 8px;
-  background: rgba(40, 26, 18, 0.28);
-  border: 1px solid rgba(255, 220, 170, 0.12);
-  border-radius: 12px;
+  gap: 10px;
+  padding: clamp(10px, 1.4vw, 16px) clamp(10px, 1.2vw, 14px);
+  /* Как осветление по центру, но затемнение справа — без «окошка» */
+  background:
+    radial-gradient(120% 90% at 100% 50%, rgba(20, 12, 8, 0.55) 0%, rgba(20, 12, 8, 0.28) 42%, transparent 72%);
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  pointer-events: auto;
 }
 
 .hub__chat-messages {
@@ -1862,24 +2042,29 @@ button, input, select { font-family: inherit; }
   justify-content: flex-end;
   font-size: clamp(0.62rem, 1.05vw, 0.78rem);
   font-weight: 600;
-  color: rgba(243, 230, 212, 0.85);
+  color: rgba(243, 230, 212, 0.92);
   text-align: left;
-  padding-right: 4px;
+  padding: 4px 2px 4px 0;
   scrollbar-width: thin;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
 .hub__chat-input {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 10px;
-  background: #fff;
+  gap: 8px;
+  padding: 8px 12px 8px 14px;
+  background: #f3e8d8;
   border-radius: 999px;
-  border: 1px solid rgba(0,0,0,0.12);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  border: 1.5px solid #3a2418;
+  box-shadow:
+    inset 0 2px 4px rgba(40, 24, 12, 0.28),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.18);
   flex-shrink: 0;
   width: 100%;
   margin: 0;
+  box-sizing: border-box;
 }
 
 .hub__chat-input input {
@@ -1887,22 +2072,43 @@ button, input, select { font-family: inherit; }
   min-width: 0;
   border: none;
   outline: none;
-  font-size: clamp(0.7rem, 1vw, 0.82rem);
-  font-weight: 600;
-  color: var(--ink);
+  font-family: inherit;
+  font-size: clamp(0.72rem, 1vw, 0.84rem);
+  font-weight: 500;
+  color: #2a1c14;
   background: transparent;
+}
+
+.hub__chat-input input::placeholder {
+  color: #9a8a7a;
+  font-weight: 500;
+  opacity: 1;
 }
 
 .hub__chat-input button {
   border: none;
-  background: #2f6fed;
-  color: #fff;
+  background: transparent;
+  color: #3a2418;
   width: 28px;
   height: 28px;
-  border-radius: 50%;
+  padding: 0;
+  border-radius: 0;
   cursor: pointer;
-  font-size: 0.8rem;
   flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  opacity: 0.9;
+}
+
+.hub__chat-input button:hover {
+  opacity: 1;
+  color: #1a120c;
+}
+
+.hub__chat-send-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
 }
 
 .log-line { padding: 2px 0; }

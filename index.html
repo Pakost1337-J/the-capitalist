@@ -93,8 +93,12 @@
               <aside class="hub__chat">
                 <div class="hub__chat-messages" id="game-log"></div>
                 <div class="hub__chat-input">
-                  <input type="text" id="chat-input" placeholder="Напишите сообщение..." maxlength="120" />
-                  <button type="button" id="chat-send" title="Отправить">➤</button>
+                  <input type="text" id="chat-input" placeholder="Напишите сообщение" maxlength="120" />
+                  <button type="button" id="chat-send" title="Отправить" aria-label="Отправить">
+                    <svg class="hub__chat-send-icon" viewBox="0 0 24 24" aria-hidden="true">
+                      <path fill="currentColor" d="M3.2 11.05 20.05 3.4a.9.9 0 0 1 1.2 1.05l-3.7 15.2a.9.9 0 0 1-1.45.5l-4.55-3.55-2.7 2.35a.7.7 0 0 1-1.15-.45v-3.7L3.15 12.3a.9.9 0 0 1 .05-1.25Zm8.35 3.05 6.85-7.55-5.2 9.55v-1.35l-1.65-.65Z"/>
+                    </svg>
+                  </button>
                 </div>
               </aside>
 
