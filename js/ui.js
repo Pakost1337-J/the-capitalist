@@ -86,8 +86,9 @@ export class UI {
     const IMG_W = 1024;
     const IMG_H = 698;
     const ASPECT = IMG_W / IMG_H;
-    const WOOD_X = [13, 152, 217, 283, 348, 413, 478, 544, 609, 674, 739, 805, 870, 1010];
-    const WOOD_Y = [13, 149, 215.5, 282, 348.5, 415, 481.5, 548, 685];
+    // Чуть сдвигаем клетки к центру: больше внешний кант, глубже внутрь
+    const WOOD_X = [18, 148, 214, 280, 346, 412, 478, 544, 610, 676, 742, 808, 874, 1006];
+    const WOOD_Y = [18, 145, 212, 279, 346, 413, 480, 547, 680];
 
     let boardW = availW;
     let boardH = Math.floor(boardW / ASPECT);
@@ -249,19 +250,26 @@ export class UI {
       const flagHtml = flagSrc
         ? `<img class="cell__flag-img" src="${flagSrc}" alt="" />`
         : (cell.flag ? `<span class="cell__flag">${cell.flag}</span>` : '');
-      // DOM: страна → логотип → деньги → акции; flex по стороне тянет страну к краю доски
-      body = `
-        <div class="cell__country-slot">${flagHtml}</div>
+      const logo = `
         <div class="cell__logo" title="Слот логотипа">
           <span class="cell__logo-text">${escapeHtml(company)}</span>
-        </div>
-        ${price ? `<span class="cell__price">${price}</span>` : ''}
-        <div class="cell__shares" data-houses="${index}" aria-label="Акции"></div>
-      `;
+        </div>`;
+      const priceEl = price ? `<span class="cell__price">${price}</span>` : '';
+      const flagEl = `<div class="cell__country-slot">${flagHtml}</div>`;
+      const shares = `<div class="cell__shares" data-houses="${index}" aria-label="Акции"></div>`;
+      // Верх/низ: флаг у края → лого → цена. Бока: лого → цена → флаг
+      if (side === 'left' || side === 'right') {
+        body = `${logo}${priceEl}${flagEl}${shares}`;
+      } else {
+        body = `${flagEl}${logo}${priceEl}${shares}`;
+      }
     } else if (cell.type === 'tax') {
+      const pct = cell.taxPercent != null ? `${cell.taxPercent}%` : '6%';
       body = `
-        <span class="cell__tax-marks">%%%</span>
-        <span class="cell__name">${escapeHtml(cell.name)}</span>
+        <div class="cell__tax">
+          <span class="cell__tax-title">НАЛОГ</span>
+          <span class="cell__tax-pct">${escapeHtml(pct)}</span>
+        </div>
       `;
     } else if (isCorner) {
       // Углы — только арт с board-frame, без надписей
@@ -498,11 +506,18 @@ export class UI {
     if (!cell || !this.boardEl) return { x: 0, y: 0 };
     const boardRect = this.boardEl.getBoundingClientRect();
     const cellRect = cell.getBoundingClientRect();
-    const ox = ((stackIndex % 2) - (stackCount > 1 ? 0.35 : 0)) * 12;
-    const oy = (Math.floor(stackIndex / 2) - (stackCount > 2 ? 0.35 : 0)) * 12;
+    // absolute-слой считается от padding-edge — вычитаем padding доски
+    const cs = getComputedStyle(this.boardEl);
+    const padL = parseFloat(cs.paddingLeft) || 0;
+    const padT = parseFloat(cs.paddingTop) || 0;
+    const cols = Math.min(2, stackCount);
+    const col = stackIndex % cols;
+    const row = Math.floor(stackIndex / cols);
+    const ox = (col - (cols - 1) / 2) * Math.min(14, cellRect.width * 0.22);
+    const oy = (row - (Math.ceil(stackCount / cols) - 1) / 2) * Math.min(12, cellRect.height * 0.2);
     return {
-      x: cellRect.left - boardRect.left + cellRect.width * 0.72 + ox,
-      y: cellRect.top - boardRect.top + cellRect.height * 0.68 + oy,
+      x: cellRect.left - boardRect.left - padL + cellRect.width * 0.5 + ox,
+      y: cellRect.top - boardRect.top - padT + cellRect.height * 0.5 + oy,
     };
   }
 

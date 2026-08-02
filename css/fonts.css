@@ -1,0 +1,36 @@
+﻿/* Шрифты Monopoly Club (Wayback → локально) */
+@font-face {
+  font-family: 'PTNarrow';
+  src: url('/assets/fonts/ptnarrow/ptnarrow-light.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'PTNarrow';
+  src: url('/assets/fonts/ptnarrow/ptnarrow-regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'PTNarrow';
+  src: url('/assets/fonts/ptnarrow/ptnarrow-demibold.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'PTNarrow';
+  src: url('/assets/fonts/ptnarrow/ptnarrow-demibold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Stamper';
+  src: url('/assets/fonts/stamper/stamper.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}

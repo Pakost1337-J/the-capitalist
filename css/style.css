@@ -20,7 +20,8 @@
   --die-size: clamp(56px, 8.5vw, 80px);
   --logo-w: 40px;
   --logo-h: 28px;
-  --font: 'Manrope', system-ui, sans-serif;
+  --font: 'PTNarrow', 'Segoe UI', system-ui, sans-serif;
+  --font-stamp: 'Stamper', 'Times New Roman', serif;
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
   --leather-img: url('/assets/ui/leather.png');
   --table-img: url('/assets/ui/table.png');
@@ -280,22 +281,33 @@ button, input, select { font-family: inherit; }
   box-sizing: border-box;
 }
 
+/* Центр под клетками, чуть шире внутреннего отверстия доски */
 .board__center {
-  grid-row: 2 / 8;
-  grid-column: 2 / 13;
+  grid-row: 1 / -1;
+  grid-column: 1 / -1;
+  margin:
+    calc(var(--frame-pad-y) + var(--corner) - 10px)
+    calc(var(--frame-pad-xr) + var(--corner) - 10px)
+    calc(var(--frame-pad-yb) + var(--corner-bot) - 10px)
+    calc(var(--frame-pad-x) + var(--corner) - 10px);
   background:
-    linear-gradient(160deg, rgba(70,48,36,0.35), rgba(20,14,10,0.55)),
+    linear-gradient(160deg, rgba(40,28,20,0.25), rgba(20,14,10,0.45)),
+    url('/assets/board/board-center.png') center / cover no-repeat,
     var(--leather-img) center / cover;
   border: none;
-  box-shadow: inset 0 0 40px rgba(0,0,0,0.45);
+  box-shadow: none;
   display: flex;
   align-items: stretch;
   justify-content: stretch;
   overflow: hidden;
   min-width: 0;
   min-height: 0;
-  border-radius: 2px;
-  z-index: 1;
+  border-radius: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.board__center > * {
+  pointer-events: auto;
 }
 
 /* Клетки прозрачные — дерево/металл с картинки доски */
@@ -312,10 +324,11 @@ button, input, select { font-family: inherit; }
   min-height: 0;
 }
 
+/* Подсветка хода — без синего квадрата */
 .cell--highlight {
-  box-shadow: inset 0 0 0 3px #2f6fed;
+  box-shadow: none;
   z-index: 2;
-  background: rgba(47, 111, 237, 0.12);
+  background: transparent;
 }
 
 .cell--owned {
@@ -339,34 +352,29 @@ button, input, select { font-family: inherit; }
   flex: 1;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  padding: 4px 3px;
+  justify-content: space-evenly;
+  padding: 5px 3px;
   text-align: center;
-  gap: 3px;
+  gap: 2px;
   min-height: 0;
   min-width: 0;
 }
 
-/* Край доски → центр: страна, логотип, деньги; акции к центру */
+/* Верх/низ: флаг у внешнего края. Бока: колонка лого → цена → флаг */
 .cell__body--top {
   flex-direction: column;
-}
-.cell__body--right {
-  flex-direction: row-reverse;
 }
 .cell__body--bottom {
   flex-direction: column-reverse;
 }
-.cell__body--left {
-  flex-direction: row;
+.cell__body--left,
+.cell__body--right {
+  flex-direction: column;
+  padding: 3px 4px;
 }
 .cell__body--corner {
   padding: 0;
 }
-.cell__body--top .cell__shares { margin-top: auto; }
-.cell__body--bottom .cell__shares { margin-bottom: auto; }
-.cell__body--left .cell__shares { margin-left: auto; }
-.cell__body--right .cell__shares { margin-right: auto; }
 
 /* Углы уже нарисованы на board-frame — подпись не нужна */
 .cell__name--corner {
@@ -378,21 +386,24 @@ button, input, select { font-family: inherit; }
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  padding: 2px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(120, 90, 60, 0.35);
+  border-radius: 3px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
 }
 
 .cell__flag {
   font-size: clamp(0.85rem, 1.6vw, 1.15rem);
   line-height: 1;
-  filter: drop-shadow(0 1px 0 rgba(255,255,255,0.4));
 }
 
 .cell__flag-img {
-  width: clamp(22px, 3.2vw, 36px);
+  width: clamp(20px, 2.8vw, 32px);
   height: auto;
-  max-height: clamp(16px, 2.2vw, 24px);
+  max-height: clamp(14px, 2vw, 22px);
   object-fit: cover;
-  border-radius: 2px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  border-radius: 1px;
   display: block;
   flex-shrink: 0;
 }
@@ -414,31 +425,75 @@ button, input, select { font-family: inherit; }
 
 .cell__body--left .cell__logo,
 .cell__body--right .cell__logo {
-  width: var(--logo-h);
-  height: min(100%, var(--logo-w));
+  width: min(100%, var(--logo-w));
+  height: auto;
+  min-height: 12px;
   writing-mode: horizontal-tb;
+}
+
+.cell__body--left .cell__logo-text,
+.cell__body--right .cell__logo-text {
+  font-size: clamp(0.48rem, 1.05vw, 0.7rem);
+}
+
+.cell__body--left .cell__flag-img,
+.cell__body--right .cell__flag-img {
+  width: clamp(16px, 2.2vw, 26px);
+  max-height: clamp(12px, 1.6vw, 18px);
 }
 
 .cell__logo-text,
 .cell__company {
-  font-size: clamp(0.48rem, 1.05vw, 0.68rem);
-  font-weight: 800;
-  color: #1f140c;
+  font-family: var(--font-stamp), var(--font);
+  font-size: clamp(0.52rem, 1.15vw, 0.78rem);
+  font-weight: 400;
+  color: #2a1c14;
   line-height: 1.05;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-transform: none;
+  text-transform: uppercase;
   padding: 0 2px;
 }
 
-.cell__tax-marks {
-  font-size: clamp(0.85rem, 1.8vw, 1.25rem);
-  font-weight: 900;
+.cell--tax .cell__body {
+  flex-direction: column !important;
+  justify-content: center;
+  align-items: center;
+}
+
+.cell__tax {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  padding: 4px 2px;
+}
+
+.cell__tax-title,
+.cell__tax-pct {
+  font-family: var(--font-stamp), serif;
+  font-weight: 400;
+  color: #1a120c;
+  line-height: 1.05;
+  text-align: center;
+}
+
+.cell__tax-title {
+  font-size: clamp(0.7rem, 1.5vw, 1.05rem);
   letter-spacing: 0.04em;
-  color: #7a2e1a;
-  line-height: 1;
+}
+
+.cell__tax-pct {
+  font-size: clamp(0.85rem, 1.8vw, 1.25rem);
+}
+
+.cell__tax-marks {
+  display: none;
 }
 
 .cell__icon { font-size: clamp(0.85rem, 1.6vw, 1.15rem); line-height: 1; }
@@ -456,11 +511,13 @@ button, input, select { font-family: inherit; }
 }
 
 .cell__price {
+  font-family: var(--font);
   font-size: clamp(0.58rem, 1.25vw, 0.82rem);
-  font-weight: 800;
+  font-weight: 500;
   color: #2a1c14;
   line-height: 1.05;
   flex-shrink: 0;
+  letter-spacing: 0.02em;
 }
 
 .cell__shares {
@@ -617,10 +674,11 @@ button, input, select { font-family: inherit; }
   min-height: 0;
   width: 100%;
   height: 100%;
-  padding: clamp(6px, 1vw, 10px);
+  padding: clamp(8px, 1.2vw, 14px);
   gap: clamp(8px, 1.2vw, 14px);
   color: var(--ink-soft);
   overflow: hidden;
+  font-family: var(--font);
 }
 
 .hub__main {
@@ -639,9 +697,10 @@ button, input, select { font-family: inherit; }
 }
 
 .hub__turn {
-  font-size: clamp(0.65rem, 1.2vw, 0.85rem);
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  font-family: var(--font);
+  font-size: clamp(0.72rem, 1.35vw, 0.95rem);
+  font-weight: 500;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: #f3e6d4;
 }
