@@ -33,11 +33,7 @@ export class UI {
     this.die2Throw = document.getElementById('die2-throw');
     this.dieSum = null;
     this.diceStage = document.getElementById('dice-stage');
-    this.hubTurn = document.getElementById('hub-turn');
-    this.hubName = document.getElementById('hub-name');
-    this.hubCash = document.getElementById('hub-cash');
-    this.hubCapital = document.getElementById('hub-capital');
-    this.hubCompanies = document.getElementById('hub-companies');
+    this.hubTurn = null;
 
     this.choicePanel = document.getElementById('choice-panel');
 
@@ -654,23 +650,8 @@ export class UI {
     return capital;
   }
 
-  renderHub(state) {
-    const current = state.players[state.currentPlayerIndex];
-    const me = state.players.find(p => p.id === this.mySlot) || current;
-
-    if (this.hubTurn) {
-      this.hubTurn.textContent = state.phase === PHASE.GAME_OVER
-        ? 'ИГРА ОКОНЧЕНА'
-        : state.phase === PHASE.AUCTION
-          ? 'АУКЦИОН'
-          : `ХОД ИГРОКА ${current?.name || ''}`.toUpperCase();
-    }
-
-    const focus = state.isMyTurn ? me : current;
-    if (this.hubName) this.hubName.textContent = focus?.name || '—';
-    if (this.hubCash) this.hubCash.textContent = formatMoney(focus?.money || 0);
-    if (this.hubCapital) this.hubCapital.textContent = formatMoney(this.calcCapital(focus || { money: 0, properties: [] }, state));
-    if (this.hubCompanies) this.hubCompanies.textContent = String(focus?.properties?.length || 0);
+  renderHub(_state) {
+    // Капитал / компании / наличные — только на карточках справа (как в Club)
   }
 
   renderPlayers(state) {
@@ -791,7 +772,7 @@ export class UI {
     }
 
     if (!isMyTurn || state.phase === PHASE.MOVING) {
-      this.actionArea.innerHTML = `<div class="wait-turn">Ход: <strong>${escapeHtml(p.name)}</strong></div>`;
+      this.actionArea.innerHTML = `<div class="wait-turn">Ход игрока <strong>${escapeHtml(p.name)}</strong></div>`;
       return;
     }
 
@@ -800,7 +781,7 @@ export class UI {
     if (state.phase === PHASE.ROLL) {
       const rollBtn = document.createElement('button');
       rollBtn.className = 'btn btn--roll';
-      rollBtn.textContent = p.inJail ? 'Тюрьма: выбрать действие' : 'Бросить кубики';
+      rollBtn.textContent = p.inJail ? 'ТЮРЬМА: ВЫБРАТЬ' : 'БРОСИТЬ КОСТИ';
       rollBtn.addEventListener('click', () => {
         if (p.inJail && p.money >= JAIL_BAIL) {
           this.showChoiceButtons({
