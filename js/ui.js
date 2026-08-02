@@ -1,5 +1,5 @@
 import {
-  BOARD, BOARD_SIZE, COUNTRY_FLAG_SRC, COUNTRY_LABEL_RU, GROUP_COLORS,
+  BOARD, BOARD_SIZE, BRAND_LOGO_SRC, COUNTRY_FLAG_SRC, COUNTRY_LABEL_RU, GROUP_COLORS,
   JAIL_BAIL, AUCTION_STEP, getGridPosition,
 } from './config.js';
 import { formatMoney, formatPriceShort, sleep } from './utils.js';
@@ -264,10 +264,14 @@ export class UI {
       const flagHtml = flagSrc
         ? `<img class="cell__flag-img" src="${flagSrc}" alt="" />`
         : (cell.flag ? `<span class="cell__flag">${cell.flag}</span>` : '');
-      const logo = `
-        <div class="cell__logo" title="Слот логотипа">
-          <span class="cell__logo-text">${escapeHtml(company)}</span>
-        </div>`;
+      const logoSrc = BRAND_LOGO_SRC[company] || BRAND_LOGO_SRC[cell.brand] || '';
+      const logo = logoSrc
+        ? `<div class="cell__logo" title="${escapeHtml(company)}">
+             <img class="cell__logo-img" src="${logoSrc}" alt="${escapeHtml(company)}" />
+           </div>`
+        : `<div class="cell__logo" title="${escapeHtml(company)}">
+             <span class="cell__logo-text">${escapeHtml(company)}</span>
+           </div>`;
       const priceEl = price ? `<span class="cell__price">${price}</span>` : '';
       const flagEl = `<div class="cell__country-slot">${flagHtml}</div>`;
       const shares = `<div class="cell__shares" data-houses="${index}" aria-label="Акции"></div>`;

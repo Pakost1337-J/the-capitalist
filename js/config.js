@@ -25,12 +25,27 @@ export const LONG_MID = 11;
 
 export const PLAYER_SLOTS = [
   // tokenImage — у карточки игрока; tokenBoardImage — на поле
-  { id: 0, name: 'Красная', color: '#e11d48', colorSoft: '#fecdd3', token: 'pawn', tokenImage: '/assets/chips/chip_red_norefl.png', tokenBoardImage: '/assets/chips/chip_red_board.png' },
-  { id: 1, name: 'Синяя', color: '#2563eb', colorSoft: '#bfdbfe', token: 'pawn', tokenImage: '/assets/chips/chip_blue_norefl.png', tokenBoardImage: '/assets/chips/chip_blue_board.png' },
-  { id: 2, name: 'Жёлтая', color: '#ca8a04', colorSoft: '#fef08a', token: 'pawn', tokenImage: '/assets/chips/chip_yellow_norefl.png', tokenBoardImage: '/assets/chips/chip_yellow_board.png' },
-  { id: 3, name: 'Зелёная', color: '#16a34a', colorSoft: '#bbf7d0', token: 'pawn', tokenImage: '/assets/chips/chip_green_norefl.png', tokenBoardImage: '/assets/chips/chip_green_board.png' },
-  { id: 4, name: 'Розовая', color: '#db2777', colorSoft: '#fbcfe8', token: 'pawn', tokenImage: '/assets/chips/chip_pink_norefl.png', tokenBoardImage: '/assets/chips/chip_pink_board.png' },
+  { id: 0, name: 'Красная', color: '#e11d48', colorSoft: '#fecdd3', token: 'pawn', tokenImage: '/assets/chips/chip_red_board.png', tokenBoardImage: '/assets/chips/chip_red_board.png' },
+  { id: 1, name: 'Синяя', color: '#2563eb', colorSoft: '#bfdbfe', token: 'pawn', tokenImage: '/assets/chips/chip_blue_board.png', tokenBoardImage: '/assets/chips/chip_blue_board.png' },
+  { id: 2, name: 'Жёлтая', color: '#ca8a04', colorSoft: '#fef08a', token: 'pawn', tokenImage: '/assets/chips/chip_yellow_board.png', tokenBoardImage: '/assets/chips/chip_yellow_board.png' },
+  { id: 3, name: 'Зелёная', color: '#16a34a', colorSoft: '#bbf7d0', token: 'pawn', tokenImage: '/assets/chips/chip_green_board.png', tokenBoardImage: '/assets/chips/chip_green_board.png' },
+  { id: 4, name: 'Розовая', color: '#db2777', colorSoft: '#fbcfe8', token: 'pawn', tokenImage: '/assets/chips/chip_pink_board.png', tokenBoardImage: '/assets/chips/chip_pink_board.png' },
 ];
+
+/** Логотипы компаний (есть файл → картинка, иначе текст) */
+export const BRAND_LOGO_SRC = {
+  'Rolls-Royce': '/assets/icons/logo/rolls-royce.svg',
+  Alibaba: '/assets/icons/logo/alibaba.svg',
+  BP: '/assets/icons/logo/bp.svg',
+  BBC: '/assets/icons/logo/BBC.svg',
+  Samsung: '/assets/icons/logo/samsung.svg',
+  Danone: '/assets/icons/logo/Danone.svg',
+  Hennessy: '/assets/icons/logo/hennessy.svg',
+  Lenovo: '/assets/icons/logo/Lenovo.svg',
+  "L'Oréal": '/assets/icons/logo/Loreal.svg',
+  IKEA: '/assets/icons/logo/ikea.svg',
+  Volvo: '/assets/icons/logo/Volvo.svg',
+};
 
 export const GROUP_COLORS = {
   gb: '#c4b8a8',

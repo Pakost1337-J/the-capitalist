@@ -1686,9 +1686,18 @@ button, input, select { font-family: inherit; }
   width: clamp(44px, 5vw, 56px);
   height: clamp(44px, 5vw, 56px);
   object-fit: contain;
-  filter: drop-shadow(2px 4px 3px rgba(0, 0, 0, 0.35));
+  /* тень уже в PNG */
+  filter: none;
   pointer-events: none;
   z-index: 1;
+}
+
+.cell__logo-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
 }
 
 .p-card__chip--fallback {
