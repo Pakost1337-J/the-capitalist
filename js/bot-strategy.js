@@ -88,6 +88,18 @@ export function canAffordWithReserve(player, cost, reserve = CASH_RESERVE) {
   return player.money - cost >= reserve;
 }
 
+function ownedCompanyCount(player) {
+  return (player?.properties || []).length;
+}
+
+/** Too expensive relative to cash (unless strategic) */
+function feelsExpensive(player, price, score = 0) {
+  if (price == null || !player) return true;
+  if (price > player.money * 0.35 && score < 75) return true;
+  if (player.money - price < CASH_RESERVE * 0.45 && score < 85) return true;
+  return false;
+}
+
 export function shouldBotBuy(game, player, cell, price) {
   if (!player || !cell || price == null) return false;
   if (player.money < price) return false;
@@ -95,12 +107,19 @@ export function shouldBotBuy(game, player, cell, price) {
   const score = interestScore(game, player.id, cell);
   const completes = wouldCompleteGroup(game, player.id, cell);
   const after = player.money - price;
+  const bare = ownedCompanyCount(player) === 0;
 
   if (after < CASH_RESERVE) {
-    if (!completes || after < CASH_RESERVE * 0.45) return false;
+    if (!completes && !(bare && after >= CASH_RESERVE * 0.45)) return false;
+    if (completes && after < CASH_RESERVE * 0.45) return false;
   }
 
-  if (price > player.money * 0.35 && score < 75) return false;
+  if (feelsExpensive(player, price, score) && !completes) return false;
+
+  // No companies yet: ~80% buy anything that is not expensive
+  if (bare) {
+    return Math.random() < 0.8;
+  }
 
   if (score >= 70) return true;
   if (score >= 55) return Math.random() > 0.2;
@@ -111,24 +130,42 @@ export function maxAuctionBid(game, player, cell) {
   if (!player || !cell?.price) return 0;
   const score = interestScore(game, player.id, cell);
   const base = cell.price;
+  const bare = ownedCompanyCount(player) === 0;
   let mult = 0.65;
   if (score >= 90) mult = 1.45;
   else if (score >= 75) mult = 1.2;
   else if (score >= 60) mult = 1.05;
   else if (score >= 40) mult = 0.85;
+  else if (bare) mult = 1.0;
   else mult = 0.65;
 
   let cap = Math.floor(base * mult);
-  cap = Math.min(cap, Math.max(0, player.money - CASH_RESERVE));
+  const reserve = bare ? CASH_RESERVE * 0.45 : CASH_RESERVE;
+  cap = Math.min(cap, Math.max(0, player.money - reserve));
   return cap;
 }
 
 export function shouldBotBid(game, player, cell, nextPrice) {
   if (!player || !cell || nextPrice == null) return false;
   if (player.money < nextPrice) return false;
-  if (!canAffordWithReserve(player, nextPrice) && !wouldCompleteGroup(game, player.id, cell)) {
+
+  const score = interestScore(game, player.id, cell);
+  const completes = wouldCompleteGroup(game, player.id, cell);
+  const bare = ownedCompanyCount(player) === 0;
+
+  if (feelsExpensive(player, nextPrice, bare ? 50 : score) && !completes) return false;
+
+  if (!canAffordWithReserve(player, nextPrice) && !completes && !bare) {
     return false;
   }
+
+  // No companies: 80% take auction lot if not expensive
+  if (bare) {
+    const cap = maxAuctionBid(game, player, cell);
+    if (nextPrice > cap) return false;
+    return Math.random() < 0.8;
+  }
+
   const cap = maxAuctionBid(game, player, cell);
   if (nextPrice > cap) return false;
   if (nextPrice > cap * 0.9) return Math.random() > 0.35;

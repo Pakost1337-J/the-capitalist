@@ -1,6 +1,6 @@
 import {
   BOARD, BOARD_SIZE, BRAND_LOGO_SRC, COUNTRY_FLAG_SRC, COUNTRY_LABEL_RU, GROUP_COLORS,
-  JAIL_BAIL, AUCTION_STEP, getGridPosition, playerOwnTint,
+  JAIL_BAIL, AUCTION_STEP, getGridPosition, getGroupProperties, playerOwnTint,
 } from './config.js';
 import { formatMoney, formatPriceShort, sleep } from './utils.js';
 import { PHASE } from './game.js';
@@ -26,7 +26,6 @@ export class UI {
     this.playersPanel = document.getElementById('players-panel');
     this.actionArea = document.getElementById('action-area');
     this.gameLog = document.getElementById('game-log');
-    this.chatLines = [];
     this.dieSum = null;
     this.diceStage = document.getElementById('dice-stage');
     this.dice3d = null;
@@ -77,11 +76,12 @@ export class UI {
 
     // Делители: mid из SVG-сетки, края — inset дерева на board-frame (не 0/1023)
     // 13×8 → 38 клеток: угол + 11 mid + угол / угол + 6 mid + угол
-    const IMG_W = 1024;
-    const IMG_H = 698;
+    // board-frame.png после обрезки края −2px с каждой стороны
+    const IMG_W = 1020;
+    const IMG_H = 694;
     const ASPECT = IMG_W / IMG_H;
-    const WOOD_X = [13, 153, 218, 284, 349, 414, 479, 544, 610, 674, 740, 805, 870, 1010];
-    const WOOD_Y = [13, 154, 220, 285, 350, 415, 480, 546, 685];
+    const WOOD_X = [11, 151, 216, 282, 347, 412, 477, 542, 608, 672, 738, 803, 868, 1008];
+    const WOOD_Y = [11, 152, 218, 283, 348, 413, 478, 544, 683];
 
     let boardW = availW;
     let boardH = Math.floor(boardW / ASPECT);
@@ -128,8 +128,8 @@ export class UI {
     const colCss = colTracks.map((px) => `${px}px`).join(' ');
     const rowCss = rowTracks.map((px) => `${px}px`).join(' ');
 
-    // Центральная кожа в board-frame.png (после inset −2px / радиус 6)
-    const HOLE = { l: 149, t: 150, r: 874, b: 548 };
+    // Центральная кожа (coords после crop −2px края доски)
+    const HOLE = { l: 147, t: 148, r: 872, b: 546 };
     const holeL = Math.round(HOLE.l * sx);
     const holeT = Math.round(HOLE.t * sy);
     const holeR = Math.round((IMG_W - HOLE.r) * sx);
@@ -175,10 +175,7 @@ export class UI {
     const submit = () => {
       const text = input.value.trim();
       if (!text || !this.lastState) return;
-      const me = this.lastState.players.find(p => p.id === this.mySlot);
-      const line = `${me?.name || 'Игрок'}: ${text}`;
       this.network?.socket?.emit('chat', { text });
-      this.appendChat(line);
       input.value = '';
     };
 
@@ -186,27 +183,14 @@ export class UI {
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') submit();
     });
-
-    this.network?.socket?.on('chat-message', (msg) => {
-      if (msg?.from === this.network?.socket?.id) return;
-      this.appendChat(`${msg.name}: ${msg.text}`);
-    });
-  }
-
-  appendChat(line) {
-    this.chatLines.push(line);
-    if (this.chatLines.length > 40) this.chatLines.shift();
-    if (this.lastState) this.renderLog(this.lastState);
-    else this.paintLogLines([]);
   }
 
   paintLogLines(gameLines) {
     if (!this.gameLog) return;
-    const all = [...gameLines, ...this.chatLines];
-    this.gameLog.innerHTML = all.map(line =>
+    this.gameLog.innerHTML = gameLines.map(line =>
       `<div class="log-line">${escapeHtml(line)}</div>`
     ).join('');
-    // Сообщения прижаты к низу (flex-end); докручиваем скролл после отрисовки
+    // Лента ходов+чата: новые снизу, скролл за ними
     requestAnimationFrame(() => {
       this.gameLog.scrollTop = this.gameLog.scrollHeight;
     });
@@ -774,18 +758,21 @@ export class UI {
       const capital = this.calcCapital(p, state);
       const isTurn = i === state.currentPlayerIndex;
       const jailNote = p.inJail ? ' · тюрьма' : '';
-      const props = (p.properties || []).map(id => {
-        const cell = BOARD[id];
-        const ps = state.propertyState[id];
-        if (!cell || !ps) return '';
-        const locked = ps.mortgaged || p.bankrupt;
-        const title = locked ? `${cell.name} (залог)` : cell.name;
-        return `
-          <span class="p-card__prop ${locked ? 'p-card__prop--locked' : ''}" title="${escapeHtml(title)}"
-                style="--pc: ${p.color}">
-            ${locked ? '<img class="p-card__prop-lock" src="/assets/ownership/lock.png" alt="" />' : ''}
-          </span>`;
-      }).join('');
+      const companies = (p.properties || []).length;
+      // Страны — только полностью собранные группы
+      const groups = new Set(
+        (p.properties || []).map(id => BOARD[id]?.group).filter(Boolean),
+      );
+      let countries = 0;
+      for (const group of groups) {
+        const props = getGroupProperties(group);
+        if (!props.length) continue;
+        const complete = props.every(c => (
+          state.propertyState[c.id]?.owner === p.id
+          && !state.propertyState[c.id]?.mortgaged
+        ));
+        if (complete) countries += 1;
+      }
       return `
         <div class="p-card ${isTurn ? 'p-card--active' : ''} ${p.bankrupt ? 'p-card--out' : ''} ${p.id === this.mySlot ? 'p-card--me' : ''}"
              style="--pc: ${p.color}">
@@ -795,7 +782,10 @@ export class UI {
             </div>
             <div class="p-card__cash">${formatMoney(p.money)}</div>
             <div class="p-card__capital">Капитал: ${formatMoney(capital)}${jailNote}</div>
-            ${props ? `<div class="p-card__props">${props}</div>` : ''}
+            <div class="p-card__stats">
+              <div>Компаний: ${companies}</div>
+              <div>Страны: ${countries}</div>
+            </div>
             ${this.tokenImgHtml(p)}
           </div>
         </div>
@@ -1760,7 +1750,7 @@ export class UI {
         </button>
         ${canLeave ? `
           <button type="button" class="btn btn--club-muted" id="btn-auction-leave">
-            Не участвовать в аукционе
+            Пропустить аукцион
           </button>
         ` : ''}
       `;

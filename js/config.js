@@ -83,7 +83,7 @@ export const BRAND_LOGO_SRC = {
   Xiaomi: '/assets/icons/logo/mi.svg',
   Mercedes: '/assets/icons/logo/Mers.svg',
   Nestlé: '/assets/icons/logo/nestle.svg',
-  Rolex: '/assets/icons/logo/rolex.svg',
+  Rolex: '/assets/icons/logo/rolex.png',
   "McDonald's": '/assets/icons/logo/mac.svg',
   Disney: '/assets/icons/logo/disney.svg',
   'Coca-Cola': '/assets/icons/logo/cocacola.svg',

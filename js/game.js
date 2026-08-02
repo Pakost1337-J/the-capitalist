@@ -776,16 +776,33 @@ export class GameEngine {
   leaveAuction(playerId) {
     if (this.phase !== PHASE.AUCTION || !this.auction) return false;
     if (this.auction.startedBy === playerId) return false;
+    // Лидер ставки не выходит — аукцион закроется по его ставке, когда остальные пропустят
+    if (this.auction.highBidder === playerId) return false;
     const p = this.players[playerId];
     if (!p || p.bankrupt) return false;
     if (!this.auction.optedOut) this.auction.optedOut = [];
-    if (this.auction.optedOut.includes(playerId)) return true;
-    this.auction.optedOut.push(playerId);
-    if (this.auction.highBidder === playerId) {
-      this.auction.highBidder = null;
-      this.auction.currentBid = 0;
+    if (this.auction.optedOut.includes(playerId)) {
+      this.maybeFinishAuctionEarly();
+      return true;
     }
-    this.addLog(`${p.name} не участвует в аукционе`);
+    this.auction.optedOut.push(playerId);
+    this.addLog(`${p.name} пропускает аукцион`);
+    this.maybeFinishAuctionEarly();
+    return true;
+  }
+
+  /** Все, кто мог перебить, вышли — закрываем по последней ставке (или без покупателя) */
+  maybeFinishAuctionEarly() {
+    if (this.phase !== PHASE.AUCTION || !this.auction) return false;
+    const a = this.auction;
+    const opted = new Set(a.optedOut || []);
+    const rivals = this.activePlayers.filter(p => (
+      p.id !== a.startedBy
+      && p.id !== a.highBidder
+      && !opted.has(p.id)
+    ));
+    if (rivals.length > 0) return false;
+    this.finishAuction();
     return true;
   }
 
@@ -799,6 +816,8 @@ export class GameEngine {
     this.auction.currentBid = next;
     this.auction.highBidder = playerId;
     this.addLog(`${p.name} ставит $${next.toLocaleString('ru-RU')} за «${getCell(this.auction.cellId).name}»`);
+    // После ставки остальные могут сразу пропустить — проверяем досрочно
+    this.maybeFinishAuctionEarly();
     return true;
   }
 

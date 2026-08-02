@@ -157,9 +157,16 @@ io.on('connection', (socket) => {
     const member = room.members.find(m => m.socketId === socket.id);
     const clean = String(text || '').trim().slice(0, 120);
     if (!clean) return;
+    const name = member?.name || 'Игрок';
+    // В игре — в общий лог ходов, чтобы чат уезжал вместе с событиями
+    if (room.game) {
+      room.game.addLog(`${name}: ${clean}`);
+      broadcastGame(room, io);
+      return;
+    }
     io.to(room.id).emit('chat-message', {
       from: socket.id,
-      name: member?.name || 'Игрок',
+      name,
       text: clean,
     });
   });

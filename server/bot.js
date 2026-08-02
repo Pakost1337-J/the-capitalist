@@ -42,7 +42,7 @@ export function runBotTurn(game, onDone) {
       game.rollDice();
       handleAfterRoll(game, onDone);
     } else if (game.phase === PHASE.AUCTION) {
-      tryBotAuctionBid(game);
+      tryBotAuctionRound(game);
       onDone();
     } else if (
       game.phase === PHASE.ACTION
@@ -77,7 +77,7 @@ function handleAfterRoll(game, onDone) {
 
       setTimeout(() => {
         if (game.phase === PHASE.AUCTION) {
-          tryBotAuctionBid(game);
+          tryBotAuctionRound(game);
         }
         finishBotTurn(game, onDone);
       }, 900);
@@ -88,7 +88,7 @@ function handleAfterRoll(game, onDone) {
       settleBotRent(game);
       setTimeout(() => finishBotTurn(game, onDone), 700);
     } else if (game.phase === PHASE.AUCTION) {
-      tryBotAuctionBid(game);
+      tryBotAuctionRound(game);
       onDone();
     } else if (game.phase === PHASE.END) {
       game.endTurn();
@@ -101,19 +101,33 @@ function handleAfterRoll(game, onDone) {
   }, animWait);
 }
 
-function tryBotAuctionBid(game) {
+/** Боты: ставка или «пропустить». Если все пропустили — аукцион закрывается. */
+function tryBotAuctionRound(game) {
   if (game.phase !== PHASE.AUCTION || !game.auction) return;
   const next = game.nextAuctionPrice();
   const cell = getCell(game.auction.cellId);
 
+  // Сначала одна ставка (если кто-то хочет), затем остальные пропускают
   for (const p of game.activePlayers) {
     if (!p.isBot) continue;
     if (!game.canPlayerAuctionBid?.(p.id)) continue;
     if (game.auction.highBidder === p.id) continue;
-    if (p.money < next) continue;
-    if (shouldBotBid(game, p, cell, next)) {
+    if (p.money >= next && shouldBotBid(game, p, cell, next)) {
       game.placeAuctionBid(p.id);
       break;
+    }
+  }
+  if (game.phase !== PHASE.AUCTION) return;
+
+  const ask = game.nextAuctionPrice();
+  for (const p of game.activePlayers) {
+    if (!p.isBot) continue;
+    if (!game.canPlayerAuctionBid?.(p.id)) continue;
+    if (game.auction.highBidder === p.id) continue;
+    // Не хотят / не могут перебить — пропускают аукцион
+    if (p.money < ask || !shouldBotBid(game, p, cell, ask)) {
+      game.leaveAuction(p.id);
+      if (game.phase !== PHASE.AUCTION) return;
     }
   }
 }
@@ -202,14 +216,19 @@ export function processBotChain(game, broadcast) {
     }
 
     if (game.phase === PHASE.AUCTION) {
-      tryBotAuctionBid(game);
+      tryBotAuctionRound(game);
       broadcast();
+      if (game.phase !== PHASE.AUCTION) {
+        // Закрыт по пропускам / последней ставке — ход дальше
+        tick();
+        return;
+      }
       game._botRunning = false;
       setTimeout(() => {
-        if (game.phase === PHASE.AUCTION) {
+        if (game.phase === PHASE.AUCTION || game.currentPlayer?.isBot) {
           processBotChain(game, broadcast);
         }
-      }, 4500);
+      }, 1600);
       return;
     }
 

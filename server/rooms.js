@@ -185,6 +185,7 @@ export function getGameState(room, socketId) {
     canAuctionBid: !!(isAuction && me && !me.bankrupt && room.game.canPlayerAuctionBid?.(member.slot)),
     canAuctionLeave: !!(isAuction && me && !me.bankrupt
       && state.auction?.startedBy !== member.slot
+      && state.auction?.highBidder !== member.slot
       && !(state.auction?.optedOut || []).includes(member.slot)),
     auctionSpectator: !!(isAuction && me && state.auction?.startedBy === member.slot),
     nextAuctionPrice: room.game.nextAuctionPrice?.() ?? null,
