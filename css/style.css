@@ -433,17 +433,17 @@ button, input, select { font-family: inherit; }
 }
 .cell__body--right {
   flex-direction: row;
-  justify-content: space-between;
+  justify-content: flex-start; /* к центру доски */
   align-items: center;
-  padding: 4px 5px 4px 4px;
-  gap: 3px;
+  padding: 4px 10px 4px 3px;
+  gap: 5px;
 }
 .cell__body--left {
   flex-direction: row-reverse;
-  justify-content: space-between;
+  justify-content: flex-start; /* к центру доски */
   align-items: center;
-  padding: 4px 4px 4px 5px;
-  gap: 3px;
+  padding: 4px 3px 4px 10px;
+  gap: 5px;
 }
 .cell__body--corner {
   padding: 0;
@@ -469,24 +469,24 @@ button, input, select { font-family: inherit; }
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  padding: 2px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(120, 90, 60, 0.35);
-  border-radius: 3px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .cell__flag {
-  font-size: clamp(0.85rem, 1.6vw, 1.15rem);
+  font-size: clamp(0.95rem, 1.8vw, 1.25rem);
   line-height: 1;
 }
 
 .cell__flag-img {
-  width: clamp(20px, 2.8vw, 32px);
+  width: clamp(24px, 3.2vw, 36px);
   height: auto;
-  max-height: clamp(14px, 2vw, 22px);
-  object-fit: cover;
-  border-radius: 1px;
+  max-height: clamp(18px, 2.4vw, 26px);
+  object-fit: contain;
+  border-radius: 0;
   display: block;
   flex-shrink: 0;
 }
@@ -527,24 +527,12 @@ button, input, select { font-family: inherit; }
 .cell__body--right .cell__country-slot {
   flex: 0 0 auto;
   align-self: center;
-  max-width: 38%;
-  padding: 1px 2px;
-  box-sizing: border-box;
-}
-
-.cell__body--left .cell__flag-img,
-.cell__body--right .cell__flag-img {
-  width: clamp(14px, 1.8vw, 22px);
-  max-width: 100%;
-  max-height: clamp(11px, 1.5vw, 16px);
-  object-fit: contain;
 }
 
 .cell__body--left .cell__stack,
 .cell__body--right .cell__stack {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
-  max-width: 62%;
 }
 
 .cell__body--left .cell__shares,
