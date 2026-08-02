@@ -41,7 +41,7 @@
             </select>
           </label>
 
-          <button class="btn btn--roll lobby__btn" id="btn-create">🏠 Создать стол</button>
+          <button class="btn btn--lobby lobby__btn" id="btn-create">🏠 Создать стол</button>
           <a class="btn btn--pass lobby__btn" href="/editor.html">🛠️ Конструктор доски</a>
 
           <div class="lobby__divider">Столы онлайн</div>
@@ -55,7 +55,7 @@
           <p class="lobby__room-count">Игроков: <span id="room-count">0/4</span></p>
           <div class="lobby__players" id="room-players"></div>
           <p class="lobby__hint" id="host-hint" hidden>Ожидайте, пока хост начнёт игру</p>
-          <button class="btn btn--roll lobby__btn" id="btn-start">🎲 Начать игру</button>
+          <button class="btn btn--lobby lobby__btn" id="btn-start">🎲 Начать игру</button>
           <button class="btn btn--pass lobby__btn" id="btn-leave">← Выйти</button>
         </div>
       </div>
@@ -69,34 +69,38 @@
         <div class="board" id="board">
           <div class="board__center" id="board-center">
             <div class="hub">
-              <div class="hub__log" id="game-log"></div>
-
-              <div class="hub__arena">
-                <div class="hub__dice-row">
-                  <div class="table-toss" id="dice-stage">
-                    <div class="die-throw" id="die1-throw">
-                      <span class="die-shadow"></span>
-                      <div class="die-wrap">
-                        <div class="die-cube" id="die1" aria-label="Кубик 1"></div>
+              <div class="hub__main">
+                <div class="hub__arena">
+                  <div class="hub__dice-row">
+                    <div class="table-toss" id="dice-stage">
+                      <div class="die-throw" id="die1-throw">
+                        <span class="die-shadow"></span>
+                        <div class="die-wrap">
+                          <div class="die-cube" id="die1" aria-label="Кубик 1"></div>
+                        </div>
                       </div>
-                    </div>
-                    <div class="die-throw" id="die2-throw">
-                      <span class="die-shadow"></span>
-                      <div class="die-wrap">
-                        <div class="die-cube" id="die2" aria-label="Кубик 2"></div>
+                      <div class="die-throw" id="die2-throw">
+                        <span class="die-shadow"></span>
+                        <div class="die-wrap">
+                          <div class="die-cube" id="die2" aria-label="Кубик 2"></div>
+                        </div>
                       </div>
                     </div>
                   </div>
+
+                  <div class="hub__choice" id="choice-panel" hidden></div>
+                  <div class="hub__actions" id="action-area"></div>
                 </div>
-
-                <div class="hub__choice" id="choice-panel" hidden></div>
-                <div class="hub__actions" id="action-area"></div>
               </div>
 
-              <div class="hub__chat-input">
-                <input type="text" id="chat-input" placeholder="Напишите сообщение..." maxlength="120" />
-                <button type="button" id="chat-send" title="Отправить">➤</button>
-              </div>
+              <aside class="hub__chat">
+                <div class="hub__chat-messages" id="game-log"></div>
+                <div class="hub__chat-input">
+                  <input type="text" id="chat-input" placeholder="Напишите сообщение..." maxlength="120" />
+                  <button type="button" id="chat-send" title="Отправить">➤</button>
+                </div>
+              </aside>
+
               <button type="button" class="hub__exit-btn" id="new-game">Выйти</button>
             </div>
           </div>

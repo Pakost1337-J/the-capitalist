@@ -224,6 +224,8 @@ export class UI {
       el.style.gridRow = pos.row + 1;
       el.style.gridColumn = pos.col + 1;
       if (cell.group) el.style.setProperty('--group-color', GROUP_COLORS[cell.group]);
+      const side = this.cellSide(i);
+      if (side !== 'corner') el.classList.add(`cell--side-${side}`);
       el.innerHTML = this.renderCellHTML(cell, i);
       this.boardEl.appendChild(el);
       this.cells[i] = el;
@@ -263,22 +265,18 @@ export class UI {
       const priceEl = price ? `<span class="cell__price">${price}</span>` : '';
       const flagEl = `<div class="cell__country-slot">${flagHtml}</div>`;
       const shares = `<div class="cell__shares" data-houses="${index}" aria-label="Акции"></div>`;
-      const ownerMark = `
-        <div class="cell__owner" data-owner="${index}" hidden></div>
-        <img class="cell__lock" data-lock="${index}" src="/assets/ownership/lock.png" alt="" hidden />`;
       // Верх/низ: флаг у внешнего края → лого → цена
-      // Бока: флаг к центру доски, лого+цена снаружи
+      // Бока: лого+цена к центру, флаг к внешнему краю доски
       if (side === 'left' || side === 'right') {
         body = `
-          ${ownerMark}
-          ${flagEl}
           <div class="cell__stack">
             ${logo}
             ${priceEl}
           </div>
+          ${flagEl}
           ${shares}`;
       } else {
-        body = `${ownerMark}${flagEl}${logo}${priceEl}${shares}`;
+        body = `${flagEl}${logo}${priceEl}${shares}`;
       }
     } else if (cell.type === 'tax') {
       const pct = cell.taxPercent != null ? `${cell.taxPercent}%` : '6%';
@@ -307,7 +305,13 @@ export class UI {
       `;
     }
 
+    const ownerLayer = isCompany
+      ? `<div class="cell__owner" data-owner="${index}" hidden></div>
+         <img class="cell__lock" data-lock="${index}" src="/assets/ownership/lock.png" alt="" hidden />`
+      : '';
+
     return `
+      ${ownerLayer}
       <div class="cell__body cell__body--${side} ${isCorner ? 'cell__body--corner' : ''}">
         ${body}
       </div>
