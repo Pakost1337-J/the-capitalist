@@ -205,7 +205,7 @@ export class LobbyUI {
     for (let i = lobby.members.length; i < lobby.maxPlayers; i++) {
       document.getElementById('room-players').innerHTML += `
         <div class="lobby-player lobby-player--empty">
-          <span>🤖 Будет бот</span>
+          <span>🤖 Свободное место (бот)</span>
         </div>`;
     }
   }

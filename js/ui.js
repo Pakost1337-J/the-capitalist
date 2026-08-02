@@ -38,8 +38,17 @@ export class UI {
     this.hubCapital = document.getElementById('hub-capital');
     this.hubCompanies = document.getElementById('hub-companies');
 
+    this.choicePanel = document.getElementById('choice-panel');
+
     document.getElementById('new-game')?.addEventListener('click', () => {
-      if (confirm('Выйти из игры?')) location.reload();
+      this.showChoiceSlider({
+        title: 'Выйти из игры?',
+        left: 'Остаться',
+        right: 'Выйти',
+        onConfirm: (value) => {
+          if (value === 1) location.reload();
+        },
+      });
     });
 
     if (this.die1) this.die1.innerHTML = makeDieCubeHTML();
@@ -148,26 +157,79 @@ export class UI {
     const isCorner = [0, 12, 20, 32].includes(index);
     const isSide = (index >= 13 && index <= 20) || (index >= 33 && index <= 39);
     const colorBar = cell.group ? `<div class="cell__color-bar"></div>` : '';
-    const price = cell.price != null
-      ? `<span class="cell__price">${formatMoney(cell.price)}</span>`
-      : (cell.amount != null ? `<span class="cell__price">${formatMoney(cell.amount)}</span>` : '');
+    const isCompany = cell.type === 'property' || cell.type === 'railroad' || cell.type === 'utility';
 
-    const brand = cell.brand || cell.name;
-    const showBrand = cell.type === 'property' || cell.type === 'railroad' || cell.type === 'utility';
+    let body;
+    if (isCompany) {
+      const country = cell.country || '';
+      const company = cell.name || cell.brand || '';
+      const price = cell.price != null ? formatMoney(cell.price) : '';
+      body = `
+        ${country ? `<span class="cell__country">${escapeHtml(country)}</span>` : ''}
+        <span class="cell__company">${escapeHtml(company)}</span>
+        ${price ? `<span class="cell__price">${price}</span>` : ''}
+      `;
+    } else {
+      const price = cell.amount != null ? `<span class="cell__price">${formatMoney(cell.amount)}</span>` : '';
+      body = `
+        ${cell.icon ? iconHTML(cell.icon, 'cell__icon') : ''}
+        <span class="cell__name">${escapeHtml(cell.name)}</span>
+        ${price}
+      `;
+    }
 
     return `
       ${colorBar}
       <div class="cell__body ${isSide ? 'cell__body--side' : ''} ${isCorner ? 'cell__body--corner' : ''}">
-        ${cell.flag ? `<span class="cell__flag">${cell.flag}</span>` : ''}
-        ${showBrand
-          ? `<span class="cell__brand">${escapeHtml(brand)}</span>`
-          : (cell.icon ? iconHTML(cell.icon, 'cell__icon') : '')}
-        ${!showBrand && cell.name ? `<span class="cell__name">${escapeHtml(cell.name)}</span>` : ''}
-        ${showBrand ? `<span class="cell__name">${escapeHtml(cell.name)}</span>` : ''}
-        ${price}
+        ${body}
       </div>
       <div class="cell__houses" data-houses="${index}"></div>
     `;
+  }
+
+  /** Ползунок выбора вместо confirm/alert */
+  showChoiceSlider({ title, left, right, onConfirm, initial = 0 }) {
+    if (!this.choicePanel) return;
+    this.choicePanel.hidden = false;
+    this.choicePanel.innerHTML = `
+      <div class="choice-slider">
+        <div class="choice-slider__title">${escapeHtml(title)}</div>
+        <div class="choice-slider__labels">
+          <span class="choice-left ${initial === 0 ? 'is-active' : ''}">${escapeHtml(left)}</span>
+          <span class="choice-right ${initial === 1 ? 'is-active' : ''}">${escapeHtml(right)}</span>
+        </div>
+        <input type="range" min="0" max="1" step="1" value="${initial}" id="choice-range" />
+        <div class="choice-slider__btns">
+          <button type="button" class="btn btn--pass" id="choice-cancel">Отмена</button>
+          <button type="button" class="btn btn--roll" id="choice-ok">ОК</button>
+        </div>
+      </div>
+    `;
+
+    const range = this.choicePanel.querySelector('#choice-range');
+    const leftEl = this.choicePanel.querySelector('.choice-left');
+    const rightEl = this.choicePanel.querySelector('.choice-right');
+    const sync = () => {
+      const v = Number(range.value);
+      leftEl.classList.toggle('is-active', v === 0);
+      rightEl.classList.toggle('is-active', v === 1);
+    };
+    range.addEventListener('input', sync);
+
+    this.choicePanel.querySelector('#choice-cancel').addEventListener('click', () => {
+      this.hideChoiceSlider();
+    });
+    this.choicePanel.querySelector('#choice-ok').addEventListener('click', () => {
+      const v = Number(range.value);
+      this.hideChoiceSlider();
+      onConfirm?.(v);
+    });
+  }
+
+  hideChoiceSlider() {
+    if (!this.choicePanel) return;
+    this.choicePanel.hidden = true;
+    this.choicePanel.innerHTML = '';
   }
 
   render(state) {
@@ -286,12 +348,13 @@ export class UI {
   async animateDiceThrow(state) {
     const d1 = clampDie(state.dice?.[0]);
     const d2 = clampDie(state.dice?.[1]);
-    if (this.dieSum) this.dieSum.textContent = '…';
+    this.diceStage?.classList.remove('table-toss--landed');
+    if (this.dieSum) this.dieSum.textContent = String(d1 + d2);
     await throwDice(
       [this.die1Throw, this.die2Throw],
       [this.die1, this.die2],
       [d1, d2],
-      { doubles: !!state.doubles },
+      { doubles: !!state.doubles, stageEl: this.diceStage },
     );
     if (this.dieSum) this.dieSum.textContent = String(d1 + d2);
   }
@@ -566,13 +629,20 @@ export class UI {
     if (state.phase === PHASE.ROLL) {
       const rollBtn = document.createElement('button');
       rollBtn.className = 'btn btn--roll';
-      rollBtn.textContent = p.inJail
-        ? `🎲 Бросить / Залог ${formatMoney(JAIL_BAIL)}`
-        : '🎲 Бросить кубики';
-      rollBtn.addEventListener('click', async () => {
+      rollBtn.textContent = p.inJail ? '🎲 Действие в тюрьме' : '🎲 Бросить кубики';
+      rollBtn.addEventListener('click', () => {
         if (p.inJail && p.money >= JAIL_BAIL) {
-          const useBail = confirm(`Заплатить ${formatMoney(JAIL_BAIL)} залог? (Отмена = бросить кубики)`);
-          if (useBail) return this.doAction({ type: 'payJailBail' });
+          this.showChoiceSlider({
+            title: 'Тюрьма: выберите действие',
+            left: 'Бросить кубики',
+            right: `Залог ${formatMoney(JAIL_BAIL)}`,
+            onConfirm: (value) => {
+              rollBtn.disabled = true;
+              if (value === 1) this.doAction({ type: 'payJailBail' });
+              else this.doAction({ type: 'roll' });
+            },
+          });
+          return;
         }
         rollBtn.disabled = true;
         this.doAction({ type: 'roll' });

@@ -74,21 +74,19 @@
               <div class="hub__main">
                 <div class="hub__turn" id="hub-turn">ХОД ИГРОКА</div>
 
-                <div class="hub__dice-wrap">
-                  <div class="dice-stage" id="dice-stage">
-                    <div class="dice-stage__felt"></div>
-                    <div class="dice-stage__sum">Сумма: <span id="die-sum">0</span></div>
-                    <div class="die-throw" id="die1-throw">
-                      <div class="die-wrap">
-                        <div class="die-cube" id="die1" aria-label="Кубик 1"></div>
-                      </div>
-                    </div>
-                    <div class="die-throw" id="die2-throw">
-                      <div class="die-wrap">
-                        <div class="die-cube" id="die2" aria-label="Кубик 2"></div>
-                      </div>
+                <!-- Стол для кубиков без рамки-окна -->
+                <div class="table-toss" id="dice-stage">
+                  <div class="die-throw" id="die1-throw">
+                    <div class="die-wrap">
+                      <div class="die-cube" id="die1" aria-label="Кубик 1"></div>
                     </div>
                   </div>
+                  <div class="die-throw" id="die2-throw">
+                    <div class="die-wrap">
+                      <div class="die-cube" id="die2" aria-label="Кубик 2"></div>
+                    </div>
+                  </div>
+                  <div class="table-toss__sum" id="die-sum-wrap"><span id="die-sum">0</span></div>
                 </div>
 
                 <div class="hub__player" id="hub-player">
@@ -114,6 +112,7 @@
                   <button type="button" class="hub__credit-btn" id="new-game">✕ ВЫЙТИ</button>
                 </div>
 
+                <div class="hub__choice" id="choice-panel" hidden></div>
                 <div class="hub__actions" id="action-area"></div>
               </div>
 

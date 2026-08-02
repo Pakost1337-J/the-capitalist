@@ -51,7 +51,8 @@ button, input, select {
 #lobby-room[hidden],
 .lobby__error[hidden],
 .lobby__hint[hidden],
-.hub__form[hidden] {
+.hub__form[hidden],
+.hub__choice[hidden] {
   display: none !important;
 }
 
@@ -314,15 +315,15 @@ button, input, select {
   gap: 0;
 }
 
-.cell__body--side .cell__brand,
-.cell__body--side .cell__name,
-.cell__body--side .cell__price {
-  white-space: nowrap;
-  max-width: 100%;
+.cell__country {
+  font-size: clamp(0.4rem, 0.9vw, 0.58rem);
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 0.04em;
+  line-height: 1;
 }
 
-.cell__flag { font-size: clamp(0.55rem, 1.1vw, 0.7rem); line-height: 1; }
-.cell__brand {
+.cell__company {
   font-size: clamp(0.38rem, 0.95vw, 0.58rem);
   font-weight: 800;
   color: #0f172a;
@@ -332,6 +333,7 @@ button, input, select {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .cell__icon { font-size: clamp(0.7rem, 1.4vw, 0.95rem); line-height: 1; }
 .cell__icon--img { width: clamp(12px, 1.6vw, 18px); height: clamp(12px, 1.6vw, 18px); object-fit: contain; }
 .cell__name {
@@ -347,7 +349,7 @@ button, input, select {
 .cell__price {
   font-size: clamp(0.32rem, 0.8vw, 0.48rem);
   font-weight: 800;
-  color: #64748b;
+  color: #475569;
 }
 
 .cell--go,
@@ -469,7 +471,7 @@ button, input, select {
   gap: clamp(4px, 0.8vh, 10px);
   min-width: 0;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .hub__turn {
@@ -481,103 +483,77 @@ button, input, select {
   text-align: center;
 }
 
-.hub__dice-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  width: 100%;
-  flex-shrink: 0;
-}
-
-.dice-stage {
-  --die-size: clamp(36px, 5.2vw, 50px);
+/* Стол для броска — без рамки-окна, кубики лежат на сукне */
+.table-toss {
+  --die-size: clamp(40px, 5.8vw, 56px);
   position: relative;
-  width: min(100%, 280px);
-  height: clamp(88px, 14vh, 128px);
-  overflow: hidden;
-  border-radius: 12px;
-  border: 1px solid #9a3d3d;
+  width: min(100%, 300px);
+  height: clamp(100px, 16vh, 140px);
+  overflow: visible;
+  border: none;
+  border-radius: 0;
+  background: transparent;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: clamp(22px, 4vw, 40px);
-  padding-bottom: clamp(14px, 2vh, 22px);
-  background: #7a1f1f;
+  gap: clamp(28px, 5vw, 48px);
+  padding-bottom: 8px;
+  perspective: 700px;
+  flex-shrink: 0;
 }
 
-.dice-stage__felt {
+.table-toss::before {
+  content: '';
   position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse at 50% 85%, rgba(0,0,0,0.28), transparent 55%),
-    repeating-linear-gradient(
-      -18deg,
-      rgba(255,255,255,0.03) 0 2px,
-      transparent 2px 7px
-    ),
-    linear-gradient(180deg, #8b2a2a, #6b1818 60%, #5a1414);
+  left: 8%;
+  right: 8%;
+  bottom: 0;
+  height: 42%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 40%, rgba(0,0,0,0.14), transparent 70%);
   pointer-events: none;
 }
 
-.dice-stage__sum {
+.table-toss__sum {
   position: absolute;
-  top: 6px;
+  top: 0;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 2;
-  font-size: 0.72rem;
+  font-size: clamp(1.1rem, 2.2vw, 1.5rem);
   font-weight: 800;
-  color: rgba(255,255,255,0.75);
-  letter-spacing: 0.04em;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.35);
+  color: #1e293b;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  text-shadow: 0 1px 0 #fff;
+}
+
+.table-toss--landed .table-toss__sum {
+  opacity: 1;
+  animation: sumPop 0.45s ease;
+}
+
+@keyframes sumPop {
+  0% { transform: translateX(-50%) scale(0.6); opacity: 0; }
+  60% { transform: translateX(-50%) scale(1.15); opacity: 1; }
+  100% { transform: translateX(-50%) scale(1); opacity: 1; }
 }
 
 .die-throw {
-  --drift: 0px;
   position: relative;
   z-index: 1;
   width: var(--die-size);
   height: var(--die-size);
   transform-style: preserve-3d;
-}
-
-.die-throw--air {
-  transform: translate3d(var(--drift), -78px, 0) scale(0.88);
-  opacity: 0.55;
-}
-
-.die-throw--landing {
-  animation: dieLand 0.95s cubic-bezier(0.2, 0.85, 0.25, 1) both;
+  will-change: transform;
 }
 
 .die-throw--idle {
-  transform: translate3d(0, 0, 0);
+  /* позиция задаётся JS */
 }
 
 .die-throw--doubles .die-face {
   background: linear-gradient(145deg, #fffbeb, #fef08a);
-}
-
-@keyframes dieLand {
-  0% {
-    transform: translate3d(var(--drift), -78px, 0) rotate(-18deg) scale(0.88);
-    opacity: 0.55;
-  }
-  55% {
-    transform: translate3d(calc(var(--drift) * 0.2), 3px, 0) rotate(6deg) scale(1.05);
-    opacity: 1;
-  }
-  70% {
-    transform: translate3d(0, -12px, 0) rotate(-3deg) scale(0.98);
-  }
-  85% {
-    transform: translate3d(0, 2px, 0) rotate(1deg) scale(1.01);
-  }
-  100% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
-    opacity: 1;
-  }
 }
 
 .die-wrap {
@@ -745,6 +721,80 @@ button, input, select {
   gap: 6px;
   min-height: 36px;
   margin-top: auto;
+}
+
+.hub__choice[hidden] { display: none !important; }
+
+.hub__choice {
+  width: 100%;
+  max-width: 300px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.choice-slider__title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: center;
+  color: #334155;
+}
+
+.choice-slider__labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--muted);
+  gap: 8px;
+}
+
+.choice-slider__labels span.is-active {
+  color: #2563eb;
+}
+
+.choice-slider input[type="range"] {
+  width: 100%;
+  accent-color: #2563eb;
+  cursor: pointer;
+  height: 8px;
+}
+
+.choice-slider__btns {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.choice-slider__btns .btn {
+  flex: 1;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+}
+
+.toast {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: #1e293b;
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  box-shadow: var(--shadow);
+  animation: toastIn 0.25s ease;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 .wait-turn {

@@ -1,5 +1,6 @@
 import { createGame } from '../js/game.js';
 import { MAX_PLAYERS, MIN_PLAYERS, PLAYER_SLOTS } from '../js/config.js';
+import { pickBotNames } from '../js/names.js';
 import { processBotChain } from './bot.js';
 
 const rooms = new Map();
@@ -92,13 +93,21 @@ export function startGame(id, socketId) {
   if (room.members.length < MIN_PLAYERS) return { error: 'Нет игроков для старта' };
   if (room.status !== 'lobby') return { error: 'Игра уже началась' };
 
+  const usedNames = room.members.map(m => m.name);
+  const botSlots = [];
+  for (let slot = 0; slot < room.maxPlayers; slot++) {
+    if (!room.members.find(m => m.slot === slot)) botSlots.push(slot);
+  }
+  const botNames = pickBotNames(botSlots.length, usedNames);
+  let botIdx = 0;
+
   const playerConfigs = [];
   for (let slot = 0; slot < room.maxPlayers; slot++) {
     const member = room.members.find(m => m.slot === slot);
     if (member) {
       playerConfigs.push({ name: member.name, socketId: member.socketId, isBot: false });
     } else {
-      playerConfigs.push({ name: `Бот ${slot + 1}`, socketId: null, isBot: true });
+      playerConfigs.push({ name: botNames[botIdx++] || 'Гость', socketId: null, isBot: true });
     }
   }
 

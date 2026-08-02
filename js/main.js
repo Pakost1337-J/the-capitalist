@@ -46,9 +46,18 @@ async function init() {
   };
 
   network.onRoomClosed = () => {
-    alert('Комната закрыта');
-    location.reload();
+    showToast('Комната закрыта');
+    setTimeout(() => location.reload(), 1200);
   };
+}
+
+function showToast(text) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = text;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2500);
 }
 
 function startGameUI(state) {
