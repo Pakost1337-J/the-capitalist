@@ -512,9 +512,9 @@ export class UI {
     const img = resolveIconSrc(p.tokenBoardImage || p.tokenImage || '');
     if (img) {
       el.classList.add('token--img');
-      el.innerHTML = `<img src="${img}" alt="" />`;
+      el.innerHTML = `<span class="token__shade" aria-hidden="true"></span><img src="${img}" alt="" draggable="false" />`;
     } else {
-      el.innerHTML = '<span class="token__ring"></span><span class="token__core"></span>';
+      el.innerHTML = '<span class="token__shade" aria-hidden="true"></span><span class="token__ring"></span><span class="token__core"></span>';
     }
     return el;
   }
