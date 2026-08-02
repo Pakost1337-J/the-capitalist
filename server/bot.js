@@ -1,5 +1,5 @@
-import { PHASE } from './js/game.js';
-import { getCell } from './js/config.js';
+import { PHASE } from '../js/game.js';
+import { getCell } from '../js/config.js';
 
 export function runBotTurn(game, onDone) {
   const player = game.currentPlayer;
