@@ -45,6 +45,7 @@ export const BRAND_LOGO_SRC = {
   "L'Oréal": '/assets/icons/logo/Loreal.svg',
   IKEA: '/assets/icons/logo/ikea.svg',
   Volvo: '/assets/icons/logo/Volvo.svg',
+  Armani: '/assets/icons/logo/armany.svg',
 };
 
 export const GROUP_COLORS = {
