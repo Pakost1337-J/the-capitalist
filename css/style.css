@@ -281,7 +281,7 @@ button, input, select { font-family: inherit; }
   box-sizing: border-box;
 }
 
-/* Центр строго под отверстием доски (149…875 × 149…548 на кадре 1024×698) */
+/* Центр под отверстием доски; кожа без чёрных полей из PNG */
 .board__center {
   --center-inset-t: calc(var(--frame-pad-y) + var(--corner));
   --center-inset-r: calc(var(--frame-pad-xr) + var(--corner));
@@ -291,8 +291,8 @@ button, input, select { font-family: inherit; }
   grid-column: 1 / -1;
   margin: var(--center-inset-t) var(--center-inset-r) var(--center-inset-b) var(--center-inset-l);
   background:
-    url('/assets/board/board-center.png') center / 100% 100% no-repeat,
-    var(--leather-img) center / cover;
+    var(--leather-img) center / cover,
+    linear-gradient(145deg, #6b4a3a, #4a3228 45%, #3a261c);
   border: none;
   box-shadow: none;
   display: flex;
@@ -301,7 +301,7 @@ button, input, select { font-family: inherit; }
   overflow: hidden;
   min-width: 0;
   min-height: 0;
-  border-radius: 0;
+  border-radius: 2px;
   z-index: 0;
   pointer-events: none;
 }
@@ -335,21 +335,44 @@ button, input, select { font-family: inherit; }
   outline: none;
 }
 
+/* Маркер владения — только внутри клетки, к центру доски */
 .cell__owner {
   position: absolute;
-  inset: 0;
   z-index: 1;
   pointer-events: none;
   background-repeat: no-repeat;
   background-size: 100% 100%;
   background-position: center;
-  opacity: 0.95;
-  mix-blend-mode: screen;
+  opacity: 0.88;
+}
+
+.cell__body--top .cell__owner {
+  left: 10%;
+  right: 10%;
+  top: 42%;
+  bottom: 4%;
+}
+.cell__body--bottom .cell__owner {
+  left: 10%;
+  right: 10%;
+  top: 4%;
+  bottom: 42%;
+}
+.cell__body--right .cell__owner {
+  top: 12%;
+  bottom: 12%;
+  left: 4%;
+  right: 42%;
+}
+.cell__body--left .cell__owner {
+  top: 12%;
+  bottom: 12%;
+  left: 42%;
+  right: 4%;
 }
 
 .cell--mortgaged .cell__owner {
-  mix-blend-mode: normal;
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 .cell__lock {
@@ -404,13 +427,17 @@ button, input, select { font-family: inherit; }
 }
 .cell__body--right {
   flex-direction: row;
-  justify-content: space-evenly;
-  padding: 3px 5px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 5px 4px 4px;
+  gap: 3px;
 }
 .cell__body--left {
   flex-direction: row-reverse;
-  justify-content: space-evenly;
-  padding: 3px 5px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 4px 4px 5px;
+  gap: 3px;
 }
 .cell__body--corner {
   padding: 0;
@@ -494,12 +521,24 @@ button, input, select { font-family: inherit; }
 .cell__body--right .cell__country-slot {
   flex: 0 0 auto;
   align-self: center;
+  max-width: 38%;
+  padding: 1px 2px;
+  box-sizing: border-box;
 }
 
 .cell__body--left .cell__flag-img,
 .cell__body--right .cell__flag-img {
-  width: clamp(18px, 2.4vw, 28px);
-  max-height: clamp(14px, 1.8vw, 20px);
+  width: clamp(14px, 1.8vw, 22px);
+  max-width: 100%;
+  max-height: clamp(11px, 1.5vw, 16px);
+  object-fit: contain;
+}
+
+.cell__body--left .cell__stack,
+.cell__body--right .cell__stack {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 62%;
 }
 
 .cell__body--left .cell__shares,
@@ -960,7 +999,7 @@ button, input, select { font-family: inherit; }
 }
 
 .hub__stat {
-  background: rgba(0,0,0,0.28);
+  background: rgba(40, 26, 18, 0.4);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 8px;
   padding: 7px 10px;
@@ -1135,8 +1174,8 @@ button, input, select { font-family: inherit; }
   min-height: 0;
   gap: 8px;
   padding: 8px;
-  background: rgba(0,0,0,0.22);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(40, 26, 18, 0.35);
+  border: 1px solid rgba(255, 220, 170, 0.12);
   border-radius: 12px;
 }
 

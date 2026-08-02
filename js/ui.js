@@ -81,13 +81,13 @@ export class UI {
     const availW = Math.max(320, shell.clientWidth - pad - (narrow ? 0 : rail + gap));
     const availH = Math.max(280, shell.clientHeight - pad - (narrow ? 120 : 0));
 
-    // Линии делителей — SVG-сетка на кадре 1024×698 (файл сетки 1024×699, −1px по Y)
+    // Делители: mid из SVG-сетки, края — inset дерева на board-frame (не 0/1023)
     // 13×8 → 38 клеток: угол + 11 mid + угол / угол + 6 mid + угол
     const IMG_W = 1024;
     const IMG_H = 698;
     const ASPECT = IMG_W / IMG_H;
-    const WOOD_X = [0, 153, 218, 284, 349, 414, 479, 544, 610, 674, 740, 805, 870, 1023];
-    const WOOD_Y = [0, 154, 220, 285, 350, 415, 480, 546, 697];
+    const WOOD_X = [13, 153, 218, 284, 349, 414, 479, 544, 610, 674, 740, 805, 870, 1010];
+    const WOOD_Y = [13, 154, 220, 285, 350, 415, 480, 546, 685];
 
     let boardW = availW;
     let boardH = Math.floor(boardW / ASPECT);
