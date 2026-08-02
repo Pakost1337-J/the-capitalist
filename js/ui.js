@@ -1,4 +1,4 @@
-import { BOARD, COUNTRY_FLAG_SRC, GROUP_COLORS, JAIL_BAIL, AUCTION_STEP, getGridPosition } from './config.js';
+import { BOARD, BOARD_SIZE, COUNTRY_FLAG_SRC, GROUP_COLORS, JAIL_BAIL, AUCTION_STEP, getGridPosition } from './config.js';
 import { formatMoney, formatPriceShort, sleep } from './utils.js';
 import { PHASE } from './game.js';
 import { iconHTML, resolveIconSrc } from './icons.js';
@@ -81,44 +81,84 @@ export class UI {
     const availW = Math.max(320, shell.clientWidth - pad - (narrow ? 0 : rail + gap));
     const availH = Math.max(280, shell.clientHeight - pad - (narrow ? 120 : 0));
 
-    // Сетка как у board-frame: квадратные углы + узкие клетки по краям (13×9)
-    // boardW = 2*corner + 11*cellW
-    // boardH = 2*corner + 7*cellH
-    // пропорции шаблона ~1024×698
-    const ASPECT = 1024 / 698;
+    // Линии делителей board-frame.png (1024×698) → 13×8, 38 клеток
+    // Координаты — металлопланки с кадра (top/bot + центр)
+    const IMG_W = 1024;
+    const IMG_H = 698;
+    const ASPECT = IMG_W / IMG_H;
+    const WOOD_X = [13, 152, 217, 283, 348, 413, 478, 544, 609, 674, 739, 805, 870, 1010];
+    const WOOD_Y = [13, 149, 215.5, 282, 348.5, 415, 481.5, 548, 685];
+
     let boardW = availW;
     let boardH = Math.floor(boardW / ASPECT);
     if (boardH > availH) {
       boardH = availH;
       boardW = Math.floor(boardH * ASPECT);
     }
+    boardH = Math.round(boardW * IMG_H / IMG_W);
 
-    // corner ≈ 18.5% ширины трека; mid-top уже, mid-side ниже
-    let corner = Math.floor(boardW * 0.118);
-    let cellW = Math.floor((boardW - 2 * corner) / 11);
-    let cellH = Math.floor((boardH - 2 * corner) / 7);
-    // подгонка из‑за округлений
-    corner = Math.floor((boardW - 11 * cellW) / 2);
-    const cornerY = Math.floor((boardH - 7 * cellH) / 2);
-    const cornerSize = Math.min(corner, cornerY);
-    corner = cornerSize;
-    cellW = Math.floor((boardW - 2 * corner) / 11);
-    cellH = Math.floor((boardH - 2 * corner) / 7);
+    const sx = boardW / IMG_W;
+    const sy = boardH / IMG_H;
 
-    cellW = Math.max(22, Math.min(cellW, 72));
-    cellH = Math.max(22, Math.min(cellH, 72));
-    corner = Math.max(36, Math.min(corner, 110));
+    // Абсолютное округление линий — без накопления ошибки по mid-клеткам
+    const xPx = WOOD_X.map((v) => Math.round(v * sx));
+    const yPx = WOOD_Y.map((v) => Math.round(v * sy));
+    const padX = xPx[0];
+    const padY = yPx[0];
+    const padXR = Math.max(0, boardW - xPx[xPx.length - 1]);
+    const padYB = Math.max(0, boardH - yPx[yPx.length - 1]);
 
+    const colTracks = [];
+    for (let i = 0; i < xPx.length - 1; i++) {
+      colTracks.push(Math.max(1, xPx[i + 1] - xPx[i]));
+    }
+    const rowTracks = [];
+    for (let i = 0; i < yPx.length - 1; i++) {
+      rowTracks.push(Math.max(1, yPx[i + 1] - yPx[i]));
+    }
+
+    // Подгон из‑за padXR/padYB округлений
+    const gridW = boardW - padX - padXR;
+    const gridH = boardH - padY - padYB;
+    const sumCols = colTracks.reduce((a, b) => a + b, 0);
+    colTracks[colTracks.length - 1] += gridW - sumCols;
+    const sumRows = rowTracks.reduce((a, b) => a + b, 0);
+    rowTracks[rowTracks.length - 1] += gridH - sumRows;
+
+    const corner = colTracks[0];
+    const cornerBot = rowTracks[rowTracks.length - 1];
+    const cellW = colTracks[1];
+    const cellH = rowTracks[1];
     const logoW = Math.max(18, cellW - 6);
-    const logoH = Math.max(16, Math.round(Math.min(cellW, cellH) * 0.42));
+    const logoH = Math.max(14, Math.round(Math.min(cellW, cellH) * 0.38));
+    const colCss = colTracks.map((px) => `${px}px`).join(' ');
+    const rowCss = rowTracks.map((px) => `${px}px`).join(' ');
+
     const root = document.documentElement;
-    root.style.setProperty('--corner', `${corner}px`);
-    root.style.setProperty('--cell-w', `${cellW}px`);
-    root.style.setProperty('--cell-h', `${cellH}px`);
-    root.style.setProperty('--logo-w', `${logoW}px`);
-    root.style.setProperty('--logo-h', `${logoH}px`);
+    const apply = (el) => {
+      if (!el) return;
+      el.style.setProperty('--frame-pad-x', `${padX}px`);
+      el.style.setProperty('--frame-pad-y', `${padY}px`);
+      el.style.setProperty('--frame-pad-xr', `${padXR}px`);
+      el.style.setProperty('--frame-pad-yb', `${padYB}px`);
+      el.style.setProperty('--corner', `${corner}px`);
+      el.style.setProperty('--corner-bot', `${cornerBot}px`);
+      el.style.setProperty('--cell-w', `${cellW}px`);
+      el.style.setProperty('--cell-h', `${cellH}px`);
+      el.style.setProperty('--logo-w', `${logoW}px`);
+      el.style.setProperty('--logo-h', `${logoH}px`);
+    };
+    apply(root);
+    apply(this.boardEl);
     root.style.setProperty('--rail-w', narrow ? '100%' : `${rail}px`);
-    this._logoSize = { w: logoW, h: logoH, corner, cellW, cellH };
+    if (this.boardEl) {
+      this.boardEl.style.width = `${boardW}px`;
+      this.boardEl.style.height = `${boardH}px`;
+      this.boardEl.style.padding = `${padY}px ${padXR}px ${padYB}px ${padX}px`;
+      this.boardEl.style.gridTemplateColumns = colCss;
+      this.boardEl.style.gridTemplateRows = rowCss;
+    }
+    this._logoSize = { w: logoW, h: logoH, corner, cornerBot, cellW, cellH, padX, padY };
   }
 
   setupChat() {
@@ -160,12 +200,15 @@ export class UI {
     this.gameLog.innerHTML = all.map(line =>
       `<div class="log-line">${escapeHtml(line)}</div>`
     ).join('');
-    this.gameLog.scrollTop = this.gameLog.scrollHeight;
+    // Сообщения прижаты к низу (flex-end); докручиваем скролл после отрисовки
+    requestAnimationFrame(() => {
+      this.gameLog.scrollTop = this.gameLog.scrollHeight;
+    });
   }
 
   buildBoard() {
     this.cells = {};
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < BOARD_SIZE; i++) {
       const pos = getGridPosition(i);
       const cell = BOARD[i];
       const el = document.createElement('div');
@@ -186,9 +229,9 @@ export class UI {
 
   cellSide(index) {
     if (index >= 1 && index <= 11) return 'top';
-    if (index >= 13 && index <= 19) return 'right';
-    if (index >= 21 && index <= 31) return 'bottom';
-    if (index >= 33 && index <= 39) return 'left';
+    if (index >= 13 && index <= 18) return 'right';
+    if (index >= 20 && index <= 30) return 'bottom';
+    if (index >= 32 && index <= 37) return 'left';
     return 'corner';
   }
 
@@ -221,8 +264,8 @@ export class UI {
         <span class="cell__name">${escapeHtml(cell.name)}</span>
       `;
     } else if (isCorner) {
-      // Углы — арт с board-frame; лёгкая подпись
-      body = `<span class="cell__name cell__name--corner">${escapeHtml(cell.name)}</span>`;
+      // Углы — только арт с board-frame, без надписей
+      body = '';
     } else {
       body = `
         <span class="cell__name">${escapeHtml(cell.name)}</span>

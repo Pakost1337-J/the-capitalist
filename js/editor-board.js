@@ -50,7 +50,7 @@ function renderPreview(icon) {
 }
 
 function buildBoard() {
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < BOARD.length; i++) {
     const pos = getGridPosition(i);
     const base = BOARD[i];
     const data = getCellData(i);
@@ -98,7 +98,7 @@ function refreshCell(id) {
 }
 
 function refreshAllCells() {
-  for (let i = 0; i < 40; i++) refreshCell(i);
+  for (let i = 0; i < BOARD.length; i++) refreshCell(i);
 }
 
 function chipLabel(id) {

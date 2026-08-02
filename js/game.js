@@ -1,5 +1,5 @@
 import {
-  BOARD, CHANCE_CARDS, FORCE_MAJEURE_CARDS, START_MONEY, GO_SALARY, JAIL_BAIL, JAIL_POS,
+  BOARD, BOARD_SIZE, CHANCE_CARDS, FORCE_MAJEURE_CARDS, START_MONEY, GO_SALARY, JAIL_BAIL, JAIL_POS,
   MAX_HOUSES, PLAYER_SLOTS, AUCTION_STEP, AUCTION_MS, getCell, getGroupProperties,
 } from './config.js';
 import { shuffle } from './utils.js';
@@ -203,9 +203,9 @@ export class GameEngine {
   movePlayer(steps) {
     const p = this.currentPlayer;
     const oldPos = p.position;
-    p.position = (p.position + steps) % 40;
+    p.position = (p.position + steps) % BOARD_SIZE;
 
-    if (p.position < oldPos || (oldPos + steps >= 40)) {
+    if (p.position < oldPos || (oldPos + steps >= BOARD_SIZE)) {
       p.money += GO_SALARY;
       this.addLog(logPassStart(p.name, GO_SALARY));
     }
@@ -416,7 +416,7 @@ export class GameEngine {
       this.afterAction();
     } else if (card.moveBack) {
       this.addLog(`${p.name} отступает на ${card.moveBack} клетки`);
-      p.position = (p.position - card.moveBack + 40) % 40;
+      p.position = (p.position - card.moveBack + BOARD_SIZE) % BOARD_SIZE;
       this.landOnCell();
     } else if (card.repairPerHouse) {
       let total = 0;

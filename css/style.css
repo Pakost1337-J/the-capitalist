@@ -13,8 +13,10 @@
   --green: #3d9a5f;
   --radius: 12px;
   --rail-w: 168px;
-  --cell-w: 64px;
-  --cell-h: 58px;
+  --corner: 149px;
+  --corner-bot: 150px;
+  --cell-w: 66px;
+  --cell-h: 67px;
   --die-size: clamp(56px, 8.5vw, 80px);
   --logo-w: 40px;
   --logo-h: 28px;
@@ -254,14 +256,18 @@ button, input, select { font-family: inherit; }
   min-height: 0;
 }
 
-/* ── Board: шаблон board-frame + сетка 13×9 с квадратными углами ── */
+/* ── Board: board-frame.png; padding = внешний кант, сетка = дерево ── */
 .board {
-  --corner: 72px;
+  --frame-pad-x: 16px;
+  --frame-pad-y: 16px;
+  --frame-pad-xr: 16px;
+  --frame-pad-yb: 16px;
   position: relative;
   display: grid;
   grid-template-columns: var(--corner) repeat(11, var(--cell-w)) var(--corner);
-  grid-template-rows: var(--corner) repeat(7, var(--cell-h)) var(--corner);
+  grid-template-rows: var(--corner) repeat(6, var(--cell-h)) var(--corner-bot);
   width: fit-content;
+  height: fit-content;
   max-width: 100%;
   background:
     #1a120c url('/assets/board/board-frame.png') center / 100% 100% no-repeat;
@@ -270,11 +276,12 @@ button, input, select { font-family: inherit; }
   box-shadow: var(--shadow);
   overflow: hidden;
   flex-shrink: 0;
-  padding: 0;
+  padding: var(--frame-pad-y) var(--frame-pad-xr) var(--frame-pad-yb) var(--frame-pad-x);
+  box-sizing: border-box;
 }
 
 .board__center {
-  grid-row: 2 / 9;
+  grid-row: 2 / 8;
   grid-column: 2 / 13;
   background:
     linear-gradient(160deg, rgba(70,48,36,0.35), rgba(20,14,10,0.55)),
@@ -288,17 +295,21 @@ button, input, select { font-family: inherit; }
   min-width: 0;
   min-height: 0;
   border-radius: 2px;
+  z-index: 1;
 }
 
 /* Клетки прозрачные — дерево/металл с картинки доски */
 .cell {
   background: transparent;
-  border: 1px solid transparent;
+  border: none;
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   color: var(--ink);
+  z-index: 2;
+  min-width: 0;
+  min-height: 0;
 }
 
 .cell--highlight {
@@ -308,12 +319,9 @@ button, input, select { font-family: inherit; }
 }
 
 .cell--owned {
-  background: linear-gradient(165deg,
-    color-mix(in srgb, var(--owner-color, #94a3b8) 50%, transparent) 0%,
-    color-mix(in srgb, var(--owner-color, #94a3b8) 18%, transparent) 48%,
-    transparent 80%);
-  outline: 2px solid color-mix(in srgb, var(--owner-color, #94a3b8) 80%, #fff);
-  outline-offset: -3px;
+  background: color-mix(in srgb, var(--owner-color, #94a3b8) 28%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--owner-color, #94a3b8) 75%, #fff);
+  outline-offset: -2px;
 }
 
 .cell__color-bar {
@@ -331,15 +339,15 @@ button, input, select { font-family: inherit; }
   flex: 1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 3px 2px;
+  justify-content: flex-start;
+  padding: 4px 3px;
   text-align: center;
-  gap: 2px;
+  gap: 3px;
   min-height: 0;
   min-width: 0;
 }
 
-/* Край доски → центр: страна, логотип, деньги, акции */
+/* Край доски → центр: страна, логотип, деньги; акции к центру */
 .cell__body--top {
   flex-direction: column;
 }
@@ -353,20 +361,16 @@ button, input, select { font-family: inherit; }
   flex-direction: row;
 }
 .cell__body--corner {
-  flex-direction: column;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 2px;
-  padding: 4px;
+  padding: 0;
 }
+.cell__body--top .cell__shares { margin-top: auto; }
+.cell__body--bottom .cell__shares { margin-bottom: auto; }
+.cell__body--left .cell__shares { margin-left: auto; }
+.cell__body--right .cell__shares { margin-right: auto; }
 
+/* Углы уже нарисованы на board-frame — подпись не нужна */
 .cell__name--corner {
-  font-size: clamp(0.55rem, 1.1vw, 0.75rem);
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(0,0,0,0.85);
-  background: rgba(0,0,0,0.35);
-  padding: 2px 6px;
-  border-radius: 4px;
+  display: none;
 }
 
 .cell__country-slot {
@@ -396,15 +400,15 @@ button, input, select { font-family: inherit; }
 .cell__logo {
   width: min(100%, var(--logo-w));
   height: var(--logo-h);
-  min-height: 16px;
+  min-height: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255,255,255,0.22);
-  border: 1px dashed rgba(60,40,20,0.28);
-  border-radius: 3px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   overflow: hidden;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
@@ -465,11 +469,15 @@ button, input, select { font-family: inherit; }
   align-items: center;
   justify-content: center;
   gap: 2px;
-  min-height: 8px;
-  min-width: 8px;
+  min-height: 0;
+  min-width: 0;
   flex-shrink: 0;
 }
+.cell__shares:empty {
+  display: none;
+}
 
+/* Клетки без заливки — дерево/арт только с board-frame.png */
 .cell--go,
 .cell--jail,
 .cell--parking,
@@ -479,7 +487,7 @@ button, input, select { font-family: inherit; }
 .cell--railroad,
 .cell--utility,
 .cell--property {
-  background: var(--wood-grad);
+  background: transparent;
 }
 
 .cell__houses {
@@ -503,6 +511,8 @@ button, input, select { font-family: inherit; }
 .board__tokens {
   position: absolute;
   inset: 0;
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
   pointer-events: none;
   z-index: 8;
   overflow: visible;
@@ -1002,6 +1012,9 @@ button, input, select { font-family: inherit; }
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
   font-size: clamp(0.62rem, 1.05vw, 0.78rem);
   font-weight: 600;
   color: rgba(243, 230, 212, 0.8);

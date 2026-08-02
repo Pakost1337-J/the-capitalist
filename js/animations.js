@@ -1,3 +1,4 @@
+import { BOARD_SIZE } from './config.js';
 import { sleep } from './utils.js';
 
 /** Итоговый поворот куба, чтобы грань N смотрела на камеру */
@@ -134,24 +135,27 @@ async function throwOneDie(throwEl, cube, value, delayMs, doubles) {
 }
 
 export function boardPath(from, to) {
-  const start = ((from % 40) + 40) % 40;
-  const end = ((to % 40) + 40) % 40;
-  const steps = (end - start + 40) % 40;
+  const n = BOARD_SIZE;
+  const start = ((from % n) + n) % n;
+  const end = ((to % n) + n) % n;
+  const steps = (end - start + n) % n;
   const path = [];
-  for (let i = 1; i <= steps; i++) path.push((start + i) % 40);
+  for (let i = 1; i <= steps; i++) path.push((start + i) % n);
   return path;
 }
 
 export function boardPathBack(from, stepsBack) {
-  const start = ((from % 40) + 40) % 40;
+  const n = BOARD_SIZE;
+  const start = ((from % n) + n) % n;
   const path = [];
-  for (let i = 1; i <= stepsBack; i++) path.push((start - i + 40) % 40);
+  for (let i = 1; i <= stepsBack; i++) path.push((start - i + n) % n);
   return path;
 }
 
 export function resolveMovePath(from, to, diceSum) {
-  const forward = (to - from + 40) % 40;
-  const back = (from - to + 40) % 40;
+  const n = BOARD_SIZE;
+  const forward = (to - from + n) % n;
+  const back = (from - to + n) % n;
 
   if (forward === 0) return { path: [], teleport: false };
 
