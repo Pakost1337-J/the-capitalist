@@ -1648,9 +1648,19 @@ export class UI {
       `;
     }
 
+    const logo = cell
+      ? (BRAND_LOGO_SRC[cell.name] || BRAND_LOGO_SRC[cell.brand] || '')
+      : '';
+    const titleInner = logo
+      ? `<img class="auction-panel__logo" src="${logo}" alt="${escapeHtml(cell?.name || '')}" title="${escapeHtml(cell?.name || '')}" />`
+      : escapeHtml(cell?.name || '');
+
     this.actionArea.innerHTML = `
       <div class="auction-panel">
-        <div class="auction-panel__title">Аукцион: ${escapeHtml(cell?.name || '')}</div>
+        <div class="auction-panel__title">
+          <span class="auction-panel__label">Аукцион</span>
+          ${titleInner}
+        </div>
         ${this.flipTimerHtml(leftMs)}
         <div class="auction-panel__meta">
           Старт: ${formatMoney(a.startPrice)} · шаг ${formatMoney(a.step || AUCTION_STEP)}
