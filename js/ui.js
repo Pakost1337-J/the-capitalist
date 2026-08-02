@@ -265,13 +265,15 @@ export class UI {
       const priceEl = price ? `<span class="cell__price">${price}</span>` : '';
       const flagEl = `<div class="cell__country-slot">${flagHtml}</div>`;
       const shares = `<div class="cell__shares" data-houses="${index}" aria-label="Акции"></div>`;
-      // Флаг у края к центру доски; лого+цена — к внешнему краю
-      if (side === 'top' || side === 'bottom') {
-        body = `${logo}${priceEl}${flagEl}${shares}`;
-      } else if (side === 'right') {
-        body = `${flagEl}<div class="cell__stack">${logo}${priceEl}</div>${shares}`;
+      // Верх/низ: флаг у внешнего края → лого → цена
+      // Бока: лого+цена к центру, флаг у левого/правого внешнего края
+      if (side === 'left' || side === 'right') {
+        body = `
+          <div class="cell__stack">${logo}${priceEl}</div>
+          ${flagEl}
+          ${shares}`;
       } else {
-        body = `<div class="cell__stack">${logo}${priceEl}</div>${flagEl}${shares}`;
+        body = `${flagEl}${logo}${priceEl}${shares}`;
       }
     } else if (cell.type === 'tax') {
       const pct = cell.taxPercent != null ? `${cell.taxPercent}%` : '6%';
