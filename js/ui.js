@@ -1,4 +1,4 @@
-import { BOARD, COUNTRY_FLAG_SRC, COUNTRY_LABEL, GROUP_COLORS, JAIL_BAIL, getGridPosition } from './config.js';
+import { BOARD, COUNTRY_FLAG_SRC, GROUP_COLORS, JAIL_BAIL, getGridPosition } from './config.js';
 import { formatMoney, formatPriceShort, sleep } from './utils.js';
 import { PHASE } from './game.js';
 import { iconHTML, resolveIconSrc } from './icons.js';
@@ -26,6 +26,7 @@ export class UI {
     this.playersPanel = document.getElementById('players-panel');
     this.actionArea = document.getElementById('action-area');
     this.gameLog = document.getElementById('game-log');
+    this.chatLines = [];
     this.die1 = document.getElementById('die1');
     this.die2 = document.getElementById('die2');
     this.die1Throw = document.getElementById('die1-throw');
@@ -109,7 +110,7 @@ export class UI {
       const me = this.lastState.players.find(p => p.id === this.mySlot);
       const line = `${me?.name || 'Игрок'}: ${text}`;
       this.network.socket?.emit('chat', { text });
-      this.prependLog(line);
+      this.appendChat(line);
       input.value = '';
     };
 
@@ -120,16 +121,24 @@ export class UI {
 
     this.network.socket?.on('chat-message', (msg) => {
       if (msg?.from === this.network.socket.id) return;
-      this.prependLog(`${msg.name}: ${msg.text}`);
+      this.appendChat(`${msg.name}: ${msg.text}`);
     });
   }
 
-  prependLog(line) {
+  appendChat(line) {
+    this.chatLines.push(line);
+    if (this.chatLines.length > 40) this.chatLines.shift();
+    if (this.lastState) this.renderLog(this.lastState);
+    else this.paintLogLines([]);
+  }
+
+  paintLogLines(gameLines) {
     if (!this.gameLog) return;
-    const el = document.createElement('div');
-    el.className = 'log-line';
-    el.textContent = line;
-    this.gameLog.prepend(el);
+    const all = [...gameLines, ...this.chatLines];
+    this.gameLog.innerHTML = all.map(line =>
+      `<div class="log-line">${escapeHtml(line)}</div>`
+    ).join('');
+    this.gameLog.scrollTop = this.gameLog.scrollHeight;
   }
 
   buildBoard() {
@@ -162,25 +171,25 @@ export class UI {
     let body;
     if (isCompany) {
       const country = cell.country || '';
-      const countryLabel = COUNTRY_LABEL[country] || country;
       const company = cell.name || cell.brand || '';
       const price = cell.price != null ? formatPriceShort(cell.price) : '';
       const flagSrc = COUNTRY_FLAG_SRC[country] || '';
       const flagHtml = flagSrc
-        ? `<img class="cell__flag-img" src="${flagSrc}" alt="${escapeHtml(countryLabel)}" />`
+        ? `<img class="cell__flag-img" src="${flagSrc}" alt="" />`
         : (cell.flag ? `<span class="cell__flag">${cell.flag}</span>` : '');
       body = `
-        ${flagHtml}
-        ${countryLabel ? `<span class="cell__country">${escapeHtml(countryLabel)}</span>` : ''}
-        <span class="cell__company">${escapeHtml(company)}</span>
         ${price ? `<span class="cell__price">${price}</span>` : ''}
+        <span class="cell__company">${escapeHtml(company)}</span>
+        ${flagHtml}
       `;
     } else {
-      const price = cell.amount != null ? `<span class="cell__price">${formatPriceShort(cell.amount)}</span>` : '';
+      const price = cell.taxPercent != null
+        ? `<span class="cell__price">${cell.taxPercent}%</span>`
+        : (cell.amount != null ? `<span class="cell__price">${formatPriceShort(cell.amount)}</span>` : '');
       body = `
-        ${cell.icon ? iconHTML(cell.icon, 'cell__icon') : ''}
-        <span class="cell__name">${escapeHtml(cell.name)}</span>
         ${price}
+        <span class="cell__name">${escapeHtml(cell.name)}</span>
+        ${cell.icon ? iconHTML(cell.icon, 'cell__icon') : ''}
       `;
     }
 
@@ -428,7 +437,7 @@ export class UI {
     };
   }
 
-  placeToken(id, index, { animate = false, teleport = false, stackIndex = 0, stackCount = 1 } = {}) {
+  placeToken(id, index, { animate = false, stackIndex = 0, stackCount = 1 } = {}) {
     const el = this.tokenEls[id];
     if (!el) return;
     const { x, y } = this.getCellPoint(index, stackIndex, stackCount);
@@ -440,25 +449,10 @@ export class UI {
       void el.offsetWidth;
       el.style.transition = '';
     } else {
-      el.classList.toggle('token-fly--teleport', teleport);
-      el.style.transition = teleport
-        ? 'transform 0.55s cubic-bezier(0.4, 0.05, 0.2, 1)'
-        : 'transform 0.16s cubic-bezier(0.25, 0.85, 0.3, 1)';
+      el.classList.remove('token-fly--teleport');
+      el.style.transition = 'transform 0.15s linear';
       el.style.transform = transform;
     }
-    this.displayPos[id] = index;
-  }
-
-  async hopToken(id, index) {
-    const el = this.tokenEls[id];
-    if (!el) return;
-    const { x, y } = this.getCellPoint(index);
-    el.style.transition = 'transform 0.09s cubic-bezier(0.2, 0.9, 0.3, 1)';
-    el.style.transform = `translate(calc(${x}px - 50%), calc(${y}px - 50% - 12px)) scale(1.08)`;
-    await sleep(90);
-    el.style.transition = 'transform 0.09s cubic-bezier(0.4, 0.2, 0.2, 1)';
-    el.style.transform = `translate(calc(${x}px - 50%), calc(${y}px - 50%)) scale(1)`;
-    await sleep(90);
     this.displayPos[id] = index;
   }
 
@@ -502,25 +496,16 @@ export class UI {
     }
 
     if (teleport) {
-      const el = this.tokenEls[id];
-      if (el) {
-        el.style.transition = 'transform 0.25s ease, opacity 0.25s ease';
-        el.style.opacity = '0.35';
-        el.style.transform = `${el.style.transform} scale(1.25)`;
-        await sleep(220);
-      }
-      this.placeToken(id, to, { animate: true, teleport: true });
-      if (el) {
-        await sleep(520);
-        el.style.opacity = '1';
-      }
+      this.placeToken(id, to, { animate: true });
+      await sleep(160);
       this.highlightCell(to);
       return;
     }
 
     for (const step of path) {
-      await this.hopToken(id, step);
+      this.placeToken(id, step, { animate: true });
       this.highlightCell(step);
+      await sleep(150);
     }
   }
 
@@ -706,10 +691,9 @@ export class UI {
   }
 
   renderLog(state) {
-    if (!this.gameLog) return;
-    this.gameLog.innerHTML = (state.log || []).slice(0, 8).map(line =>
-      `<div class="log-line">${escapeHtml(line)}</div>`
-    ).join('');
+    // Игровой лог: старые сверху, новые снизу
+    const gameLines = [...(state.log || [])].slice(0, 36).reverse();
+    this.paintLogLines(gameLines);
   }
 
   highlightCurrentCell(state) {

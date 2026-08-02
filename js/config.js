@@ -17,11 +17,11 @@ export const BOARD_COLS = 13;
 export const BOARD_ROWS = 9;
 
 export const PLAYER_SLOTS = [
-  { id: 0, name: 'Красная', color: '#e11d48', colorSoft: '#fecdd3', token: 'pawn', tokenImage: '/assets/chips/chip_red_norefl.png' },
-  { id: 1, name: 'Синяя', color: '#2563eb', colorSoft: '#bfdbfe', token: 'pawn', tokenImage: '/assets/chips/chip_blue_norefl.png' },
-  { id: 2, name: 'Жёлтая', color: '#ca8a04', colorSoft: '#fef08a', token: 'pawn', tokenImage: '/assets/chips/chip_yellow_norefl.png' },
-  { id: 3, name: 'Зелёная', color: '#16a34a', colorSoft: '#bbf7d0', token: 'pawn', tokenImage: '/assets/chips/chip_green_norefl.png' },
-  { id: 4, name: 'Розовая', color: '#db2777', colorSoft: '#fbcfe8', token: 'pawn', tokenImage: '/assets/chips/chip_pink_norefl.png' },
+  { id: 0, name: 'Красная', color: '#e11d48', colorSoft: '#fecdd3', token: 'pawn', tokenImage: '/assets/chips/chip1.png' },
+  { id: 1, name: 'Синяя', color: '#2563eb', colorSoft: '#bfdbfe', token: 'pawn', tokenImage: '/assets/chips/chip2.png' },
+  { id: 2, name: 'Жёлтая', color: '#ca8a04', colorSoft: '#fef08a', token: 'pawn', tokenImage: '/assets/chips/chip4.png' },
+  { id: 3, name: 'Зелёная', color: '#16a34a', colorSoft: '#bbf7d0', token: 'pawn', tokenImage: '/assets/chips/chip3.png' },
+  { id: 4, name: 'Розовая', color: '#db2777', colorSoft: '#fbcfe8', token: 'pawn', tokenImage: '/assets/chips/chip5.png' },
 ];
 
 export const GROUP_COLORS = {
@@ -154,31 +154,31 @@ export function applyTheme(theme) {
   }
 }
 
-/** Шанс — бонусы (по правилам Monopoly Club) */
+/** Шанс — бонусы */
 export const CHANCE_CARDS = [
-  { text: 'Банковская ошибка в вашу пользу. Получите $200 000', money: 200_000 },
-  { text: 'Вы выиграли конкурс. Получите $50 000', money: 50_000 },
-  { text: 'Вы выиграли в лотерею. Получите $100 000', money: 100_000 },
-  { text: 'Получите $25 000 консультационный сбор', money: 25_000 },
-  { text: 'Наследство $100 000', money: 100_000 },
-  { text: 'День рождения! С каждого игрока $10 000', birthday: 10_000 },
-  { text: 'Отправляйтесь на Старт (+$200 000)', goToStart: true },
-  { text: 'Продайте акции. Получите $150 000', money: 150_000 },
-  { text: 'Перейдите на Парковку', goTo: PARKING_POS },
-  { text: 'Дивиденды. Получите $75 000', money: 75_000 },
+  { text: 'С неба упал чемодан денег', money: 200_000 },
+  { text: 'Наследство от 3-родной бабушки по линии отчима', money: 100_000 },
+  { text: 'Выигрыш в лотерее у ларька', money: 100_000 },
+  { text: 'Конверт в старом пиджаке', money: 50_000 },
+  { text: 'Банк перепутал счета', money: 75_000 },
+  { text: 'День рождения — все скидываются', birthday: 10_000 },
+  { text: 'Телепорт на Старт с премией', goToStart: true },
+  { text: 'Удачная продажа акций', money: 150_000 },
+  { text: 'Бесплатная парковка судьбы', goTo: PARKING_POS },
+  { text: 'Дивиденды капнули на карту', money: 25_000 },
 ];
 
 /** Форс-мажор — штрафы */
 export const FORCE_MAJEURE_CARDS = [
-  { text: 'Форс-мажор: штраф $50 000', money: -50_000 },
-  { text: 'Форс-мажор: штраф $100 000', money: -100_000 },
-  { text: 'Форс-мажор: штраф $150 000', money: -150_000 },
-  { text: 'Оплатите штраф за превышение $25 000', money: -25_000 },
-  { text: 'Медицинский сбор $75 000', money: -75_000 },
-  { text: 'Ремонт: $40 000 за каждый филиал', repairPerHouse: 40_000 },
-  { text: 'Отправляйтесь в Тюрьму', goToJail: true },
-  { text: 'Вернитесь на 3 клетки назад', moveBack: 3 },
-  { text: 'Налоговая проверка: заплатите $80 000', money: -80_000 },
+  { text: 'Форс-мажор накрыл с головой', money: -50_000 },
+  { text: 'Штраф за превышение оптимизма', money: -100_000 },
+  { text: 'Сломался лифт успеха', money: -150_000 },
+  { text: 'Штраф за неправильную парковку совести', money: -25_000 },
+  { text: 'Медицинский сбор за нервы', money: -75_000 },
+  { text: 'Ремонт всех филиалов разом', repairPerHouse: 40_000 },
+  { text: 'Арест — не повезло', goToJail: true },
+  { text: 'Шаг назад в карьере (−3 клетки)', moveBack: 3 },
+  { text: 'Налоговая нашла «серые» схемы', money: -80_000 },
 ];
 
 export function getCell(id) {

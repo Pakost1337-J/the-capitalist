@@ -3,6 +3,10 @@ import {
   MAX_HOUSES, PLAYER_SLOTS, getCell, getGroupProperties,
 } from './config.js';
 import { shuffle } from './utils.js';
+import {
+  logBuy, logJail, logMoneyGain, logMoneyLoss, logPassStart,
+  logRent, logTax, logRefuse, logBuild,
+} from './flavor.js';
 
 export const PHASE = {
   ROLL: 'roll',
@@ -194,7 +198,7 @@ export class GameEngine {
 
     if (p.position < oldPos || (oldPos + steps >= 40)) {
       p.money += GO_SALARY;
-      this.addLog(`${p.name} проходит Старт (+$${GO_SALARY})`);
+      this.addLog(logPassStart(p.name, GO_SALARY));
     }
 
     this.phase = PHASE.MOVING;
@@ -204,7 +208,6 @@ export class GameEngine {
   landOnCell() {
     const p = this.currentPlayer;
     const cell = getCell(p.position);
-    this.addLog(`${p.name} → ${cell.name}`);
 
     switch (cell.type) {
       case 'go':
@@ -242,18 +245,18 @@ export class GameEngine {
     } else if (ps.owner !== p.id && !ps.mortgaged) {
       const rent = this.calcRent(cell.id);
       const owner = this.players[ps.owner];
-      this.payPlayer(p, owner, rent, `аренда ${cell.name}`);
+      this.payPlayer(p, owner, rent, cell.name);
       this.afterAction();
     } else {
       this.afterAction();
     }
   }
 
-  payPlayer(from, to, amount, reason) {
+  payPlayer(from, to, amount, company) {
     if (amount <= 0) return;
     if (from.money >= amount) {
       this.transferMoney(from, to, amount);
-      this.addLog(`${from.name} платит ${to.name} $${amount} (${reason})`);
+      this.addLog(logRent(from.name, to.name, amount, company || 'компанию'));
     } else {
       this.handleBankruptcy(from, to, amount);
     }
@@ -276,7 +279,7 @@ export class GameEngine {
     const amount = Math.max(0, Math.round(this.calcCapital(p) * (percent / 100)));
     if (p.money >= amount) {
       p.money -= amount;
-      this.addLog(`${p.name} платит налог ${percent}%: $${amount}`);
+      this.addLog(logTax(p.name, amount));
       this.afterAction();
     } else {
       this.handleBankruptcy(p, null, amount);
@@ -288,7 +291,7 @@ export class GameEngine {
     p.position = JAIL_POS;
     p.inJail = true;
     p.jailTurns = 0;
-    this.addLog(`${p.name} отправлен в тюрьму!`);
+    this.addLog(logJail(p.name));
     this.phase = PHASE.END;
   }
 
@@ -296,32 +299,33 @@ export class GameEngine {
     const cardIdx = this.chanceDeck[this.chanceIndex % this.chanceDeck.length];
     this.chanceIndex++;
     const card = CHANCE_CARDS[cardIdx];
-    this.addLog(`Шанс: ${card.text}`);
-    this.applyChanceCard(card);
+    this.applyChanceCard(card, 'chance');
   }
 
   drawForceMajeure() {
     const cardIdx = this.forceDeck[this.forceIndex % this.forceDeck.length];
     this.forceIndex++;
     const card = FORCE_MAJEURE_CARDS[cardIdx];
-    this.addLog(`Форс-мажор: ${card.text}`);
-    this.applyChanceCard(card);
+    this.applyChanceCard(card, 'force');
   }
 
-  applyChanceCard(card) {
+  applyChanceCard(card, kind = 'chance') {
     const p = this.currentPlayer;
 
     if (card.money) {
       if (card.money > 0) {
         p.money += card.money;
+        this.addLog(logMoneyGain(p.name, card.money));
       } else if (p.money >= Math.abs(card.money)) {
         p.money += card.money;
+        this.addLog(logMoneyLoss(p.name, Math.abs(card.money)));
       } else {
         this.handleBankruptcy(p, null, Math.abs(card.money));
         return;
       }
       this.afterAction();
     } else if (card.birthday) {
+      this.addLog(`${p.name}: день рождения — все скидываются по $${card.birthday.toLocaleString('ru-RU')}`);
       for (const other of this.activePlayers) {
         if (other.id !== p.id) {
           const amt = Math.min(card.birthday, other.money);
@@ -332,13 +336,16 @@ export class GameEngine {
     } else if (card.goToStart) {
       p.position = 0;
       p.money += GO_SALARY;
+      this.addLog(`${p.name} телепортируется на Старт (+$${GO_SALARY.toLocaleString('ru-RU')})`);
       this.afterAction();
     } else if (card.goToJail) {
       this.sendToJail();
     } else if (card.goTo !== undefined) {
       p.position = card.goTo;
+      this.addLog(`${p.name} переходит на «${getCell(card.goTo)?.name || 'поле'}»`);
       this.afterAction();
     } else if (card.moveBack) {
+      this.addLog(`${p.name} отступает на ${card.moveBack} клетки`);
       p.position = (p.position - card.moveBack + 40) % 40;
       this.landOnCell();
     } else if (card.repairPerHouse) {
@@ -348,13 +355,14 @@ export class GameEngine {
       }
       if (p.money >= total) {
         p.money -= total;
-        this.addLog(`${p.name} платит $${total} за ремонт`);
+        this.addLog(`${p.name} чинит филиалы на $${total.toLocaleString('ru-RU')}`);
       } else {
         this.handleBankruptcy(p, null, total);
         return;
       }
       this.afterAction();
     } else {
+      this.addLog(card.text || `${p.name}: сюрприз на поле`);
       this.afterAction();
     }
   }
@@ -369,7 +377,7 @@ export class GameEngine {
     p.money -= price;
     p.properties.push(cellId);
     this.propertyState[cellId].owner = p.id;
-    this.addLog(`${p.name} покупает ${cell.name} за $${price}`);
+    this.addLog(logBuy(p.name, cell.name));
     this.pendingAction = null;
     this.afterAction();
     return true;
@@ -378,7 +386,7 @@ export class GameEngine {
   passProperty() {
     if (this.pendingAction?.type !== 'buy') return false;
     const cell = getCell(this.pendingAction.cellId);
-    this.addLog(`${this.currentPlayer.name} отказывается от ${cell.name}`);
+    this.addLog(logRefuse(this.currentPlayer.name, cell.name));
     this.pendingAction = null;
     this.afterAction();
     return true;
@@ -403,7 +411,7 @@ export class GameEngine {
     p.money -= cell.houseCost;
     ps.houses++;
     this.housesBuilt++;
-    this.addLog(`${p.name} строит филиал на ${cell.name} ($${cell.houseCost})`);
+    this.addLog(logBuild(p.name, cell.name));
     return true;
   }
 
