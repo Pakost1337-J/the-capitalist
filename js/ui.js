@@ -367,30 +367,26 @@ export class UI {
       this.renderLog(state);
       this.syncTimedUi(state);
       this.syncOwnNotice(state);
-      if (
-        state.phase === PHASE.AUCTION
-        || (state.phase === PHASE.ACTION && (state.pendingAction?.type === 'rent' || state.pendingAction?.type === 'buy'))
-      ) {
-        this.renderActions(state);
-      }
+      // Не открываем buy/rent/auction во время броска — иначе кости скрываются и анимация срывается
       return;
     }
 
     const prev = this.lastState;
     if (state.mySlot !== undefined) this.mySlot = state.mySlot;
 
+    const diceChanged = this.diceChanged(prev, state);
+    const movers = this.findMovers(prev, state);
+    const willAnimate = !!(prev && (diceChanged || movers.length > 0));
+
     this.renderHub(state);
     this.renderPlayers(state);
     this.renderHouses(state);
     this.renderLog(state);
     this.highlightCurrentCell(state);
-    this.syncTimedUi(state);
     this.syncOwnNotice(state);
 
-    const diceChanged = this.diceChanged(prev, state);
-    const movers = this.findMovers(prev, state);
-
     if (!prev) {
+      this.syncTimedUi(state);
       this.syncDiceFaces(state);
       this.ensureTokens(state);
       this.snapTokens(state);
@@ -402,7 +398,8 @@ export class UI {
     this.lastState = state;
 
     // Не гоняем «анимацию хода» на каждый апдейт — иначе сбрасываются меню сделки/залога
-    if (!diceChanged && movers.length === 0) {
+    if (!willAnimate) {
+      this.syncTimedUi(state);
       this.syncDiceFaces(state);
       this.ensureTokens(state);
       this.layoutTokenStacks(state);
@@ -410,6 +407,7 @@ export class UI {
       return;
     }
 
+    // Сразу в режим броска — иначе hub--rent прячет кости до старта анимации
     this.runTurnAnimations(state, { diceChanged, movers });
   }
 
@@ -442,12 +440,17 @@ export class UI {
 
   async runTurnAnimations(state, { diceChanged, movers }) {
     this.animating = true;
+    const hub = document.querySelector('.hub');
+    hub?.classList.add('hub--throwing');
     // Во время броска/хода прячем кнопки, но не трогаем локальные флаги меню
     const savedDeal = this._dealCompose;
     const savedShare = this._shareBuy;
     const savedMortgage = this._rentMortgagePick;
     const savedSharesPick = this._rentSharesPick;
     this.actionArea.innerHTML = `<div class="wait-turn">Ход…</div>`;
+    // Показать кости до throw (hub--rent иначе display:none → WebGL 0×0)
+    this.syncTimedUi(state);
+    this.dice3d?.resize();
 
     try {
       if (diceChanged) {
@@ -466,6 +469,7 @@ export class UI {
       this.layoutTokenStacks(state);
     } finally {
       this.animating = false;
+      hub?.classList.remove('hub--throwing');
       this._dealCompose = savedDeal;
       this._shareBuy = savedShare;
       this._rentMortgagePick = savedMortgage;
@@ -475,6 +479,7 @@ export class UI {
       if (next && next !== state) {
         this.render(next);
       } else {
+        this.syncTimedUi(state);
         this.renderActions(state);
         this.highlightCurrentCell(state);
       }
@@ -962,16 +967,20 @@ export class UI {
 
   syncTimedUi(state) {
     const hub = document.querySelector('.hub');
-    const isAuction = state.phase === PHASE.AUCTION && state.auction;
-    const isRent = state.phase === PHASE.ACTION && (
+    const throwing = !!this.animating;
+    const isAuction = !throwing && state.phase === PHASE.AUCTION && state.auction;
+    const isRent = !throwing && state.phase === PHASE.ACTION && (
       ['rent', 'tax', 'force'].includes(state.pendingAction?.type)
     );
-    const isBuy = state.phase === PHASE.ACTION && state.pendingAction?.type === 'buy';
-    const isRollTimed = state.phase === PHASE.ROLL && state.isMyTurn && !state.deal;
-    const isDeal = !!state.deal;
-    const menuOpen = !!(isRent || isBuy || isDeal || this._dealCompose || this._shareBuy || state.dealUiOpen || state.shareUiOpen);
+    const isBuy = !throwing && state.phase === PHASE.ACTION && state.pendingAction?.type === 'buy';
+    const isRollTimed = !throwing && state.phase === PHASE.ROLL && state.isMyTurn && !state.deal;
+    const isDeal = !throwing && !!state.deal;
+    const menuOpen = !throwing && !!(
+      isRent || isBuy || isDeal || this._dealCompose || this._shareBuy || state.dealUiOpen || state.shareUiOpen
+    );
     // Кнопки хода (бросок/сделка/акции) — без костей, иначе меню обрезается
     const rollMenu = !!(isRollTimed && !menuOpen);
+    hub?.classList.toggle('hub--throwing', throwing);
     hub?.classList.toggle('hub--auction', !!isAuction);
     hub?.classList.toggle('hub--rent', menuOpen);
     hub?.classList.toggle('hub--roll-timed', rollMenu);

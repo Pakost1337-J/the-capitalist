@@ -436,6 +436,7 @@ button, input, select { font-family: inherit; }
   display: block;
   opacity: 0.92;
   background: transparent;
+  transform-origin: center center;
 }
 
 .cell__owner[data-side="top"] {
@@ -991,15 +992,20 @@ button, input, select { font-family: inherit; }
   overflow: hidden;
 }
 
-/* Меню хода / долг / сделка — кости прячем, чтобы кнопки не обрезались */
+/* Длинные меню — скролл, но по центру (не прижимать к верху) */
 .hub--roll-timed .hub__arena,
 .hub--rent .hub__arena,
 .hub--auction .hub__arena {
-  justify-content: flex-start;
-  gap: 6px;
-  padding-top: 4px;
+  justify-content: center;
+  gap: 8px;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+/* Во время броска кости всегда видны по центру */
+.hub--throwing .hub__arena {
+  justify-content: center;
+  overflow: hidden;
 }
 
 /* Тост после покупки компании */
@@ -1121,6 +1127,15 @@ button, input, select { font-family: inherit; }
 .hub--rent .hub__dice-row,
 .hub--choice .hub__dice-row {
   display: none;
+}
+
+.hub--throwing .hub__dice-row {
+  display: flex !important;
+}
+
+.hub--throwing .hub__actions .btn {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .hub--auction .hub__player {

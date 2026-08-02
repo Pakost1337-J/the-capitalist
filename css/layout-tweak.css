@@ -1,19 +1,20 @@
 /**
  * Per-cell layout editor UI only.
- * Cell transforms live in style.css (responsive) — not pixel hacks.
+ * Cell transforms live in style.css (responsive) - not pixel hacks.
  */
 .cell__logo,
 .cell__country-slot,
 .cell__price,
-.cell__tax {
+.cell__tax,
+.cell__owner {
   transform-origin: center center;
   will-change: transform;
 }
 
-body.layout-edit .cell__logo,
-body.layout-edit .cell__country-slot,
-body.layout-edit .cell__price,
-body.layout-edit .cell__tax {
+body.layout-edit.layout-edit--layout .cell__logo,
+body.layout-edit.layout-edit--layout .cell__country-slot,
+body.layout-edit.layout-edit--layout .cell__price,
+body.layout-edit.layout-edit--layout .cell__tax {
   outline: 1px dashed rgba(30, 100, 220, 0.7);
   outline-offset: 0;
   cursor: grab;
@@ -21,23 +22,39 @@ body.layout-edit .cell__tax {
   position: relative;
   z-index: 20;
 }
-body.layout-edit .cell__logo.is-focus,
-body.layout-edit .cell__country-slot.is-focus,
-body.layout-edit .cell__price.is-focus,
-body.layout-edit .cell__tax.is-focus {
+body.layout-edit.layout-edit--layout .cell__logo.is-focus,
+body.layout-edit.layout-edit--layout .cell__country-slot.is-focus,
+body.layout-edit.layout-edit--layout .cell__price.is-focus,
+body.layout-edit.layout-edit--layout .cell__tax.is-focus {
   outline: 2px solid #e11d48;
 }
-body.layout-edit .cell__logo:active,
-body.layout-edit .cell__country-slot:active,
-body.layout-edit .cell__price:active,
-body.layout-edit .cell__tax:active { cursor: grabbing; }
+body.layout-edit.layout-edit--layout .cell__logo:active,
+body.layout-edit.layout-edit--layout .cell__country-slot:active,
+body.layout-edit.layout-edit--layout .cell__price:active,
+body.layout-edit.layout-edit--layout .cell__tax:active { cursor: grabbing; }
 body.layout-edit .board__tokens { pointer-events: none !important; opacity: 0.25; }
+
 body.layout-edit.layout-edit--layout .cell__owner { display: none !important; }
+
 body.layout-edit.layout-edit--own .cell__owner,
 body.layout-edit.layout-edit--own .cell__owner.layout-own-preview {
   display: block !important;
-  pointer-events: none;
-  z-index: 1;
+  pointer-events: auto !important;
+  cursor: grab;
+  z-index: 25;
+  outline: 1px dashed rgba(255, 200, 80, 0.85);
+  outline-offset: -2px;
+}
+body.layout-edit.layout-edit--own .cell__owner.is-focus {
+  outline: 2px solid #ffe08a;
+  outline-offset: -2px;
+}
+body.layout-edit.layout-edit--own .cell__owner:active { cursor: grabbing; }
+body.layout-edit.layout-edit--own .cell__logo,
+body.layout-edit.layout-edit--own .cell__country-slot,
+body.layout-edit.layout-edit--own .cell__price,
+body.layout-edit.layout-edit--own .cell__tax {
+  pointer-events: none !important;
 }
 
 .layout-panel__tabs {
@@ -55,56 +72,9 @@ body.layout-edit.layout-edit--own .cell__owner.layout-own-preview {
   background: #3f9e55;
   color: #122;
 }
-.layout-own-players {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-.layout-own-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border: 1px solid color-mix(in srgb, var(--chip, #888) 70%, #000);
-  border-radius: 8px;
-  background: rgba(0,0,0,0.25);
-  color: #f3e6d4;
-  font: inherit;
-  cursor: pointer;
-}
-.layout-own-chip--selected {
-  outline: 2px solid #ffe08a;
-}
-.layout-own-chip__swatch {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-}
-.layout-own-field {
-  display: grid;
-  grid-template-columns: 1fr 48px;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-  font-size: 12px;
-}
-.layout-own-field input[type=color] {
-  width: 48px;
-  height: 28px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-}
-.layout-own-status {
-  margin: 8px 0 4px;
-  font-size: 12px;
-  opacity: 0.85;
-}
 .layout-own-link {
   display: inline-block;
-  margin-top: 6px;
+  margin-top: 8px;
   color: #ffe08a;
   font-size: 12px;
 }
@@ -113,7 +83,7 @@ body.layout-edit.layout-edit--own .cell__owner.layout-own-preview {
   position: fixed;
   top: 12px;
   left: 12px;
-  z-index: 99999;
+  z-index: 9999;
   width: min(360px, calc(100vw - 24px));
   max-height: calc(100vh - 24px);
   overflow: auto;
@@ -137,7 +107,7 @@ body.layout-edit.layout-edit--own .cell__owner.layout-own-preview {
 .layout-panel label {
   display: grid;
   grid-template-columns: 1fr 48px;
-  gap: 2px 6px;
+  gap: 6px 6px;
   align-items: center;
   margin-bottom: 4px;
 }
@@ -153,19 +123,19 @@ body.layout-edit.layout-edit--own .cell__owner.layout-own-preview {
   font: inherit;
   font-weight: 700;
   cursor: pointer;
-  background: #3f9e45;
+  background: #3f9e55;
   color: #122;
 }
-.layout-panel button.secondary { background: #c4a070; color: #2a1c14; }
+.layout-panel button.secondary { background: #c4a070; color: #2a1414; }
 .layout-panel button.danger { background: #8b3a3a; color: #fff; }
 .layout-panel textarea {
   width: 100%;
   min-height: 120px;
   margin-top: 8px;
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.12);
   background: rgba(0,0,0,0.35);
-  color: #e8dcc8;
+  color: #e8dcdc;
   font: 11px/1.35 Consolas, monospace;
   padding: 8px;
   resize: vertical;
@@ -174,7 +144,7 @@ body.layout-edit.layout-edit--own .cell__owner.layout-own-preview {
   position: fixed;
   bottom: 16px;
   left: 16px;
-  z-index: 99998;
+  z-index: 9998;
   border: none;
   border-radius: 999px;
   padding: 10px 14px;
