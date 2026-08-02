@@ -11,11 +11,11 @@
  */
 
 export const DEFAULT_PLAYER_TOKENS = [
-  { id: 0, color: '#ef4444', token: '🚗', tokenImage: '' },
-  { id: 1, color: '#3b82f6', token: '🚢', tokenImage: '' },
-  { id: 2, color: '#22c55e', token: '🎩', tokenImage: '' },
-  { id: 3, color: '#f59e0b', token: '🐕', tokenImage: '' },
-  { id: 4, color: '#a855f7', token: '🚀', tokenImage: '' },
+  { id: 0, color: '#e11d48', token: 'pawn', tokenImage: '' },
+  { id: 1, color: '#2563eb', token: 'pawn', tokenImage: '' },
+  { id: 2, color: '#ca8a04', token: 'pawn', tokenImage: '' },
+  { id: 3, color: '#16a34a', token: 'pawn', tokenImage: '' },
+  { id: 4, color: '#db2777', token: 'pawn', tokenImage: '' },
 ];
 
 /** Дефолтные иконки для клеток (id → icon) */

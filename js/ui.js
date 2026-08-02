@@ -1,4 +1,4 @@
-import { BOARD, GROUP_COLORS, getGridPosition } from './config.js';
+import { BOARD, GROUP_COLORS, JAIL_BAIL, getGridPosition } from './config.js';
 import { formatMoney } from './utils.js';
 import { PHASE } from './game.js';
 import { iconHTML, resolveIconSrc } from './icons.js';
@@ -9,6 +9,7 @@ export class UI {
     this.network = network;
     this.mySlot = null;
     this.lastState = null;
+    this.lastDiceKey = '';
 
     this.boardEl = document.getElementById('board');
     this.playersPanel = document.getElementById('players-panel');
@@ -17,12 +18,12 @@ export class UI {
     this.die1 = document.getElementById('die1');
     this.die2 = document.getElementById('die2');
     this.dieSum = document.getElementById('die-sum');
+    this.diceStage = document.getElementById('dice-stage');
     this.hubTurn = document.getElementById('hub-turn');
     this.hubName = document.getElementById('hub-name');
     this.hubCash = document.getElementById('hub-cash');
     this.hubCapital = document.getElementById('hub-capital');
     this.hubCompanies = document.getElementById('hub-companies');
-    this.hubDice = document.getElementById('hub-dice');
 
     document.getElementById('new-game')?.addEventListener('click', () => {
       if (confirm('Выйти из игры?')) location.reload();
@@ -43,7 +44,6 @@ export class UI {
       const me = this.lastState.players.find(p => p.id === this.mySlot);
       const line = `${me?.name || 'Игрок'}: ${text}`;
       this.network.socket?.emit('chat', { text });
-      // локально сразу показать
       this.prependLog(line);
       input.value = '';
     };
@@ -85,12 +85,12 @@ export class UI {
   }
 
   renderCellHTML(cell, index) {
-    const isCorner = [0, 10, 20, 30].includes(index);
-    const isVertical = (index >= 11 && index <= 19) || (index >= 31 && index <= 39);
+    const isCorner = [0, 12, 20, 32].includes(index);
+    const isVertical = (index >= 13 && index <= 20) || (index >= 33 && index <= 39);
     const colorBar = cell.group ? `<div class="cell__color-bar"></div>` : '';
     const price = cell.price != null
-      ? `<span class="cell__price">$${cell.price}K</span>`
-      : (cell.amount != null ? `<span class="cell__price">$${cell.amount}K</span>` : '');
+      ? `<span class="cell__price">${formatMoney(cell.price)}</span>`
+      : (cell.amount != null ? `<span class="cell__price">${formatMoney(cell.amount)}</span>` : '');
 
     const brand = cell.brand || cell.name;
     const showBrand = cell.type === 'property' || cell.type === 'railroad' || cell.type === 'utility';
@@ -196,7 +196,10 @@ export class UI {
         token.style.background = p.color;
         token.title = p.name;
         const img = resolveIconSrc(p.tokenImage || '');
-        if (img) token.innerHTML = `<img src="${img}" alt="" />`;
+        if (img) {
+          token.classList.add('token--img');
+          token.innerHTML = `<img src="${img}" alt="" />`;
+        }
         token.style.transform = `translate(${(i % 2) * 10 - 4}px, ${Math.floor(i / 2) * 10 - 4}px)`;
         container.appendChild(token);
       });
@@ -232,18 +235,28 @@ export class UI {
   }
 
   renderDice(state) {
-    const sum = (state.dice?.[0] || 0) + (state.dice?.[1] || 0);
-    if (this.die1) this.die1.textContent = state.dice[0];
-    if (this.die2) this.die2.textContent = state.dice[1];
+    const d1 = clampDie(state.dice?.[0]);
+    const d2 = clampDie(state.dice?.[1]);
+    const sum = d1 + d2;
+    const key = `${d1}:${d2}:${state.log?.[0] || ''}`;
+
+    if (this.die1) this.die1.dataset.face = String(d1);
+    if (this.die2) this.die2.dataset.face = String(d2);
     if (this.dieSum) this.dieSum.textContent = String(sum || 0);
-    this.die1?.classList.toggle('die--doubles', state.doubles);
-    this.die2?.classList.toggle('die--doubles', state.doubles);
+    this.die1?.classList.toggle('die--doubles', !!state.doubles);
+    this.die2?.classList.toggle('die--doubles', !!state.doubles);
+
+    if (key !== this.lastDiceKey && this.lastDiceKey !== '') {
+      this.animateDice();
+    }
+    this.lastDiceKey = key;
   }
 
   async doAction(action) {
+    if (action.type === 'roll') this.animateDice();
     const res = await this.network.sendAction(action);
     if (!res?.ok) console.warn('Action failed:', res?.error);
-    else this.animateDice();
+    else if (action.type === 'roll') this.animateDice();
   }
 
   renderActions(state) {
@@ -270,10 +283,12 @@ export class UI {
     if (state.phase === PHASE.ROLL) {
       const rollBtn = document.createElement('button');
       rollBtn.className = 'btn btn--roll';
-      rollBtn.textContent = p.inJail ? '🎲 Бросить / Залог $50' : '🎲 Бросить кубики';
+      rollBtn.textContent = p.inJail
+        ? `🎲 Бросить / Залог ${formatMoney(JAIL_BAIL)}`
+        : '🎲 Бросить кубики';
       rollBtn.addEventListener('click', async () => {
-        if (p.inJail && p.money >= 50) {
-          const useBail = confirm('Заплатить $50 залог? (Отмена = бросить кубики)');
+        if (p.inJail && p.money >= JAIL_BAIL) {
+          const useBail = confirm(`Заплатить ${formatMoney(JAIL_BAIL)} залог? (Отмена = бросить кубики)`);
           if (useBail) return this.doAction({ type: 'payJailBail' });
         }
         this.doAction({ type: 'roll' });
@@ -344,21 +359,29 @@ export class UI {
   }
 
   animateDice() {
-    this.hubDice?.classList.add('hub__dice--pulse');
-    this.die1?.classList.add('die--rolling');
-    this.die2?.classList.add('die--rolling');
-    setTimeout(() => {
-      this.hubDice?.classList.remove('hub__dice--pulse');
-      this.die1?.classList.remove('die--rolling');
-      this.die2?.classList.remove('die--rolling');
-    }, 450);
+    if (!this.diceStage) return;
+    this.diceStage.classList.remove('dice-stage--falling');
+    // restart CSS animation
+    void this.diceStage.offsetWidth;
+    this.diceStage.classList.add('dice-stage--falling');
+    clearTimeout(this._diceTimer);
+    this._diceTimer = setTimeout(() => {
+      this.diceStage?.classList.remove('dice-stage--falling');
+    }, 900);
   }
+}
+
+function clampDie(n) {
+  const v = Number(n) || 1;
+  return Math.min(6, Math.max(1, v));
 }
 
 function tokenDisplay(p) {
   const src = resolveIconSrc(p.tokenImage || '');
-  if (src) return `<img class="player-card__token-img" src="${src}" alt="" style="width:22px;height:22px;border-radius:50%;object-fit:cover" />`;
-  return p.token && p.token !== '●' ? p.token : '👤';
+  if (src) {
+    return `<img class="player-card__token-img" src="${src}" alt="" style="width:28px;height:28px;border-radius:50%;object-fit:cover" />`;
+  }
+  return `<span class="chip" style="background:${p.color}" title="${escapeHtml(p.name)}"></span>`;
 }
 
 function escapeHtml(s) {

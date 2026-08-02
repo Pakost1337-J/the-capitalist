@@ -132,6 +132,7 @@ export function getLobbyState(room) {
       slot: m.slot,
       isHost: m.isHost,
       token: PLAYER_SLOTS[m.slot]?.token,
+      chipName: PLAYER_SLOTS[m.slot]?.name,
       color: PLAYER_SLOTS[m.slot]?.color,
     })),
   };

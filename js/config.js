@@ -1,30 +1,37 @@
 import { DEFAULT_CELL_ICONS } from './icons.js';
 
-export const START_MONEY = 1500;
-export const GO_SALARY = 200;
-export const JAIL_BAIL = 50;
+export const START_MONEY = 1_500_000;
+export const GO_SALARY = 200_000;
+export const JAIL_BAIL = 50_000;
 export const MAX_HOUSES = 5;
 export const MAX_PLAYERS = 5;
 export const MIN_PLAYERS = 1;
 
+/** Прямоугольное поле: 13 колонок × 9 рядов */
+export const BOARD_COLS = 13;
+export const BOARD_ROWS = 9;
+
 export const PLAYER_SLOTS = [
-  { id: 0, color: '#e11d48', token: '●', tokenImage: '' },
-  { id: 1, color: '#2563eb', token: '●', tokenImage: '' },
-  { id: 2, color: '#16a34a', token: '●', tokenImage: '' },
-  { id: 3, color: '#ca8a04', token: '●', tokenImage: '' },
-  { id: 4, color: '#9333ea', token: '●', tokenImage: '' },
+  { id: 0, name: 'Красная', color: '#e11d48', colorSoft: '#fecdd3', token: 'pawn', tokenImage: '' },
+  { id: 1, name: 'Синяя', color: '#2563eb', colorSoft: '#bfdbfe', token: 'pawn', tokenImage: '' },
+  { id: 2, name: 'Жёлтая', color: '#ca8a04', colorSoft: '#fef08a', token: 'pawn', tokenImage: '' },
+  { id: 3, name: 'Зелёная', color: '#16a34a', colorSoft: '#bbf7d0', token: 'pawn', tokenImage: '' },
+  { id: 4, name: 'Розовая', color: '#db2777', colorSoft: '#fbcfe8', token: 'pawn', tokenImage: '' },
 ];
 
+/** Группы больше не красят клетку по умолчанию — только тёплый серый */
 export const GROUP_COLORS = {
-  brown: '#9ca3af',
-  lightblue: '#f87171',
-  pink: '#60a5fa',
-  orange: '#4ade80',
-  red: '#fbbf24',
-  yellow: '#fb923c',
-  green: '#a78bfa',
-  darkblue: '#38bdf8',
+  brown: '#c4b8a8',
+  lightblue: '#c4b8a8',
+  pink: '#c4b8a8',
+  orange: '#c4b8a8',
+  red: '#c4b8a8',
+  yellow: '#c4b8a8',
+  green: '#c4b8a8',
+  darkblue: '#c4b8a8',
 };
+
+export const CELL_DEFAULT_BG = '#c9c2b6';
 
 // brand = короткий логотип-текст, flag = флаг страны
 export const BOARD = [
@@ -70,10 +77,16 @@ export const BOARD = [
   { id: 39, type: 'property', name: 'Rolex', brand: 'ROLEX', flag: '🇨🇭', icon: '⌚', group: 'darkblue', price: 400, houseCost: 200, rent: [50, 200, 600, 1400, 1700, 2000] },
 ];
 
+const ECONOMY_SCALE = 1000;
+
 for (const cell of BOARD) {
   if (!cell.icon) cell.icon = DEFAULT_CELL_ICONS[cell.id] || '⬜';
   if (!cell.brand) cell.brand = cell.name;
   if (cell.flag === undefined) cell.flag = '';
+  if (cell.price) cell.price *= ECONOMY_SCALE;
+  if (cell.houseCost) cell.houseCost *= ECONOMY_SCALE;
+  if (cell.amount) cell.amount *= ECONOMY_SCALE;
+  if (cell.rent) cell.rent = cell.rent.map(r => r * ECONOMY_SCALE);
 }
 
 export function applyTheme(theme) {
@@ -97,22 +110,22 @@ export function applyTheme(theme) {
 }
 
 export const CHANCE_CARDS = [
-  { text: 'Банковская ошибка в вашу пользу. Получите $200', money: 200 },
-  { text: 'Оплатите штраф за превышение скорости $15', money: -15 },
-  { text: 'Вы выиграли конкурс красоты. Получите $10', money: 10 },
-  { text: 'Вы выиграли в лотерею. Получите $100', money: 100 },
-  { text: 'Заплатите медицинский сбор $50', money: -50 },
-  { text: 'Получите $25 консультационный сбор', money: 25 },
-  { text: 'Вы наследство $100', money: 100 },
-  { text: 'День рождения! С каждого игрока $10', birthday: 10 },
+  { text: 'Банковская ошибка в вашу пользу. Получите $200 000', money: 200_000 },
+  { text: 'Оплатите штраф за превышение скорости $15 000', money: -15_000 },
+  { text: 'Вы выиграли конкурс. Получите $10 000', money: 10_000 },
+  { text: 'Вы выиграли в лотерею. Получите $100 000', money: 100_000 },
+  { text: 'Заплатите медицинский сбор $50 000', money: -50_000 },
+  { text: 'Получите $25 000 консультационный сбор', money: 25_000 },
+  { text: 'Наследство $100 000', money: 100_000 },
+  { text: 'День рождения! С каждого игрока $10 000', birthday: 10_000 },
   { text: 'Отправляйтесь на Старт', goToStart: true },
   { text: 'Отправляйтесь в Тюрьму', goToJail: true },
-  { text: 'Ремонт: заплатите $40 за каждый филиал', repairPerHouse: 40 },
-  { text: 'Продайте акции. Получите $150', money: 150 },
+  { text: 'Ремонт: заплатите $40 000 за каждый филиал', repairPerHouse: 40_000 },
+  { text: 'Продайте акции. Получите $150 000', money: 150_000 },
   { text: 'Вернитесь на 3 клетки назад', moveBack: 3 },
   { text: 'Перейдите на Парковку', goTo: 20 },
-  { text: 'Получите $50', money: 50 },
-  { text: 'Заплатите налог $75', money: -75 },
+  { text: 'Получите $50 000', money: 50_000 },
+  { text: 'Заплатите налог $75 000', money: -75_000 },
 ];
 
 export function getCell(id) {
@@ -123,9 +136,14 @@ export function getGroupProperties(group) {
   return BOARD.filter(c => c.group === group);
 }
 
+/** Старт (0) — слева сверху, ход по часовой: верх → право → низ → лево */
 export function getGridPosition(index) {
-  if (index <= 10) return { row: 10, col: 10 - index };
-  if (index <= 20) return { row: 20 - index, col: 0 };
-  if (index <= 30) return { row: 0, col: index - 20 };
-  return { row: index - 30, col: 10 };
+  // Верх: 0..12 слева направо
+  if (index <= 12) return { row: 0, col: index };
+  // Право: 13..20 сверху вниз
+  if (index <= 20) return { row: index - 12, col: BOARD_COLS - 1 };
+  // Низ: 21..32 справа налево
+  if (index <= 32) return { row: BOARD_ROWS - 1, col: 32 - index };
+  // Лево: 33..39 снизу вверх
+  return { row: 40 - index, col: 0 };
 }

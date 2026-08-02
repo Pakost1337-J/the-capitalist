@@ -70,11 +70,11 @@ function buildBoard() {
 }
 
 function cellHTML(data, index) {
-  const isCorner = [0, 10, 20, 30].includes(index);
-  const isVertical = (index >= 11 && index <= 19) || (index >= 31 && index <= 39);
+  const isCorner = [0, 12, 20, 32].includes(index);
+  const isVertical = (index >= 13 && index <= 20) || (index >= 33 && index <= 39);
   const base = BOARD[index];
   const colorBar = base.group ? `<div class="cell__color-bar"></div>` : '';
-  const price = base.price ? `<span class="cell__price">$${base.price}</span>` : '';
+  const price = base.price ? `<span class="cell__price">$${Number(base.price).toLocaleString('ru-RU')}</span>` : '';
 
   return `
     ${colorBar}
@@ -97,18 +97,23 @@ function refreshAllCells() {
   for (let i = 0; i < 40; i++) refreshCell(i);
 }
 
+function chipLabel(id) {
+  return PLAYER_SLOTS[id]?.name || `Фишка ${id + 1}`;
+}
+
 function renderPlayers() {
   playersStrip.innerHTML = theme.players.map(p => {
     const icon = p.tokenImage || p.token;
     const src = resolveIconSrc(icon);
+    const color = PLAYER_SLOTS[p.id]?.color || '#888';
     const iconInner = src
       ? `<img src="${src}" alt="" />`
-      : (p.token || '♟');
+      : `<span class="chip" style="background:${color}"></span>`;
     const selectedCls = selected?.type === 'player' && selected.id === p.id ? 'ctor-chip--selected' : '';
     return `
-      <button type="button" class="ctor-chip ${selectedCls}" data-player="${p.id}" style="border-color:${PLAYER_SLOTS[p.id]?.color}">
+      <button type="button" class="ctor-chip ${selectedCls}" data-player="${p.id}" style="border-color:${color}">
         <span class="ctor-chip__icon">${iconInner}</span>
-        <span>Игрок ${p.id + 1}</span>
+        <span>${chipLabel(p.id)}</span>
       </button>
     `;
   }).join('');

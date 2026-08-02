@@ -197,7 +197,7 @@ export class LobbyUI {
 
     document.getElementById('room-players').innerHTML = lobby.members.map(m => `
       <div class="lobby-player" style="--pc: ${m.color}">
-        <span class="lobby-player__token">${m.token}</span>
+        <span class="chip lobby-player__token" style="background:${m.color}" title="${escapeHtml(m.chipName || '')}"></span>
         <span class="lobby-player__name">${escapeHtml(m.name)}${m.isHost ? ' 👑' : ''}</span>
       </div>
     `).join('');

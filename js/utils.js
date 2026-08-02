@@ -1,9 +1,7 @@
 export function formatMoney(value) {
   if (value < 0) return '-$' + formatMoney(-value).slice(1);
   if (value >= 1e9) return '$' + (value / 1e9).toFixed(1) + 'B';
-  if (value >= 1e6) return '$' + (value / 1e6).toFixed(1) + 'M';
-  if (value >= 1e4) return '$' + Math.floor(value).toLocaleString('ru-RU');
-  return '$' + value;
+  return '$' + Math.floor(value).toLocaleString('ru-RU');
 }
 
 export function shuffle(arr) {

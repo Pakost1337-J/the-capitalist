@@ -1,5 +1,6 @@
 :root {
-  --ctor-cell: clamp(48px, 6.5vw, 72px);
+  --ctor-cell-w: clamp(42px, 5.2vw, 64px);
+  --ctor-cell-h: clamp(38px, 4.8vw, 58px);
 }
 
 .constructor {
@@ -77,7 +78,8 @@
 }
 
 .ctor-board {
-  --cell-size: var(--ctor-cell);
+  --cell-w: var(--ctor-cell-w);
+  --cell-h: var(--ctor-cell-h);
   cursor: default;
 }
 
