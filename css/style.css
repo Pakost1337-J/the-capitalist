@@ -356,39 +356,43 @@ button, input, select { font-family: inherit; }
   outline: none;
 }
 
-/* Закрас под текстом/флагом; чуть вниз / к центру доски */
+/* Закрас строго под контентом; сдвиг от центра доски и правее */
 .cell__owner {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   pointer-events: none;
   background-repeat: no-repeat;
   background-position: center;
   background-size: 100% 100%;
 }
+/* верх: от центра (= вверх) и правее */
 .cell--side-top .cell__owner {
-  top: 12%;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: 0;
+  bottom: 14%;
+  left: 14%;
+  right: -2%;
 }
+/* низ: от центра (= вниз) и правее */
 .cell--side-bottom .cell__owner {
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 12%;
-}
-.cell--side-right .cell__owner {
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 14%;
-}
-.cell--side-left .cell__owner {
-  top: 0;
+  top: 14%;
   bottom: 0;
   left: 14%;
+  right: -2%;
+}
+/* право: от центра (= вправо) */
+.cell--side-right .cell__owner {
+  top: 4%;
+  bottom: 4%;
+  left: 16%;
   right: 0;
+}
+/* лево: от центра (= влево), но чуть правее внутри клетки */
+.cell--side-left .cell__owner {
+  top: 4%;
+  bottom: 4%;
+  left: 4%;
+  right: 12%;
 }
 
 .cell__lock {
@@ -433,24 +437,36 @@ button, input, select { font-family: inherit; }
   min-width: 0;
   position: relative;
   z-index: 2;
+  isolation: isolate;
 }
 
-/* Верх/низ: флаг у внешнего края. Бока: стопка к центру, флаг к краю */
+.cell__body .cell__logo,
+.cell__body .cell__price,
+.cell__body .cell__country-slot,
+.cell__body .cell__stack,
+.cell__body .cell__shares,
+.cell__body .cell__tax,
+.cell__body .cell__name {
+  position: relative;
+  z-index: 2;
+}
+
+/* Флаг у края к центру доски (DOM: лого → цена → флаг) */
 .cell__body--top {
-  flex-direction: column;
+  flex-direction: column; /* флаг внизу → к центру */
 }
 .cell__body--bottom {
-  flex-direction: column-reverse;
+  flex-direction: column-reverse; /* флаг вверху → к центру */
 }
 .cell__body--right {
-  flex-direction: row;
+  flex-direction: row; /* флаг слева → к центру */
   justify-content: space-evenly;
   align-items: center;
   padding: 4px 5px;
   gap: 4px;
 }
 .cell__body--left {
-  flex-direction: row-reverse;
+  flex-direction: row; /* флаг справа → к центру: stack затем flag */
   justify-content: space-evenly;
   align-items: center;
   padding: 4px 5px;
@@ -734,19 +750,20 @@ button, input, select { font-family: inherit; }
   border-radius: 50%;
 }
 
-/* Короткая тень на доске — без «стеклянного пузыря» */
-.token__shade {
+/* Мягкая тень вниз-вправо, без отдельного чёрного диска */
+.token--board::after {
+  content: '';
   position: absolute;
-  left: 22%;
-  width: 56%;
-  bottom: 0;
-  height: 14%;
+  left: 18%;
+  width: 64%;
+  bottom: -8%;
+  height: 22%;
   border-radius: 50%;
-  background: radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 0.42) 0%, transparent 72%);
-  transform: translate(2px, 3px);
-  filter: blur(1.5px);
+  background: rgba(0, 0, 0, 0.28);
+  filter: blur(3px);
+  transform: translate(4px, 2px);
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
 }
 
 .token--board img {

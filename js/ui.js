@@ -265,18 +265,13 @@ export class UI {
       const priceEl = price ? `<span class="cell__price">${price}</span>` : '';
       const flagEl = `<div class="cell__country-slot">${flagHtml}</div>`;
       const shares = `<div class="cell__shares" data-houses="${index}" aria-label="Акции"></div>`;
-      // Верх/низ: флаг у внешнего края → лого → цена
-      // Бока: лого+цена к центру, флаг к внешнему краю доски
-      if (side === 'left' || side === 'right') {
-        body = `
-          <div class="cell__stack">
-            ${logo}
-            ${priceEl}
-          </div>
-          ${flagEl}
-          ${shares}`;
+      // Флаг у края к центру доски; лого+цена — к внешнему краю
+      if (side === 'top' || side === 'bottom') {
+        body = `${logo}${priceEl}${flagEl}${shares}`;
+      } else if (side === 'right') {
+        body = `${flagEl}<div class="cell__stack">${logo}${priceEl}</div>${shares}`;
       } else {
-        body = `${flagEl}${logo}${priceEl}${shares}`;
+        body = `<div class="cell__stack">${logo}${priceEl}</div>${flagEl}${shares}`;
       }
     } else if (cell.type === 'tax') {
       const pct = cell.taxPercent != null ? `${cell.taxPercent}%` : '6%';
@@ -516,9 +511,9 @@ export class UI {
     const img = resolveIconSrc(p.tokenBoardImage || p.tokenImage || '');
     if (img) {
       el.classList.add('token--img');
-      el.innerHTML = `<span class="token__shade" aria-hidden="true"></span><img src="${img}" alt="" draggable="false" />`;
+      el.innerHTML = `<img src="${img}" alt="" draggable="false" />`;
     } else {
-      el.innerHTML = '<span class="token__shade" aria-hidden="true"></span><span class="token__ring"></span><span class="token__core"></span>';
+      el.innerHTML = '<span class="token__ring"></span><span class="token__core"></span>';
     }
     return el;
   }
