@@ -11,6 +11,7 @@ export function runBotTurn(game, onDone) {
   setTimeout(() => {
     if (game.phase === PHASE.ROLL) {
       game.rollDice();
+      // ждём анимацию кубиков + хода фишки на клиенте
       handleAfterRoll(game, onDone);
     } else if (game.phase === PHASE.END) {
       game.endTurn();
@@ -18,10 +19,13 @@ export function runBotTurn(game, onDone) {
     } else {
       onDone();
     }
-  }, 900);
+  }, 1100);
 }
 
 function handleAfterRoll(game, onDone) {
+  const steps = (game.dice?.[0] || 0) + (game.dice?.[1] || 0);
+  const animWait = 1100 + Math.min(steps, 12) * 190;
+
   setTimeout(() => {
     if (game.phase === PHASE.ACTION && game.pendingAction?.type === 'buy') {
       const { cellId, price } = game.pendingAction;
@@ -34,7 +38,7 @@ function handleAfterRoll(game, onDone) {
         game.passProperty();
       }
 
-      setTimeout(() => finishBotTurn(game, onDone), 800);
+      setTimeout(() => finishBotTurn(game, onDone), 900);
     } else if (game.phase === PHASE.END) {
       game.endTurn();
       onDone();
@@ -43,7 +47,7 @@ function handleAfterRoll(game, onDone) {
     } else {
       finishBotTurn(game, onDone);
     }
-  }, 600);
+  }, animWait);
 }
 
 function finishBotTurn(game, onDone) {

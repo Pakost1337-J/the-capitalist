@@ -1,7 +1,13 @@
 import { BOARD, GROUP_COLORS, JAIL_BAIL, getGridPosition } from './config.js';
-import { formatMoney } from './utils.js';
+import { formatMoney, sleep } from './utils.js';
 import { PHASE } from './game.js';
 import { iconHTML, resolveIconSrc } from './icons.js';
+import {
+  makeDieCubeHTML,
+  throwDice,
+  resolveMovePath,
+  DIE_FACE_ROT,
+} from './animations.js';
 
 export class UI {
   constructor(engine, network) {
@@ -10,6 +16,11 @@ export class UI {
     this.mySlot = null;
     this.lastState = null;
     this.lastDiceKey = '';
+    this.displayPos = {};
+    this.tokenEls = {};
+    this.animating = false;
+    this.pendingState = null;
+    this._resizeTimer = null;
 
     this.boardEl = document.getElementById('board');
     this.playersPanel = document.getElementById('players-panel');
@@ -17,6 +28,8 @@ export class UI {
     this.gameLog = document.getElementById('game-log');
     this.die1 = document.getElementById('die1');
     this.die2 = document.getElementById('die2');
+    this.die1Throw = document.getElementById('die1-throw');
+    this.die2Throw = document.getElementById('die2-throw');
     this.dieSum = document.getElementById('die-sum');
     this.diceStage = document.getElementById('dice-stage');
     this.hubTurn = document.getElementById('hub-turn');
@@ -29,8 +42,18 @@ export class UI {
       if (confirm('Выйти из игры?')) location.reload();
     });
 
+    if (this.die1) this.die1.innerHTML = makeDieCubeHTML();
+    if (this.die2) this.die2.innerHTML = makeDieCubeHTML();
+    this.setDieFace(this.die1, 1);
+    this.setDieFace(this.die2, 1);
+
     this.setupChat();
     this.buildBoard();
+
+    window.addEventListener('resize', () => {
+      clearTimeout(this._resizeTimer);
+      this._resizeTimer = setTimeout(() => this.repositionTokens(), 80);
+    });
   }
 
   setupChat() {
@@ -82,11 +105,15 @@ export class UI {
       this.boardEl.appendChild(el);
       this.cells[i] = el;
     }
+
+    this.tokenLayer = document.createElement('div');
+    this.tokenLayer.className = 'board__tokens';
+    this.boardEl.appendChild(this.tokenLayer);
   }
 
   renderCellHTML(cell, index) {
     const isCorner = [0, 12, 20, 32].includes(index);
-    const isVertical = (index >= 13 && index <= 20) || (index >= 33 && index <= 39);
+    const isSide = (index >= 13 && index <= 20) || (index >= 33 && index <= 39);
     const colorBar = cell.group ? `<div class="cell__color-bar"></div>` : '';
     const price = cell.price != null
       ? `<span class="cell__price">${formatMoney(cell.price)}</span>`
@@ -97,7 +124,7 @@ export class UI {
 
     return `
       ${colorBar}
-      <div class="cell__body ${isVertical ? 'cell__body--vertical' : ''} ${isCorner ? 'cell__body--corner' : ''}">
+      <div class="cell__body ${isSide ? 'cell__body--side' : ''} ${isCorner ? 'cell__body--corner' : ''}">
         ${cell.flag ? `<span class="cell__flag">${cell.flag}</span>` : ''}
         ${showBrand
           ? `<span class="cell__brand">${escapeHtml(brand)}</span>`
@@ -106,23 +133,293 @@ export class UI {
         ${showBrand ? `<span class="cell__name">${escapeHtml(cell.name)}</span>` : ''}
         ${price}
       </div>
-      <div class="cell__tokens" data-tokens="${index}"></div>
       <div class="cell__houses" data-houses="${index}"></div>
     `;
   }
 
   render(state) {
-    this.lastState = state;
+    if (this.animating) {
+      this.pendingState = state;
+      // обновляем панели, но позиции фишек — после анимации
+      if (state.mySlot !== undefined) this.mySlot = state.mySlot;
+      this.renderHub(state);
+      this.renderPlayers(state);
+      this.renderHouses(state);
+      this.renderLog(state);
+      return;
+    }
+
+    const prev = this.lastState;
     if (state.mySlot !== undefined) this.mySlot = state.mySlot;
 
     this.renderHub(state);
     this.renderPlayers(state);
-    this.renderTokens(state);
     this.renderHouses(state);
-    this.renderDice(state);
-    this.renderActions(state);
     this.renderLog(state);
     this.highlightCurrentCell(state);
+
+    const diceChanged = this.diceChanged(prev, state);
+    const movers = this.findMovers(prev, state);
+
+    if (!prev) {
+      this.syncDiceFaces(state);
+      this.ensureTokens(state);
+      this.snapTokens(state);
+      this.renderActions(state);
+      this.lastState = state;
+      return;
+    }
+
+    this.lastState = state;
+    this.runTurnAnimations(state, { diceChanged, movers });
+  }
+
+  diceChanged(prev, state) {
+    if (!prev) return false;
+    const rolled = (state.log || []).find(l => /бросает\s+\d+\s*:\s*\d+/.test(l));
+    if (!rolled) return false;
+    return !(prev.log || []).includes(rolled);
+  }
+
+  findMovers(prev, state) {
+    if (!prev) return [];
+    const movers = [];
+    for (const p of state.players) {
+      if (p.bankrupt) continue;
+      const old = prev.players.find(x => x.id === p.id);
+      if (!old) continue;
+      if (old.position !== p.position) {
+        movers.push({
+          id: p.id,
+          from: old.position,
+          to: p.position,
+          player: p,
+        });
+      }
+    }
+    return movers;
+  }
+
+  async runTurnAnimations(state, { diceChanged, movers }) {
+    this.animating = true;
+    this.renderActions({ ...state, phase: PHASE.MOVING, isMyTurn: false });
+
+    try {
+      if (diceChanged) {
+        await this.animateDiceThrow(state);
+      } else {
+        this.syncDiceFaces(state);
+      }
+
+      this.ensureTokens(state);
+
+      const diceSum = (state.dice?.[0] || 0) + (state.dice?.[1] || 0);
+      for (const m of movers) {
+        await this.animateTokenMove(m.id, m.from, m.to, diceSum, m.player);
+      }
+
+      // выровнять стек на клетках
+      this.layoutTokenStacks(state);
+    } finally {
+      this.animating = false;
+      const next = this.pendingState;
+      this.pendingState = null;
+      if (next && next !== state) {
+        this.render(next);
+      } else {
+        this.renderActions(state);
+        this.highlightCurrentCell(state);
+      }
+    }
+  }
+
+  setDieFace(cube, value) {
+    if (!cube) return;
+    const face = DIE_FACE_ROT[value] || DIE_FACE_ROT[1];
+    cube.style.transition = 'none';
+    cube.style.transform = `rotateX(${face.x}deg) rotateY(${face.y}deg)`;
+  }
+
+  syncDiceFaces(state) {
+    const d1 = clampDie(state.dice?.[0]);
+    const d2 = clampDie(state.dice?.[1]);
+    this.setDieFace(this.die1, d1);
+    this.setDieFace(this.die2, d2);
+    if (this.dieSum) this.dieSum.textContent = String(d1 + d2);
+    this.die1Throw?.classList.toggle('die-throw--doubles', !!state.doubles);
+    this.die2Throw?.classList.toggle('die-throw--doubles', !!state.doubles);
+  }
+
+  async animateDiceThrow(state) {
+    const d1 = clampDie(state.dice?.[0]);
+    const d2 = clampDie(state.dice?.[1]);
+    if (this.dieSum) this.dieSum.textContent = '…';
+    await throwDice(
+      [this.die1Throw, this.die2Throw],
+      [this.die1, this.die2],
+      [d1, d2],
+      { doubles: !!state.doubles },
+    );
+    if (this.dieSum) this.dieSum.textContent = String(d1 + d2);
+  }
+
+  ensureTokens(state) {
+    const alive = new Set();
+    for (const p of state.players) {
+      if (p.bankrupt) {
+        this.tokenEls[p.id]?.remove();
+        delete this.tokenEls[p.id];
+        delete this.displayPos[p.id];
+        continue;
+      }
+      alive.add(p.id);
+      if (!this.tokenEls[p.id]) {
+        const el = this.createTokenEl(p);
+        this.tokenLayer.appendChild(el);
+        this.tokenEls[p.id] = el;
+        this.displayPos[p.id] = p.position;
+      } else {
+        this.tokenEls[p.id].style.setProperty('--token-color', p.color);
+        this.tokenEls[p.id].title = p.name;
+      }
+    }
+    for (const id of Object.keys(this.tokenEls)) {
+      if (!alive.has(Number(id))) {
+        this.tokenEls[id]?.remove();
+        delete this.tokenEls[id];
+        delete this.displayPos[id];
+      }
+    }
+  }
+
+  createTokenEl(p) {
+    const el = document.createElement('div');
+    el.className = 'token token-fly';
+    el.dataset.player = String(p.id);
+    el.style.setProperty('--token-color', p.color);
+    el.title = p.name;
+    const img = resolveIconSrc(p.tokenImage || '');
+    if (img) {
+      el.classList.add('token--img');
+      el.innerHTML = `<img src="${img}" alt="" />`;
+    } else {
+      el.innerHTML = '<span class="token__ring"></span><span class="token__core"></span>';
+    }
+    return el;
+  }
+
+  getCellPoint(index, stackIndex = 0, stackCount = 1) {
+    const cell = this.cells[index];
+    if (!cell || !this.boardEl) return { x: 0, y: 0 };
+    const boardRect = this.boardEl.getBoundingClientRect();
+    const cellRect = cell.getBoundingClientRect();
+    const ox = ((stackIndex % 2) - (stackCount > 1 ? 0.35 : 0)) * 12;
+    const oy = (Math.floor(stackIndex / 2) - (stackCount > 2 ? 0.35 : 0)) * 12;
+    return {
+      x: cellRect.left - boardRect.left + cellRect.width * 0.72 + ox,
+      y: cellRect.top - boardRect.top + cellRect.height * 0.68 + oy,
+    };
+  }
+
+  placeToken(id, index, { animate = false, teleport = false, stackIndex = 0, stackCount = 1 } = {}) {
+    const el = this.tokenEls[id];
+    if (!el) return;
+    const { x, y } = this.getCellPoint(index, stackIndex, stackCount);
+    const transform = `translate(calc(${x}px - 50%), calc(${y}px - 50%))`;
+
+    if (!animate) {
+      el.style.transition = 'none';
+      el.style.transform = transform;
+      void el.offsetWidth;
+      el.style.transition = '';
+    } else {
+      el.classList.toggle('token-fly--teleport', teleport);
+      el.style.transition = teleport
+        ? 'transform 0.55s cubic-bezier(0.4, 0.05, 0.2, 1)'
+        : 'transform 0.16s cubic-bezier(0.25, 0.85, 0.3, 1)';
+      el.style.transform = transform;
+    }
+    this.displayPos[id] = index;
+  }
+
+  async hopToken(id, index) {
+    const el = this.tokenEls[id];
+    if (!el) return;
+    const { x, y } = this.getCellPoint(index);
+    el.style.transition = 'transform 0.09s cubic-bezier(0.2, 0.9, 0.3, 1)';
+    el.style.transform = `translate(calc(${x}px - 50%), calc(${y}px - 50% - 12px)) scale(1.08)`;
+    await sleep(90);
+    el.style.transition = 'transform 0.09s cubic-bezier(0.4, 0.2, 0.2, 1)';
+    el.style.transform = `translate(calc(${x}px - 50%), calc(${y}px - 50%)) scale(1)`;
+    await sleep(90);
+    this.displayPos[id] = index;
+  }
+
+  snapTokens(state) {
+    const byPos = groupByPosition(state.players);
+    for (const [pos, list] of Object.entries(byPos)) {
+      list.forEach((p, i) => {
+        this.placeToken(p.id, Number(pos), {
+          animate: false,
+          stackIndex: i,
+          stackCount: list.length,
+        });
+      });
+    }
+  }
+
+  layoutTokenStacks(state) {
+    const byPos = groupByPosition(state.players);
+    for (const [pos, list] of Object.entries(byPos)) {
+      list.forEach((p, i) => {
+        this.placeToken(p.id, Number(pos), {
+          animate: true,
+          hop: false,
+          stackIndex: i,
+          stackCount: list.length,
+        });
+      });
+    }
+  }
+
+  repositionTokens() {
+    if (!this.lastState || this.animating) return;
+    this.snapTokens(this.lastState);
+  }
+
+  async animateTokenMove(id, from, to, diceSum, player) {
+    const { path, teleport } = resolveMovePath(from, to, diceSum);
+    if (!path.length) {
+      this.placeToken(id, to, { animate: false });
+      return;
+    }
+
+    if (teleport) {
+      const el = this.tokenEls[id];
+      if (el) {
+        el.style.transition = 'transform 0.25s ease, opacity 0.25s ease';
+        el.style.opacity = '0.35';
+        el.style.transform = `${el.style.transform} scale(1.25)`;
+        await sleep(220);
+      }
+      this.placeToken(id, to, { animate: true, teleport: true });
+      if (el) {
+        await sleep(520);
+        el.style.opacity = '1';
+      }
+      this.highlightCell(to);
+      return;
+    }
+
+    for (const step of path) {
+      await this.hopToken(id, step);
+      this.highlightCell(step);
+    }
+  }
+
+  highlightCell(index) {
+    document.querySelectorAll('.cell--highlight').forEach(c => c.classList.remove('cell--highlight'));
+    this.cells[index]?.classList.add('cell--highlight');
   }
 
   calcCapital(player, state) {
@@ -179,33 +476,6 @@ export class UI {
     }).join('');
   }
 
-  renderTokens(state) {
-    document.querySelectorAll('[data-tokens]').forEach(el => { el.innerHTML = ''; });
-    const byPos = {};
-    for (const p of state.players) {
-      if (p.bankrupt) continue;
-      if (!byPos[p.position]) byPos[p.position] = [];
-      byPos[p.position].push(p);
-    }
-    for (const [pos, players] of Object.entries(byPos)) {
-      const container = document.querySelector(`[data-tokens="${pos}"]`);
-      if (!container) continue;
-      players.forEach((p, i) => {
-        const token = document.createElement('div');
-        token.className = 'token';
-        token.style.background = p.color;
-        token.title = p.name;
-        const img = resolveIconSrc(p.tokenImage || '');
-        if (img) {
-          token.classList.add('token--img');
-          token.innerHTML = `<img src="${img}" alt="" />`;
-        }
-        token.style.transform = `translate(${(i % 2) * 10 - 4}px, ${Math.floor(i / 2) * 10 - 4}px)`;
-        container.appendChild(token);
-      });
-    }
-  }
-
   renderHouses(state) {
     document.querySelectorAll('[data-houses]').forEach(el => { el.innerHTML = ''; });
     document.querySelectorAll('.cell').forEach(c => {
@@ -234,29 +504,9 @@ export class UI {
     }
   }
 
-  renderDice(state) {
-    const d1 = clampDie(state.dice?.[0]);
-    const d2 = clampDie(state.dice?.[1]);
-    const sum = d1 + d2;
-    const key = `${d1}:${d2}:${state.log?.[0] || ''}`;
-
-    if (this.die1) this.die1.dataset.face = String(d1);
-    if (this.die2) this.die2.dataset.face = String(d2);
-    if (this.dieSum) this.dieSum.textContent = String(sum || 0);
-    this.die1?.classList.toggle('die--doubles', !!state.doubles);
-    this.die2?.classList.toggle('die--doubles', !!state.doubles);
-
-    if (key !== this.lastDiceKey && this.lastDiceKey !== '') {
-      this.animateDice();
-    }
-    this.lastDiceKey = key;
-  }
-
   async doAction(action) {
-    if (action.type === 'roll') this.animateDice();
     const res = await this.network.sendAction(action);
     if (!res?.ok) console.warn('Action failed:', res?.error);
-    else if (action.type === 'roll') this.animateDice();
   }
 
   renderActions(state) {
@@ -273,7 +523,7 @@ export class UI {
       return;
     }
 
-    if (!isMyTurn) {
+    if (!isMyTurn || state.phase === PHASE.MOVING) {
       this.actionArea.innerHTML = `<div class="wait-turn">⏳ Ход: <strong>${escapeHtml(p.name)}</strong></div>`;
       return;
     }
@@ -291,6 +541,7 @@ export class UI {
           const useBail = confirm(`Заплатить ${formatMoney(JAIL_BAIL)} залог? (Отмена = бросить кубики)`);
           if (useBail) return this.doAction({ type: 'payJailBail' });
         }
+        rollBtn.disabled = true;
         this.doAction({ type: 'roll' });
       });
       this.actionArea.appendChild(rollBtn);
@@ -351,24 +602,19 @@ export class UI {
   }
 
   highlightCurrentCell(state) {
-    document.querySelectorAll('.cell').forEach(c => c.classList.remove('cell--highlight'));
     const p = state.players[state.currentPlayerIndex];
-    if (!p?.bankrupt && this.cells[p.position]) {
-      this.cells[p.position].classList.add('cell--highlight');
-    }
+    if (!p?.bankrupt) this.highlightCell(p.position);
   }
+}
 
-  animateDice() {
-    if (!this.diceStage) return;
-    this.diceStage.classList.remove('dice-stage--falling');
-    // restart CSS animation
-    void this.diceStage.offsetWidth;
-    this.diceStage.classList.add('dice-stage--falling');
-    clearTimeout(this._diceTimer);
-    this._diceTimer = setTimeout(() => {
-      this.diceStage?.classList.remove('dice-stage--falling');
-    }, 900);
+function groupByPosition(players) {
+  const byPos = {};
+  for (const p of players) {
+    if (p.bankrupt) continue;
+    if (!byPos[p.position]) byPos[p.position] = [];
+    byPos[p.position].push(p);
   }
+  return byPos;
 }
 
 function clampDie(n) {
@@ -379,9 +625,9 @@ function clampDie(n) {
 function tokenDisplay(p) {
   const src = resolveIconSrc(p.tokenImage || '');
   if (src) {
-    return `<img class="player-card__token-img" src="${src}" alt="" style="width:28px;height:28px;border-radius:50%;object-fit:cover" />`;
+    return `<img class="player-card__token-img" src="${src}" alt="" style="width:18px;height:18px;border-radius:50%;object-fit:cover" />`;
   }
-  return `<span class="chip" style="background:${p.color}" title="${escapeHtml(p.name)}"></span>`;
+  return `<span class="chip" style="--pc:${p.color};background:${p.color}" title="${escapeHtml(p.name)}"></span>`;
 }
 
 function escapeHtml(s) {

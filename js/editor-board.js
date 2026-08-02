@@ -71,14 +71,14 @@ function buildBoard() {
 
 function cellHTML(data, index) {
   const isCorner = [0, 12, 20, 32].includes(index);
-  const isVertical = (index >= 13 && index <= 20) || (index >= 33 && index <= 39);
+  const isSide = (index >= 13 && index <= 20) || (index >= 33 && index <= 39);
   const base = BOARD[index];
   const colorBar = base.group ? `<div class="cell__color-bar"></div>` : '';
   const price = base.price ? `<span class="cell__price">$${Number(base.price).toLocaleString('ru-RU')}</span>` : '';
 
   return `
     ${colorBar}
-    <div class="cell__body ${isVertical ? 'cell__body--vertical' : ''} ${isCorner ? 'cell__body--corner' : ''}">
+    <div class="cell__body ${isSide ? 'cell__body--side' : ''} ${isCorner ? 'cell__body--corner' : ''}">
       ${iconHTML(data.icon, 'cell__icon')}
       <span class="cell__name">${escapeHtml(data.name)}</span>
       ${price}
