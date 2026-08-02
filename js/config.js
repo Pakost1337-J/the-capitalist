@@ -46,6 +46,8 @@ export const BRAND_LOGO_SRC = {
   IKEA: '/assets/icons/logo/ikea.svg',
   Volvo: '/assets/icons/logo/Volvo.svg',
   Armani: '/assets/icons/logo/armany.svg',
+  Ferrari: '/assets/icons/logo/ferrari.svg',
+  Versace: '/assets/icons/logo/versace.svg',
 };
 
 export const GROUP_COLORS = {
