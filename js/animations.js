@@ -2,9 +2,8 @@ import { BOARD_SIZE } from './config.js';
 import { sleep } from './utils.js';
 
 /**
- * Поворот куба, чтобы грань N оказалась СВЕРХУ.
- * Разметка граней: 1 front, 2 top, 3 right, 4 left, 5 bottom, 6 back.
- * Камера ¾ задаётся на .die-wrap в CSS.
+ * Поворот куба, чтобы грань N была СВЕРХУ.
+ * Грани: 1 front, 2 top, 3 right, 4 left, 5 bottom, 6 back.
  */
 export const DIE_TOP_ROT = {
   1: { x: 90, y: 0 },
@@ -15,7 +14,7 @@ export const DIE_TOP_ROT = {
   6: { x: -90, y: 0 },
 };
 
-/** @deprecated используйте DIE_TOP_ROT — оставлено для совместимости */
+/** @deprecated */
 export const DIE_FACE_ROT = DIE_TOP_ROT;
 
 export function makeDieFaceHTML(n) {
@@ -37,8 +36,8 @@ export function dieRestPose(value, { restZ = 0, restX = 0 } = {}) {
 }
 
 /**
- * Бросок как на референсе: полёт → удары → остановка в ¾,
- * с лёгким естественным разворотом на столе.
+ * Короткий чистый бросок: вверх → вниз с одним оборотом → стоп.
+ * Без хаотичных мультиспинов.
  */
 export async function throwDice(dieThrowEls, cubes, values, { doubles = false, stageEl = null } = {}) {
   const [v1, v2] = values.map(v => Math.min(6, Math.max(1, Number(v) || 1)));
@@ -46,8 +45,8 @@ export async function throwDice(dieThrowEls, cubes, values, { doubles = false, s
   stageEl?.classList.add('table-toss--throwing');
 
   await Promise.all([
-    throwOneDie(dieThrowEls[0], cubes[0], v1, 0, doubles, { restZ: -10, restX: -6 }),
-    throwOneDie(dieThrowEls[1], cubes[1], v2, 90, doubles, { restZ: 16, restX: 10 }),
+    throwOneDie(dieThrowEls[0], cubes[0], v1, 0, doubles, { restZ: -6, restX: -10 }),
+    throwOneDie(dieThrowEls[1], cubes[1], v2, 90, doubles, { restZ: 10, restX: 12 }),
   ]);
 
   stageEl?.classList.remove('table-toss--throwing');
@@ -58,92 +57,63 @@ async function throwOneDie(throwEl, cube, value, delayMs, doubles, rest) {
   if (!throwEl || !cube) return;
 
   const face = DIE_TOP_ROT[value] || DIE_TOP_ROT[1];
-  const spinsX = 360 * (5 + Math.floor(Math.random() * 3));
-  const spinsY = 360 * (4 + Math.floor(Math.random() * 3));
-  const spinsZ = 180 * (2 + Math.floor(Math.random() * 2));
-  const landX = spinsX + face.x;
-  const landY = spinsY + face.y;
-  const landZ = spinsZ + (rest.restZ || 0) * 0.15;
-
-  const startX = (Math.random() - 0.5) * 120;
-  const endX = rest.restX + (Math.random() - 0.5) * 18;
-  const endRot = rest.restZ + (Math.random() - 0.5) * 8;
+  const endX = rest.restX;
+  const endRot = rest.restZ;
   const shadow = throwEl.querySelector('.die-shadow');
+
+  // Ровно один оборот по X/Y + выход на нужную грань
+  const landX = 360 + face.x;
+  const landY = 360 + face.y;
 
   throwEl.classList.toggle('die-throw--doubles', !!doubles);
   throwEl.classList.remove('die-throw--idle');
   throwEl.dataset.restZ = String(endRot);
   throwEl.dataset.restX = String(endX);
 
-  cube.style.transition = 'none';
-  throwEl.style.transition = 'none';
-  if (shadow) {
-    shadow.style.transition = 'none';
-    shadow.style.opacity = '0.12';
-    shadow.style.transform = 'translateX(-50%) scale(0.45)';
-  }
-  cube.style.transform = `rotateX(${-40 + Math.random() * 20}deg) rotateY(${30 + Math.random() * 40}deg) rotateZ(${-25}deg)`;
-  throwEl.style.transform = `translate3d(${startX}px, -150px, 80px) scale(0.65)`;
-  throwEl.style.opacity = '0.25';
+  const setShadow = (opacity, scale) => {
+    if (!shadow) return;
+    shadow.style.opacity = String(opacity);
+    shadow.style.transform = `translateX(-50%) scale(${scale})`;
+  };
+
+  const clearT = () => {
+    cube.style.transition = 'none';
+    throwEl.style.transition = 'none';
+    if (shadow) shadow.style.transition = 'none';
+  };
+
+  // Старт чуть над столом
+  clearT();
+  cube.style.transform = `rotateX(${face.x}deg) rotateY(${face.y + 20}deg)`;
+  throwEl.style.transform = `translate3d(${endX}px, -4px, 0) rotate(${endRot}deg) scale(0.96)`;
+  throwEl.style.opacity = '1';
+  setShadow(0.4, 0.7);
   void cube.offsetWidth;
 
   if (delayMs) await sleep(delayMs);
 
-  // Полёт
-  throwEl.style.transition = 'transform 0.55s cubic-bezier(0.15, 0.7, 0.2, 1), opacity 0.12s ease';
-  cube.style.transition = 'transform 0.55s cubic-bezier(0.12, 0.75, 0.2, 1)';
-  throwEl.style.opacity = '1';
-  throwEl.style.transform = `translate3d(${endX * 0.3}px, 4px, 0) scale(1.08)`;
-  cube.style.transform = `rotateX(${landX * 0.48}deg) rotateY(${landY * 0.48}deg) rotateZ(${landZ * 0.4}deg)`;
-  if (shadow) {
-    shadow.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-    shadow.style.opacity = '0.55';
-    shadow.style.transform = 'translateX(-30%) scale(1.15)';
-  }
-  await sleep(520);
+  // Подброс
+  throwEl.style.transition = 'transform 0.28s cubic-bezier(0.22, 0.82, 0.28, 1)';
+  cube.style.transition = 'transform 0.28s ease-out';
+  if (shadow) shadow.style.transition = 'opacity 0.28s ease, transform 0.28s ease';
+  throwEl.style.transform = `translate3d(${endX * 0.5}px, -88px, 0) rotate(${endRot * 0.4}deg) scale(1)`;
+  cube.style.transform = `rotateX(${landX * 0.4}deg) rotateY(${landY * 0.4}deg)`;
+  setShadow(0.18, 0.45);
+  await sleep(280);
 
-  // Удар 1
-  throwEl.style.transition = 'transform 0.14s cubic-bezier(0.2, 0.95, 0.35, 1)';
-  cube.style.transition = 'transform 0.14s linear';
-  throwEl.style.transform = `translate3d(${endX * 0.55}px, -34px, 0) scale(1)`;
-  cube.style.transform = `rotateX(${landX * 0.7}deg) rotateY(${landY * 0.7}deg) rotateZ(${landZ * 0.65}deg)`;
-  if (shadow) {
-    shadow.style.opacity = '0.28';
-    shadow.style.transform = 'translateX(-40%) scale(0.65)';
-  }
-  await sleep(140);
-
-  // Отскок 2
-  throwEl.style.transition = 'transform 0.16s cubic-bezier(0.25, 0.9, 0.35, 1)';
-  throwEl.style.transform = `translate3d(${endX * 0.8}px, 2px, 0) scale(1.03)`;
-  cube.style.transform = `rotateX(${landX * 0.86}deg) rotateY(${landY * 0.86}deg) rotateZ(${landZ * 0.85}deg)`;
-  if (shadow) {
-    shadow.style.opacity = '0.7';
-    shadow.style.transform = 'translateX(-35%) scale(1.05)';
-  }
-  await sleep(150);
-
-  // Мелкий отскок
-  throwEl.style.transition = 'transform 0.12s ease-out';
-  throwEl.style.transform = `translate3d(${endX * 0.95}px, -12px, 0) rotate(${endRot * 0.35}deg)`;
-  cube.style.transform = `rotateX(${landX * 0.95}deg) rotateY(${landY * 0.95}deg) rotateZ(${landZ * 0.95}deg)`;
-  if (shadow) {
-    shadow.style.opacity = '0.42';
-    shadow.style.transform = 'translateX(-38%) scale(0.8)';
-  }
-  await sleep(115);
-
-  // Остановка — оставляем ¾ вид (грань сверху), без снапа «в камеру»
-  throwEl.style.transition = 'transform 0.28s cubic-bezier(0.22, 0.85, 0.3, 1)';
-  cube.style.transition = 'transform 0.32s cubic-bezier(0.2, 0.8, 0.3, 1)';
+  // Падение и посадка на нужную грань
+  throwEl.style.transition = 'transform 0.42s cubic-bezier(0.35, 0.12, 0.2, 1)';
+  cube.style.transition = 'transform 0.42s cubic-bezier(0.3, 0.15, 0.2, 1)';
   throwEl.style.transform = `translate3d(${endX}px, 0, 0) rotate(${endRot}deg)`;
+  cube.style.transform = `rotateX(${landX}deg) rotateY(${landY}deg)`;
+  setShadow(0.85, 1);
+  await sleep(420);
+
+  // Нормализуем угол к короткому повороту (без 360+), чтобы idle не «прыгал»
+  clearT();
   cube.style.transform = `rotateX(${face.x}deg) rotateY(${face.y}deg)`;
-  if (shadow) {
-    shadow.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
-    shadow.style.opacity = '0.88';
-    shadow.style.transform = 'translateX(-28%) scale(1)';
-  }
-  await sleep(300);
+  throwEl.style.transform = `translate3d(${endX}px, 0, 0) rotate(${endRot}deg)`;
+  void cube.offsetWidth;
 
   throwEl.classList.add('die-throw--idle');
 }

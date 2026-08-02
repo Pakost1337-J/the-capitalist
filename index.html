@@ -8,6 +8,14 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/layout-tweak.css">
   <script src="/socket.io/socket.io.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "/vendor/three/build/three.module.js",
+      "three/addons/": "/vendor/three/examples/jsm/"
+    }
+  }
+  </script>
 </head>
 <body>
   <!-- Lobby -->
@@ -74,20 +82,7 @@
                 <div class="hub__arena">
                   <div class="own-toast" id="own-toast" hidden></div>
                   <div class="hub__dice-row">
-                    <div class="table-toss" id="dice-stage">
-                      <div class="die-throw" id="die1-throw">
-                        <span class="die-shadow"></span>
-                        <div class="die-wrap">
-                          <div class="die-cube" id="die1" aria-label="Кубик 1"></div>
-                        </div>
-                      </div>
-                      <div class="die-throw" id="die2-throw">
-                        <span class="die-shadow"></span>
-                        <div class="die-wrap">
-                          <div class="die-cube" id="die2" aria-label="Кубик 2"></div>
-                        </div>
-                      </div>
-                    </div>
+                    <div class="table-toss table-toss--webgl" id="dice-stage"></div>
                   </div>
 
                   <div class="hub__choice" id="choice-panel" hidden></div>

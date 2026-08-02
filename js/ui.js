@@ -5,12 +5,8 @@ import {
 import { formatMoney, formatPriceShort, sleep } from './utils.js';
 import { PHASE } from './game.js';
 import { iconHTML, resolveIconSrc } from './icons.js';
-import {
-  makeDieCubeHTML,
-  throwDice,
-  resolveMovePath,
-  dieRestPose,
-} from './animations.js';
+import { resolveMovePath } from './animations.js';
+import { DiceScene } from './dice3d.js';
 
 export class UI {
   constructor(engine, network) {
@@ -30,12 +26,9 @@ export class UI {
     this.actionArea = document.getElementById('action-area');
     this.gameLog = document.getElementById('game-log');
     this.chatLines = [];
-    this.die1 = document.getElementById('die1');
-    this.die2 = document.getElementById('die2');
-    this.die1Throw = document.getElementById('die1-throw');
-    this.die2Throw = document.getElementById('die2-throw');
     this.dieSum = null;
     this.diceStage = document.getElementById('dice-stage');
+    this.dice3d = null;
     this.hubTurn = null;
 
     this.choicePanel = document.getElementById('choice-panel');
@@ -47,10 +40,13 @@ export class UI {
     this._rentMortgagePick = false;
     this._rentSharesPick = false;
 
-    if (this.die1) this.die1.innerHTML = makeDieCubeHTML();
-    if (this.die2) this.die2.innerHTML = makeDieCubeHTML();
-    this.setDieFace(this.die1, 5, this.die1Throw, { restZ: -10, restX: -6 });
-    this.setDieFace(this.die2, 4, this.die2Throw, { restZ: 16, restX: 10 });
+    if (this.diceStage) {
+      try {
+        this.dice3d = new DiceScene(this.diceStage);
+      } catch (err) {
+        console.warn('Three.js dice failed:', err);
+      }
+    }
 
     this.setupChat();
     this.buildBoard();
@@ -61,6 +57,7 @@ export class UI {
       this._resizeTimer = setTimeout(() => {
         this.fitLayout();
         this.repositionTokens();
+        this.dice3d?.resize();
       }, 80);
     });
   }
@@ -166,6 +163,7 @@ export class UI {
       this.boardEl.style.gridTemplateRows = rowCss;
     }
     this._logoSize = { w: logoW, h: logoH, corner, cornerBot, cellW, cellH, padX, padY };
+    this.dice3d?.resize();
   }
 
   setupChat() {
@@ -400,6 +398,16 @@ export class UI {
     }
 
     this.lastState = state;
+
+    // Не гоняем «анимацию хода» на каждый апдейт — иначе сбрасываются меню сделки/залога
+    if (!diceChanged && movers.length === 0) {
+      this.syncDiceFaces(state);
+      this.ensureTokens(state);
+      this.layoutTokenStacks(state);
+      this.renderActions(state);
+      return;
+    }
+
     this.runTurnAnimations(state, { diceChanged, movers });
   }
 
@@ -431,7 +439,12 @@ export class UI {
 
   async runTurnAnimations(state, { diceChanged, movers }) {
     this.animating = true;
-    this.renderActions({ ...state, phase: PHASE.MOVING, isMyTurn: false });
+    // Во время броска/хода прячем кнопки, но не трогаем локальные флаги меню
+    const savedDeal = this._dealCompose;
+    const savedShare = this._shareBuy;
+    const savedMortgage = this._rentMortgagePick;
+    const savedSharesPick = this._rentSharesPick;
+    this.actionArea.innerHTML = `<div class="wait-turn">Ход…</div>`;
 
     try {
       if (diceChanged) {
@@ -447,10 +460,13 @@ export class UI {
         await this.animateTokenMove(m.id, m.from, m.to, diceSum, m.player);
       }
 
-      // выровнять стек на клетках
       this.layoutTokenStacks(state);
     } finally {
       this.animating = false;
+      this._dealCompose = savedDeal;
+      this._shareBuy = savedShare;
+      this._rentMortgagePick = savedMortgage;
+      this._rentSharesPick = savedSharesPick;
       const next = this.pendingState;
       this.pendingState = null;
       if (next && next !== state) {
@@ -462,44 +478,21 @@ export class UI {
     }
   }
 
-  setDieFace(cube, value, throwEl = null, rest = null) {
-    if (!cube) return;
-    const el = throwEl || (cube === this.die1 ? this.die1Throw : this.die2Throw);
-    const fallback = cube === this.die1
-      ? { restZ: -10, restX: -6 }
-      : { restZ: 16, restX: 10 };
-    const pose = dieRestPose(value, rest || {
-      restZ: Number(el?.dataset.restZ) || fallback.restZ,
-      restX: Number(el?.dataset.restX) || fallback.restX,
-    });
-    cube.style.transition = 'none';
-    cube.style.transform = pose.cube;
-    if (el) {
-      el.style.transition = 'none';
-      el.style.transform = pose.throw;
-      el.dataset.restZ = String(rest?.restZ ?? (Number(el.dataset.restZ) || fallback.restZ));
-      el.dataset.restX = String(rest?.restX ?? (Number(el.dataset.restX) || fallback.restX));
-    }
-  }
-
   syncDiceFaces(state) {
-    const d1 = clampDie(state.dice?.[0]);
-    const d2 = clampDie(state.dice?.[1]);
-    this.setDieFace(this.die1, d1, this.die1Throw);
-    this.setDieFace(this.die2, d2, this.die2Throw);
-    this.die1Throw?.classList.toggle('die-throw--doubles', !!state.doubles);
-    this.die2Throw?.classList.toggle('die-throw--doubles', !!state.doubles);
+    if (!this.dice3d) return;
+    this.dice3d.setValues(
+      clampDie(state.dice?.[0]),
+      clampDie(state.dice?.[1]),
+      { doubles: !!state.doubles },
+    );
   }
 
   async animateDiceThrow(state) {
-    const d1 = clampDie(state.dice?.[0]);
-    const d2 = clampDie(state.dice?.[1]);
-    this.diceStage?.classList.remove('table-toss--landed');
-    await throwDice(
-      [this.die1Throw, this.die2Throw],
-      [this.die1, this.die2],
-      [d1, d2],
-      { doubles: !!state.doubles, stageEl: this.diceStage },
+    if (!this.dice3d) return;
+    await this.dice3d.throw(
+      clampDie(state.dice?.[0]),
+      clampDie(state.dice?.[1]),
+      { doubles: !!state.doubles },
     );
   }
 
@@ -900,7 +893,6 @@ export class UI {
     }
 
     if (!isMyTurn || state.phase === PHASE.MOVING) {
-      this._dealCompose = null;
       this.actionArea.innerHTML = `<div class="wait-turn">Ход игрока <strong>${escapeHtml(p.name)}</strong></div>`;
       return;
     }
@@ -908,11 +900,17 @@ export class UI {
     if (p.bankrupt) return;
 
     if (state.phase === PHASE.ROLL) {
-      if (this._dealCompose) {
+      if (this._dealCompose || state.dealUiOpen) {
+        if (!this._dealCompose) {
+          this._dealCompose = {
+            step: 'partner', toId: null, offerMoney: 0, askMoney: 0, offerCells: [], askCells: [],
+          };
+        }
         this.renderDealCompose(state);
         return;
       }
       if (this._shareBuy || state.shareUiOpen) {
+        this._shareBuy = true;
         this.renderShareBuy(state);
         return;
       }
@@ -942,6 +940,27 @@ export class UI {
     if (!p?.bankrupt) this.highlightCell(p.position);
   }
 
+  /** Локальные меню, которые нельзя сбрасывать таймером/синком */
+  isActionFormOpen(state = this.lastState) {
+    return !!(
+      this._dealCompose
+      || this._shareBuy
+      || this._rentMortgagePick
+      || this._rentSharesPick
+      || state?.dealUiOpen
+      || state?.shareUiOpen
+    );
+  }
+
+  turnLeftMs(state) {
+    if (state.deal?.endsAt != null) return Math.max(0, state.deal.endsAt - Date.now());
+    if (state.turnEndsAt != null) return Math.max(0, state.turnEndsAt - Date.now());
+    if (state.turnPauseLeftMs != null) return Math.max(0, state.turnPauseLeftMs);
+    if (state.pendingAction?.endsAt != null) return Math.max(0, state.pendingAction.endsAt - Date.now());
+    if (state.auction?.endsAt != null) return Math.max(0, state.auction.endsAt - Date.now());
+    return 0;
+  }
+
   syncTimedUi(state) {
     const hub = document.querySelector('.hub');
     const isAuction = state.phase === PHASE.AUCTION && state.auction;
@@ -952,15 +971,30 @@ export class UI {
     const isRollTimed = state.phase === PHASE.ROLL && state.isMyTurn && !state.deal;
     const isDeal = !!state.deal;
     hub?.classList.toggle('hub--auction', !!isAuction);
-    hub?.classList.toggle('hub--rent', !!(isRent || isBuy || isDeal));
-    hub?.classList.toggle('hub--roll-timed', !!isRollTimed);
+    hub?.classList.toggle('hub--rent', !!(isRent || isBuy || isDeal || this._dealCompose || this._shareBuy));
+    hub?.classList.toggle('hub--roll-timed', !!(isRollTimed && !this._dealCompose && !this._shareBuy && !state.dealUiOpen && !state.shareUiOpen));
+
     if (!isRent) {
       this._rentMortgagePick = false;
       this._rentSharesPick = false;
     }
-    if (state.phase !== PHASE.ROLL || state.deal) this._dealCompose = null;
-    if (state.phase !== PHASE.ROLL || !state.shareUiOpen) this._shareBuy = false;
-    const timed = isAuction || isRent || isBuy || isRollTimed || isDeal;
+
+    // Меню сделки/акций: синхронизируем только с фазой, не затираем локальный клик
+    if (state.phase !== PHASE.ROLL || state.deal) {
+      this._dealCompose = null;
+      this._shareBuy = false;
+    } else {
+      if (state.dealUiOpen && !this._dealCompose) {
+        this._dealCompose = {
+          step: 'partner', toId: null, offerMoney: 0, askMoney: 0, offerCells: [], askCells: [],
+        };
+      }
+      if (state.shareUiOpen) this._shareBuy = true;
+      // !shareUiOpen / !dealUiOpen — НЕ сбрасываем: клик ставит флаг до ответа сервера
+    }
+
+    const uiOpen = this.isActionFormOpen(state);
+    const timed = isAuction || isRent || isBuy || isRollTimed || isDeal || uiOpen;
     if (!timed) {
       clearInterval(this._auctionTick);
       this._auctionTick = null;
@@ -970,31 +1004,18 @@ export class UI {
       this._auctionTick = setInterval(() => {
         const s = this.lastState;
         if (!s) return;
-        // Не перерисовываем формы сделки/акций целиком
-        if (this._dealCompose || this._shareBuy) {
-          this.refreshFlipTimers(s);
-          return;
-        }
-        const pa = s.pendingAction?.type;
-        if (
-          s.phase === PHASE.AUCTION
-          || (s.phase === PHASE.ACTION && (pa === 'rent' || pa === 'buy' || pa === 'tax' || pa === 'force'))
-          || (s.phase === PHASE.ROLL && s.isMyTurn)
-          || s.deal
-        ) {
-          this.renderActions(s);
-        }
+        // Только цифры таймера — полный re-render убивает :hover и кнопки мерцают
+        this.refreshFlipTimers(s);
       }, 250);
     }
   }
 
   refreshFlipTimers(state) {
-    const endsAt = state.deal?.endsAt || state.turnEndsAt
-      || state.pendingAction?.endsAt || state.auction?.endsAt;
-    if (endsAt == null) return;
     const well = this.actionArea?.querySelector('.flip-timer');
     if (!well) return;
-    const html = this.flipTimerHtml(Math.max(0, endsAt - Date.now()));
+    // На паузе хода (сборка сделки) — замороженные секунды
+    const leftMs = this.turnLeftMs(state);
+    const html = this.flipTimerHtml(leftMs);
     const tmp = document.createElement('div');
     tmp.innerHTML = html.trim();
     const next = tmp.firstElementChild;
@@ -1005,7 +1026,7 @@ export class UI {
     const p = state.players[state.currentPlayerIndex];
     const canDeal = !!state.canDeal;
     const canBuyShares = !!state.canBuyShares;
-    const leftMs = Math.max(0, (state.turnEndsAt || 0) - Date.now());
+    const leftMs = this.turnLeftMs(state);
 
     this.actionArea.innerHTML = `
       <div class="roll-panel">
@@ -1053,15 +1074,22 @@ export class UI {
     document.getElementById('btn-deal')?.addEventListener('click', async () => {
       this._shareBuy = false;
       this._dealCompose = { step: 'partner', toId: null, offerMoney: 0, askMoney: 0, offerCells: [], askCells: [] };
-      await this.doAction({ type: 'beginDealUi' });
+      // Сразу рисуем меню — не ждём сеть (иначе тик таймера перетирает экран)
       this.renderDealCompose(this.lastState || state);
+      await this.doAction({ type: 'beginDealUi' });
+      if (this._dealCompose && (this.lastState || state)?.phase === PHASE.ROLL) {
+        this.renderDealCompose(this.lastState || state);
+      }
     });
 
     document.getElementById('btn-shares')?.addEventListener('click', async () => {
       this._dealCompose = null;
       this._shareBuy = true;
-      await this.doAction({ type: 'beginShareUi' });
       this.renderShareBuy(this.lastState || state);
+      await this.doAction({ type: 'beginShareUi' });
+      if (this._shareBuy && (this.lastState || state)?.phase === PHASE.ROLL) {
+        this.renderShareBuy(this.lastState || state);
+      }
     });
   }
 
@@ -1160,6 +1188,8 @@ export class UI {
       return;
     }
 
+    const composeLeft = this.turnLeftMs(state);
+
     if (draft.step === 'partner' || draft.toId == null) {
       this.actionArea.innerHTML = `
         <div class="deal-panel">
@@ -1172,6 +1202,7 @@ export class UI {
             `).join('')}
           </div>
           <button type="button" class="btn btn--club-muted" id="deal-cancel">Отмена</button>
+          ${this.flipTimerHtml(composeLeft)}
         </div>
       `;
       this.actionArea.querySelectorAll('[data-deal-to]').forEach(btn => {
@@ -1251,6 +1282,7 @@ export class UI {
           <button type="button" class="btn btn--club" id="deal-send">Отправить</button>
           <button type="button" class="btn btn--club-muted" id="deal-back">Назад</button>
         </div>
+        ${this.flipTimerHtml(composeLeft)}
       </div>
     `;
 
@@ -1286,7 +1318,7 @@ export class UI {
     const d = state.deal;
     const from = state.players[d.fromId];
     const to = state.players[d.toId];
-    const leftMs = Math.max(0, (d.endsAt || 0) - Date.now());
+    const leftMs = this.turnLeftMs(state);
     const iAmTo = state.canRespondDeal;
     const iAmFrom = d.fromId === this.mySlot;
 
@@ -1372,7 +1404,7 @@ export class UI {
     const cell = BOARD[pa.cellId];
     const buyer = state.players[state.currentPlayerIndex];
     const canAct = state.isMyTurn;
-    const leftMs = Math.max(0, (pa.endsAt || 0) - Date.now());
+    const leftMs = this.turnLeftMs(state);
     const country = COUNTRY_LABEL_RU[cell?.country] || cell?.country || '';
 
     this.actionArea.innerHTML = `
@@ -1409,7 +1441,7 @@ export class UI {
     const cell = BOARD[pa.cellId];
     const payer = state.players[state.currentPlayerIndex];
     const canAct = state.isMyTurn;
-    const leftMs = Math.max(0, (pa.endsAt || 0) - Date.now());
+    const leftMs = this.turnLeftMs(state);
     const country = COUNTRY_LABEL_RU[cell?.country] || cell?.country || '';
     const canPay = payer && payer.money >= pa.amount;
     const mortgageable = (payer?.properties || []).filter(id => {
@@ -1540,29 +1572,43 @@ export class UI {
       this._rentSharesPick = false;
       this.doAction({ type: 'payDebt' });
     });
-    document.getElementById('btn-shares-open')?.addEventListener('click', () => {
+    document.getElementById('btn-shares-open')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       this._rentSharesPick = true;
       this._rentMortgagePick = false;
       this.renderRentActions(this.lastState || state);
     });
-    document.getElementById('btn-mortgage-open')?.addEventListener('click', () => {
+    document.getElementById('btn-mortgage-open')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       this._rentMortgagePick = true;
       this._rentSharesPick = false;
       this.renderRentActions(this.lastState || state);
     });
-    document.getElementById('btn-rent-back')?.addEventListener('click', () => {
+    document.getElementById('btn-rent-back')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       this._rentMortgagePick = false;
       this._rentSharesPick = false;
       this.renderRentActions(this.lastState || state);
     });
     this.actionArea.querySelectorAll('[data-mortgage]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.doAction({ type: 'mortgage', cellId: Number(btn.dataset.mortgage) });
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this._rentMortgagePick = true;
+        await this.doAction({ type: 'mortgage', cellId: Number(btn.dataset.mortgage) });
+        if (this.lastState?.phase === PHASE.ACTION) this.renderRentActions(this.lastState);
       });
     });
     this.actionArea.querySelectorAll('[data-sell-share]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.doAction({ type: 'sellShare', cellId: Number(btn.dataset.sellShare) });
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this._rentSharesPick = true;
+        await this.doAction({ type: 'sellShare', cellId: Number(btn.dataset.sellShare) });
+        if (this.lastState?.phase === PHASE.ACTION) this.renderRentActions(this.lastState);
       });
     });
   }
@@ -1572,7 +1618,7 @@ export class UI {
     const cell = BOARD[a.cellId];
     const leader = a.highBidder != null ? state.players[a.highBidder] : null;
     const next = state.nextAuctionPrice ?? (a.highBidder == null ? a.startPrice : a.currentBid + (a.step || AUCTION_STEP));
-    const leftMs = Math.max(0, (a.endsAt || 0) - Date.now());
+    const leftMs = this.turnLeftMs(state);
     const me = state.players.find(p => p.id === this.mySlot);
     const canBid = state.canAuctionBid && me && me.money >= next && a.highBidder !== this.mySlot;
 

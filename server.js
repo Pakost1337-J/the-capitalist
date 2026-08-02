@@ -22,6 +22,7 @@ const io = new Server(httpServer, {
 });
 
 app.use(express.json({ limit: '1mb' }));
+app.use('/vendor/three', express.static(join(__dirname, 'node_modules/three')));
 app.use(express.static(__dirname));
 app.use('/assets', express.static(join(__dirname, 'assets')));
 

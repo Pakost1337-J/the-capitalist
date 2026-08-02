@@ -104,6 +104,10 @@ export class GameEngine {
       auction: this.auction ? { ...this.auction } : null,
       deal: this.deal ? { ...this.deal } : null,
       turnEndsAt: this.turnEndsAt,
+      /** Остаток хода на паузе (сделка / акции) — для UI, не тикает */
+      turnPauseLeftMs: this.turnEndsAt == null && this._turnLeftMs != null
+        ? this._turnLeftMs
+        : null,
       canDeal: this.canOfferDeal(this.currentPlayer?.id),
       dealUiOpen: !!this.dealUiOpen,
       canBuyShares: this.canBuyShares(this.currentPlayer?.id),
@@ -121,17 +125,22 @@ export class GameEngine {
   }
 
   pauseTurnTimer() {
+    // Идемпотентно: повторный pause не затирает сохранённый остаток
     if (this.turnEndsAt != null) {
       this._turnLeftMs = Math.max(0, this.turnEndsAt - Date.now());
+      this.turnEndsAt = null;
     }
-    this.turnEndsAt = null;
   }
 
   resumeTurnTimer() {
     if (this._turnLeftMs != null) {
-      this.turnEndsAt = Date.now() + this._turnLeftMs;
+      const left = this._turnLeftMs;
       this._turnLeftMs = null;
-    } else if (this.phase === PHASE.ROLL && !this.deal) {
+      if (left > 200) this.turnEndsAt = Date.now() + left;
+      else this.turnEndsAt = Date.now() + 5_000;
+      return;
+    }
+    if (this.phase === PHASE.ROLL && !this.deal && !this.dealUiOpen && !this.shareUiOpen) {
       this.beginTurnTimer();
     }
   }
@@ -252,6 +261,7 @@ export class GameEngine {
     if (!this._cellsOwnedBy(askCells, to.id)) return false;
 
     this.dealUiOpen = false;
+    // Таймер хода уже на паузе с beginDealUi; если нет — ставим на паузу сейчас
     this.pauseTurnTimer();
     this.deal = {
       fromId,

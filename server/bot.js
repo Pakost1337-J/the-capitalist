@@ -22,7 +22,7 @@ export function runBotTurn(game, onDone) {
 
   setTimeout(() => {
     if (game.phase === PHASE.ROLL) {
-      if (game.deal) {
+      if (game.deal || game.dealUiOpen || game.shareUiOpen) {
         onDone();
         return;
       }

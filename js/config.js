@@ -8,12 +8,12 @@ export const MAX_PLAYERS = 5;
 export const MIN_PLAYERS = 1;
 export const AUCTION_STEP = 10_000;
 export const AUCTION_MS = 60_000;
-/** Таймер погашения аренды / налога (2 мин) */
-export const RENT_MS = 120_000;
+/** Таймер погашения аренды / налога */
+export const RENT_MS = 60_000;
 /** Таймер перед броском костей */
-export const TURN_MS = 120_000;
+export const TURN_MS = 60_000;
 /** Таймер ответа на сделку */
-export const DEAL_MS = 120_000;
+export const DEAL_MS = 60_000;
 
 /** Группы без покупки акций (Китай, Корея) */
 export const NO_SHARE_GROUPS = new Set(['cn', 'kr']);
