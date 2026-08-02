@@ -142,6 +142,19 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('chat', ({ text }) => {
+    const room = getRoomBySocket(socket.id);
+    if (!room) return;
+    const member = room.members.find(m => m.socketId === socket.id);
+    const clean = String(text || '').trim().slice(0, 120);
+    if (!clean) return;
+    io.to(room.id).emit('chat-message', {
+      from: socket.id,
+      name: member?.name || 'Игрок',
+      text: clean,
+    });
+  });
+
   socket.on('leave-room', () => {
     handleLeave(socket);
   });

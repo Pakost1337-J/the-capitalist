@@ -57,7 +57,7 @@ function startGameUI(state) {
   lobbyEl.hidden = true;
   lobbyEl.style.display = 'none';
   gameEl.hidden = false;
-  gameEl.style.display = '';
+  gameEl.style.display = 'grid';
 
   ui = new UI(null, network);
   ui.mySlot = state.mySlot;

@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
   <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
@@ -16,9 +16,9 @@
     <div class="lobby__shell">
       <div class="lobby__card">
         <div class="lobby__header">
-          <span class="lobby__icon">💰</span>
+          <span class="lobby__icon">💼</span>
           <h1>КАПИТАЛИСТ</h1>
-          <p>Монополия онлайн · до 5 игроков</p>
+          <p>Корпоративная монополия · до 5 игроков</p>
           <div class="online-badge">
             🟢 Онлайн: <strong id="online-count">0</strong>
           </div>
@@ -44,19 +44,16 @@
           </label>
 
           <button class="btn btn--roll lobby__btn" id="btn-create">🏠 Создать стол</button>
-          <a class="btn btn--pass lobby__btn" id="btn-editor" href="/editor.html" style="text-align:center;text-decoration:none;display:block;">🛠️ Конструктор доски</a>
+          <a class="btn btn--pass lobby__btn" href="/editor.html">🛠️ Конструктор доски</a>
 
           <div class="lobby__divider">Столы онлайн</div>
-
           <div class="rooms-list" id="rooms-list">
             <p class="rooms-empty">Пока нет столов — создайте первый!</p>
           </div>
         </div>
 
         <div id="lobby-room" hidden>
-          <div class="lobby__room-title">
-            <strong id="room-name">Стол</strong>
-          </div>
+          <div class="lobby__room-title"><strong id="room-name">Стол</strong></div>
           <p class="lobby__room-count">Игроков: <span id="room-count">0/4</span></p>
           <div class="lobby__players" id="room-players"></div>
           <p class="lobby__hint" id="host-hint" hidden>Ожидайте, пока хост начнёт игру</p>
@@ -68,43 +65,62 @@
   </div>
 
   <!-- Game -->
-  <div class="game-layout" id="game-layout" hidden>
-    <aside class="sidebar sidebar--left">
-      <div class="players-panel" id="players-panel"></div>
-    </aside>
-
-    <main class="board-area">
+  <div class="game-shell" id="game-layout" hidden>
+    <main class="game-main">
       <div class="board" id="board">
         <div class="board__center" id="board-center">
-          <div class="board__logo">
-            <span class="board__logo-icon">💰</span>
-            <h1>КАПИТАЛИСТ</h1>
-            <p id="room-title-display">Игра</p>
+          <div class="hub">
+            <div class="hub__turn" id="hub-turn">ХОД ИГРОКА</div>
+
+            <div class="hub__dice-wrap">
+              <div class="hub__dice" id="hub-dice">
+                <span id="die-sum">0</span>
+              </div>
+              <div class="hub__dice-mini">
+                <span class="die" id="die1">1</span>
+                <span class="die" id="die2">1</span>
+              </div>
+            </div>
+
+            <div class="hub__player" id="hub-player">
+              <div class="hub__player-name" id="hub-name">—</div>
+              <div class="hub__stats">
+                <div class="hub__stat">
+                  <span>Наличные</span>
+                  <strong id="hub-cash">$0</strong>
+                </div>
+                <div class="hub__stat">
+                  <span>Капитал</span>
+                  <strong id="hub-capital">$0</strong>
+                </div>
+                <div class="hub__stat">
+                  <span>Компании</span>
+                  <strong id="hub-companies">0</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="hub__credit">
+              <span>Кредитная линия: 0</span>
+              <button type="button" class="hub__credit-btn" id="new-game">✕ ВЫЙТИ</button>
+            </div>
+
+            <div class="hub__actions" id="action-area"></div>
+
+            <div class="hub__chat">
+              <div class="hub__log" id="game-log"></div>
+              <div class="hub__chat-input">
+                <span>😊</span>
+                <input type="text" id="chat-input" placeholder="Напишите сообщение..." maxlength="120" />
+                <button type="button" id="chat-send" title="Отправить">➤</button>
+              </div>
+            </div>
           </div>
-          <div class="dice-area" id="dice-area">
-            <div class="die" id="die1">1</div>
-            <div class="die" id="die2">1</div>
-          </div>
-          <div class="action-area" id="action-area"></div>
-          <div class="game-log" id="game-log"></div>
         </div>
       </div>
     </main>
 
-    <aside class="sidebar sidebar--right">
-      <div class="info-panel">
-        <h3>📋 Правила</h3>
-        <ul>
-          <li>Бросайте кубики и ходите по полю</li>
-          <li>Покупайте предприятия</li>
-          <li>Соберите монополию сектора</li>
-          <li>Стройте филиалы (до 5)</li>
-          <li>Разорите соперников!</li>
-        </ul>
-        <p class="share-hint">Пустые места заполняются ботами</p>
-        <button class="btn btn--new" id="new-game">🚪 Выйти</button>
-      </div>
-    </aside>
+    <aside class="players-rail" id="players-panel"></aside>
   </div>
 
   <script type="module" src="js/main.js"></script>
