@@ -15,22 +15,24 @@
   --rail-w: 168px;
   --cell-w: 64px;
   --cell-h: 58px;
-  --die-size: clamp(42px, 6vw, 58px);
+  --die-size: clamp(56px, 8.5vw, 80px);
+  --logo-w: 40px;
+  --logo-h: 28px;
   --font: 'Manrope', system-ui, sans-serif;
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
   --leather-img: url('/assets/ui/leather.png');
   --table-img: url('/assets/ui/table.png');
+  --wood-img: url('/assets/ui/wood.svg');
+  --metal: #b8c0c8;
+  --metal-dark: #6a727c;
   --leather-grad:
     radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.08), transparent 50%),
     radial-gradient(ellipse at 70% 80%, rgba(0,0,0,0.25), transparent 55%),
     linear-gradient(145deg, #6b4a3a, #4a3228 45%, #3a261c);
   --wood-grad:
-    repeating-linear-gradient(
-      90deg,
-      rgba(120, 80, 40, 0.06) 0 1px,
-      transparent 1px 7px
-    ),
-    linear-gradient(180deg, #f0e0c4, #e2cda8 50%, #d8c09a);
+    linear-gradient(90deg, rgba(120,80,40,0.08), transparent 40%, rgba(90,55,25,0.1)),
+    var(--wood-img) center / 180px 180px repeat,
+    linear-gradient(180deg, #e8d2a8, #d4b888 50%, #c9a870);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -252,48 +254,46 @@ button, input, select { font-family: inherit; }
   min-height: 0;
 }
 
-/* ── Board ── */
+/* ── Board: шаблон board-frame + сетка 13×9 с квадратными углами ── */
 .board {
+  --corner: 72px;
   position: relative;
   display: grid;
-  grid-template-columns: repeat(13, var(--cell-w));
-  grid-template-rows: repeat(9, var(--cell-h));
+  grid-template-columns: var(--corner) repeat(11, var(--cell-w)) var(--corner);
+  grid-template-rows: var(--corner) repeat(7, var(--cell-h)) var(--corner);
   width: fit-content;
   max-width: 100%;
   background:
-    linear-gradient(145deg, rgba(80,55,40,0.35), rgba(40,25,18,0.45)),
-    var(--leather-img) center / cover;
-  border-radius: 16px;
-  border: 3px solid #2a1a12;
-  box-shadow:
-    inset 0 0 0 2px rgba(180, 140, 100, 0.25),
-    var(--shadow);
+    #1a120c url('/assets/board/board-frame.png') center / 100% 100% no-repeat;
+  border-radius: 10px;
+  border: none;
+  box-shadow: var(--shadow);
   overflow: hidden;
   flex-shrink: 0;
-  padding: 2px;
+  padding: 0;
 }
 
 .board__center {
   grid-row: 2 / 9;
   grid-column: 2 / 13;
   background:
-    linear-gradient(160deg, rgba(70,48,36,0.25), rgba(30,20,14,0.4)),
+    linear-gradient(160deg, rgba(70,48,36,0.35), rgba(20,14,10,0.55)),
     var(--leather-img) center / cover;
-  border: 2px solid rgba(0,0,0,0.25);
-  box-shadow: inset 0 0 40px rgba(0,0,0,0.35);
+  border: none;
+  box-shadow: inset 0 0 40px rgba(0,0,0,0.45);
   display: flex;
   align-items: stretch;
   justify-content: stretch;
   overflow: hidden;
   min-width: 0;
   min-height: 0;
-  border-radius: 4px;
+  border-radius: 2px;
 }
 
-/* ── Cells (wood) ── */
+/* Клетки прозрачные — дерево/металл с картинки доски */
 .cell {
-  background: var(--wood-grad);
-  border: 1px solid rgba(90, 60, 30, 0.28);
+  background: transparent;
+  border: 1px solid transparent;
   position: relative;
   overflow: hidden;
   display: flex;
@@ -304,14 +304,16 @@ button, input, select { font-family: inherit; }
 .cell--highlight {
   box-shadow: inset 0 0 0 3px #2f6fed;
   z-index: 2;
+  background: rgba(47, 111, 237, 0.12);
 }
 
 .cell--owned {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--owner-color, #94a3b8) 28%, transparent), transparent 55%),
-    var(--wood-grad);
-  outline: 2px solid var(--owner-color, #94a3b8);
-  outline-offset: -2px;
+  background: linear-gradient(165deg,
+    color-mix(in srgb, var(--owner-color, #94a3b8) 50%, transparent) 0%,
+    color-mix(in srgb, var(--owner-color, #94a3b8) 18%, transparent) 48%,
+    transparent 80%);
+  outline: 2px solid color-mix(in srgb, var(--owner-color, #94a3b8) 80%, #fff);
+  outline-offset: -3px;
 }
 
 .cell__color-bar {
@@ -328,19 +330,50 @@ button, input, select { font-family: inherit; }
 .cell__body {
   flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 2px 3px;
+  justify-content: space-between;
+  padding: 3px 2px;
   text-align: center;
-  gap: 1px;
+  gap: 2px;
   min-height: 0;
+  min-width: 0;
 }
 
-.cell__body--side {
-  writing-mode: horizontal-tb;
-  transform: none;
-  padding: 2px 1px;
+/* Край доски → центр: страна, логотип, деньги, акции */
+.cell__body--top {
+  flex-direction: column;
+}
+.cell__body--right {
+  flex-direction: row-reverse;
+}
+.cell__body--bottom {
+  flex-direction: column-reverse;
+}
+.cell__body--left {
+  flex-direction: row;
+}
+.cell__body--corner {
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+}
+
+.cell__name--corner {
+  font-size: clamp(0.55rem, 1.1vw, 0.75rem);
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.85);
+  background: rgba(0,0,0,0.35);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.cell__country-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .cell__flag {
@@ -360,8 +393,31 @@ button, input, select { font-family: inherit; }
   flex-shrink: 0;
 }
 
+.cell__logo {
+  width: min(100%, var(--logo-w));
+  height: var(--logo-h);
+  min-height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.22);
+  border: 1px dashed rgba(60,40,20,0.28);
+  border-radius: 3px;
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cell__body--left .cell__logo,
+.cell__body--right .cell__logo {
+  width: var(--logo-h);
+  height: min(100%, var(--logo-w));
+  writing-mode: horizontal-tb;
+}
+
+.cell__logo-text,
 .cell__company {
-  font-size: clamp(0.52rem, 1.15vw, 0.72rem);
+  font-size: clamp(0.48rem, 1.05vw, 0.68rem);
   font-weight: 800;
   color: #1f140c;
   line-height: 1.05;
@@ -370,6 +426,15 @@ button, input, select { font-family: inherit; }
   text-overflow: ellipsis;
   white-space: nowrap;
   text-transform: none;
+  padding: 0 2px;
+}
+
+.cell__tax-marks {
+  font-size: clamp(0.85rem, 1.8vw, 1.25rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #7a2e1a;
+  line-height: 1;
 }
 
 .cell__icon { font-size: clamp(0.85rem, 1.6vw, 1.15rem); line-height: 1; }
@@ -391,7 +456,18 @@ button, input, select { font-family: inherit; }
   font-weight: 800;
   color: #2a1c14;
   line-height: 1.05;
-  order: -1;
+  flex-shrink: 0;
+}
+
+.cell__shares {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 8px;
+  min-width: 8px;
+  flex-shrink: 0;
 }
 
 .cell--go,
@@ -407,19 +483,20 @@ button, input, select { font-family: inherit; }
 }
 
 .cell__houses {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  display: flex;
-  gap: 1px;
-  z-index: 3;
+  display: none;
 }
 
 .house {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 2px;
   border: 1px solid rgba(0,0,0,0.15);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.15);
+}
+
+.cell__shares .house {
+  width: 6px;
+  height: 6px;
 }
 
 /* ── Tokens on board ── */
@@ -458,10 +535,23 @@ button, input, select { font-family: inherit; }
     0 5px 8px rgba(0,0,0,0.4);
 }
 
-.token--img {
+.token--img,
+.token--board {
   background: transparent !important;
-  box-shadow: 0 3px 6px rgba(0,0,0,0.45);
+  box-shadow: none !important;
   overflow: visible;
+}
+
+.token--board {
+  --token-size: clamp(28px, 3.2vw, 40px);
+  width: calc(var(--token-size) * 1.3);
+  height: var(--token-size);
+  border-radius: 0;
+}
+
+.token--board img {
+  border-radius: 0;
+  object-fit: contain;
 }
 
 .token__ring {
@@ -487,7 +577,7 @@ button, input, select { font-family: inherit; }
   height: 100%;
   object-fit: contain;
   border-radius: 50%;
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));
+  filter: none;
 }
 .token--img .token__ring,
 .token--img .token__core { display: none; }
@@ -499,7 +589,7 @@ button, input, select { font-family: inherit; }
   margin: 0;
   will-change: transform;
   z-index: 9;
-  filter: drop-shadow(0 4px 3px rgba(0,0,0,0.45));
+  filter: none;
 }
 
 .token-fly--teleport {
@@ -564,9 +654,17 @@ button, input, select { font-family: inherit; }
   align-items: flex-end;
   justify-content: center;
   width: 100%;
-  min-height: clamp(88px, 14vh, 120px);
+  min-height: clamp(100px, 16vh, 140px);
   flex-shrink: 0;
   z-index: 2;
+}
+
+.hub--auction .hub__dice-row {
+  display: none;
+}
+
+.hub--auction .hub__player {
+  margin-top: 4px;
 }
 
 .table-toss {
@@ -835,11 +933,60 @@ button, input, select { font-family: inherit; }
   font-size: 0.8rem;
 }
 
-/* Chat — справа на всю высоту хаба */
+.choice-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.choice-buttons__title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-align: center;
+  color: var(--ink);
+}
+
+.choice-buttons__row {
+  display: flex;
+  gap: 8px;
+}
+
+.choice-buttons__row .btn {
+  flex: 1;
+  padding: 10px 8px;
+  font-size: 0.78rem;
+  white-space: normal;
+  line-height: 1.2;
+}
+
+.auction-panel {
+  width: 100%;
+  max-width: 320px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #f3e6d4;
+}
+
+.auction-panel__title { font-weight: 800; font-size: 0.95rem; }
+.auction-panel__timer {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #ffe08a;
+  line-height: 1;
+}
+.auction-panel__meta,
+.auction-panel__bid,
+.auction-panel__next { font-size: 0.78rem; font-weight: 700; }
+.auction-panel .btn { margin-top: 4px; }
+
+/* Chat — шире, чтобы текст не ломался */
 .hub__chat {
-  flex: 0 0 clamp(140px, 22%, 210px);
-  min-width: 120px;
-  max-width: 230px;
+  flex: 0 0 clamp(200px, 30%, 280px);
+  min-width: 180px;
+  max-width: 300px;
   align-self: stretch;
   display: flex;
   flex-direction: column;
@@ -855,11 +1002,29 @@ button, input, select { font-family: inherit; }
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  font-size: clamp(0.58rem, 1vw, 0.72rem);
+  font-size: clamp(0.62rem, 1.05vw, 0.78rem);
   font-weight: 600;
   color: rgba(243, 230, 212, 0.8);
   text-align: left;
-  padding-right: 2px;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: #c4a882 rgba(0,0,0,0.25);
+}
+
+.hub__chat-messages::-webkit-scrollbar {
+  width: 8px;
+}
+.hub__chat-messages::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.22);
+  border-radius: 999px;
+}
+.hub__chat-messages::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #e0c49a, #a8845a);
+  border-radius: 999px;
+  border: 2px solid rgba(0,0,0,0.15);
+}
+.hub__chat-messages::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #f0d8b0, #b89468);
 }
 
 .hub__chat-messages .log-line:first-child {
@@ -1067,7 +1232,7 @@ button, input, select { font-family: inherit; }
 
 @media (max-width: 1100px) {
   .hub__chat {
-    flex-basis: 120px;
-    max-width: 150px;
+    flex-basis: 170px;
+    max-width: 220px;
   }
 }

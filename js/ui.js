@@ -1,4 +1,4 @@
-import { BOARD, COUNTRY_FLAG_SRC, GROUP_COLORS, JAIL_BAIL, getGridPosition } from './config.js';
+import { BOARD, COUNTRY_FLAG_SRC, GROUP_COLORS, JAIL_BAIL, AUCTION_STEP, getGridPosition } from './config.js';
 import { formatMoney, formatPriceShort, sleep } from './utils.js';
 import { PHASE } from './game.js';
 import { iconHTML, resolveIconSrc } from './icons.js';
@@ -42,13 +42,12 @@ export class UI {
     this.choicePanel = document.getElementById('choice-panel');
 
     document.getElementById('new-game')?.addEventListener('click', () => {
-      this.showChoiceSlider({
+      this.showChoiceButtons({
         title: 'Выйти из игры?',
         left: 'Остаться',
         right: 'Выйти',
-        onConfirm: (value) => {
-          if (value === 1) location.reload();
-        },
+        onLeft: () => {},
+        onRight: () => location.reload(),
       });
     });
 
@@ -82,21 +81,44 @@ export class UI {
     const availW = Math.max(320, shell.clientWidth - pad - (narrow ? 0 : rail + gap));
     const availH = Math.max(280, shell.clientHeight - pad - (narrow ? 120 : 0));
 
-    // 13×9 клеток — заполняем доступное место
-    let cellW = Math.floor(availW / 13);
-    let cellH = Math.floor(availH / 9);
+    // Сетка как у board-frame: квадратные углы + узкие клетки по краям (13×9)
+    // boardW = 2*corner + 11*cellW
+    // boardH = 2*corner + 7*cellH
+    // пропорции шаблона ~1024×698
+    const ASPECT = 1024 / 698;
+    let boardW = availW;
+    let boardH = Math.floor(boardW / ASPECT);
+    if (boardH > availH) {
+      boardH = availH;
+      boardW = Math.floor(boardH * ASPECT);
+    }
 
-    // чуть шире, чем выше — прямоугольное поле
-    if (cellW / cellH > 1.25) cellW = Math.floor(cellH * 1.2);
-    if (cellH / cellW > 1.05) cellH = Math.floor(cellW * 0.95);
+    // corner ≈ 18.5% ширины трека; mid-top уже, mid-side ниже
+    let corner = Math.floor(boardW * 0.118);
+    let cellW = Math.floor((boardW - 2 * corner) / 11);
+    let cellH = Math.floor((boardH - 2 * corner) / 7);
+    // подгонка из‑за округлений
+    corner = Math.floor((boardW - 11 * cellW) / 2);
+    const cornerY = Math.floor((boardH - 7 * cellH) / 2);
+    const cornerSize = Math.min(corner, cornerY);
+    corner = cornerSize;
+    cellW = Math.floor((boardW - 2 * corner) / 11);
+    cellH = Math.floor((boardH - 2 * corner) / 7);
 
-    cellW = Math.max(34, Math.min(cellW, 110));
-    cellH = Math.max(30, Math.min(cellH, 96));
+    cellW = Math.max(22, Math.min(cellW, 72));
+    cellH = Math.max(22, Math.min(cellH, 72));
+    corner = Math.max(36, Math.min(corner, 110));
 
+    const logoW = Math.max(18, cellW - 6);
+    const logoH = Math.max(16, Math.round(Math.min(cellW, cellH) * 0.42));
     const root = document.documentElement;
+    root.style.setProperty('--corner', `${corner}px`);
     root.style.setProperty('--cell-w', `${cellW}px`);
     root.style.setProperty('--cell-h', `${cellH}px`);
+    root.style.setProperty('--logo-w', `${logoW}px`);
+    root.style.setProperty('--logo-h', `${logoH}px`);
     root.style.setProperty('--rail-w', narrow ? '100%' : `${rail}px`);
+    this._logoSize = { w: logoW, h: logoH, corner, cellW, cellH };
   }
 
   setupChat() {
@@ -162,10 +184,17 @@ export class UI {
     this.boardEl.appendChild(this.tokenLayer);
   }
 
+  cellSide(index) {
+    if (index >= 1 && index <= 11) return 'top';
+    if (index >= 13 && index <= 19) return 'right';
+    if (index >= 21 && index <= 31) return 'bottom';
+    if (index >= 33 && index <= 39) return 'left';
+    return 'corner';
+  }
+
   renderCellHTML(cell, index) {
-    const isCorner = [0, 12, 20, 32].includes(index);
-    const isSide = (index >= 13 && index <= 20) || (index >= 33 && index <= 39);
-    const colorBar = cell.group ? `<div class="cell__color-bar"></div>` : '';
+    const side = this.cellSide(index);
+    const isCorner = side === 'corner';
     const isCompany = cell.type === 'property' || cell.type === 'railroad' || cell.type === 'utility';
 
     let body;
@@ -177,74 +206,68 @@ export class UI {
       const flagHtml = flagSrc
         ? `<img class="cell__flag-img" src="${flagSrc}" alt="" />`
         : (cell.flag ? `<span class="cell__flag">${cell.flag}</span>` : '');
+      // DOM: страна → логотип → деньги → акции; flex по стороне тянет страну к краю доски
       body = `
+        <div class="cell__country-slot">${flagHtml}</div>
+        <div class="cell__logo" title="Слот логотипа">
+          <span class="cell__logo-text">${escapeHtml(company)}</span>
+        </div>
         ${price ? `<span class="cell__price">${price}</span>` : ''}
-        <span class="cell__company">${escapeHtml(company)}</span>
-        ${flagHtml}
+        <div class="cell__shares" data-houses="${index}" aria-label="Акции"></div>
       `;
-    } else {
-      const price = cell.taxPercent != null
-        ? `<span class="cell__price">${cell.taxPercent}%</span>`
-        : (cell.amount != null ? `<span class="cell__price">${formatPriceShort(cell.amount)}</span>` : '');
+    } else if (cell.type === 'tax') {
       body = `
-        ${price}
+        <span class="cell__tax-marks">%%%</span>
+        <span class="cell__name">${escapeHtml(cell.name)}</span>
+      `;
+    } else if (isCorner) {
+      // Углы — арт с board-frame; лёгкая подпись
+      body = `<span class="cell__name cell__name--corner">${escapeHtml(cell.name)}</span>`;
+    } else {
+      body = `
         <span class="cell__name">${escapeHtml(cell.name)}</span>
         ${cell.icon ? iconHTML(cell.icon, 'cell__icon') : ''}
       `;
     }
 
     return `
-      ${colorBar}
-      <div class="cell__body ${isSide ? 'cell__body--side' : ''} ${isCorner ? 'cell__body--corner' : ''}">
+      <div class="cell__body cell__body--${side} ${isCorner ? 'cell__body--corner' : ''}">
         ${body}
       </div>
-      <div class="cell__houses" data-houses="${index}"></div>
     `;
   }
 
-  /** Ползунок выбора вместо confirm/alert */
-  showChoiceSlider({ title, left, right, onConfirm, initial = 0 }) {
+  /** Две кнопки вместо ползунка */
+  showChoiceButtons({ title, left, right, onLeft, onRight }) {
     if (!this.choicePanel) return;
     this.choicePanel.hidden = false;
     this.choicePanel.innerHTML = `
-      <div class="choice-slider">
-        <div class="choice-slider__title">${escapeHtml(title)}</div>
-        <div class="choice-slider__labels">
-          <span class="choice-left ${initial === 0 ? 'is-active' : ''}">${escapeHtml(left)}</span>
-          <span class="choice-right ${initial === 1 ? 'is-active' : ''}">${escapeHtml(right)}</span>
-        </div>
-        <input type="range" min="0" max="1" step="1" value="${initial}" id="choice-range" />
-        <div class="choice-slider__btns">
-          <button type="button" class="btn btn--pass" id="choice-cancel">Отмена</button>
-          <button type="button" class="btn btn--roll" id="choice-ok">ОК</button>
+      <div class="choice-buttons">
+        <div class="choice-buttons__title">${escapeHtml(title)}</div>
+        <div class="choice-buttons__row">
+          <button type="button" class="btn btn--pass" id="choice-left">${escapeHtml(left)}</button>
+          <button type="button" class="btn btn--roll" id="choice-right">${escapeHtml(right)}</button>
         </div>
       </div>
     `;
-
-    const range = this.choicePanel.querySelector('#choice-range');
-    const leftEl = this.choicePanel.querySelector('.choice-left');
-    const rightEl = this.choicePanel.querySelector('.choice-right');
-    const sync = () => {
-      const v = Number(range.value);
-      leftEl.classList.toggle('is-active', v === 0);
-      rightEl.classList.toggle('is-active', v === 1);
-    };
-    range.addEventListener('input', sync);
-
-    this.choicePanel.querySelector('#choice-cancel').addEventListener('click', () => {
-      this.hideChoiceSlider();
+    this.choicePanel.querySelector('#choice-left').addEventListener('click', () => {
+      this.hideChoiceButtons();
+      onLeft?.();
     });
-    this.choicePanel.querySelector('#choice-ok').addEventListener('click', () => {
-      const v = Number(range.value);
-      this.hideChoiceSlider();
-      onConfirm?.(v);
+    this.choicePanel.querySelector('#choice-right').addEventListener('click', () => {
+      this.hideChoiceButtons();
+      onRight?.();
     });
   }
 
-  hideChoiceSlider() {
+  hideChoiceButtons() {
     if (!this.choicePanel) return;
     this.choicePanel.hidden = true;
     this.choicePanel.innerHTML = '';
+  }
+
+  hideChoiceSlider() {
+    this.hideChoiceButtons();
   }
 
   render(state) {
@@ -256,6 +279,8 @@ export class UI {
       this.renderPlayers(state);
       this.renderHouses(state);
       this.renderLog(state);
+      this.syncAuctionUi(state);
+      if (state.phase === PHASE.AUCTION) this.renderActions(state);
       return;
     }
 
@@ -267,6 +292,7 @@ export class UI {
     this.renderHouses(state);
     this.renderLog(state);
     this.highlightCurrentCell(state);
+    this.syncAuctionUi(state);
 
     const diceChanged = this.diceChanged(prev, state);
     const movers = this.findMovers(prev, state);
@@ -402,7 +428,7 @@ export class UI {
 
   createTokenEl(p) {
     const el = document.createElement('div');
-    el.className = 'token token-fly';
+    el.className = 'token token-fly token--board';
     el.dataset.player = String(p.id);
     el.style.setProperty('--token-color', p.color);
     el.title = p.name;
@@ -533,7 +559,9 @@ export class UI {
     if (this.hubTurn) {
       this.hubTurn.textContent = state.phase === PHASE.GAME_OVER
         ? 'ИГРА ОКОНЧЕНА'
-        : `ХОД ИГРОКА ${current?.name || ''}`.toUpperCase();
+        : state.phase === PHASE.AUCTION
+          ? 'АУКЦИОН'
+          : `ХОД ИГРОКА ${current?.name || ''}`.toUpperCase();
     }
 
     const focus = state.isMyTurn ? me : current;
@@ -612,8 +640,13 @@ export class UI {
       return;
     }
 
+    if (state.phase === PHASE.AUCTION && state.auction) {
+      this.renderAuctionActions(state);
+      return;
+    }
+
     if (!isMyTurn || state.phase === PHASE.MOVING) {
-      this.actionArea.innerHTML = `<div class="wait-turn">⏳ Ход: <strong>${escapeHtml(p.name)}</strong></div>`;
+      this.actionArea.innerHTML = `<div class="wait-turn">Ход: <strong>${escapeHtml(p.name)}</strong></div>`;
       return;
     }
 
@@ -622,17 +655,20 @@ export class UI {
     if (state.phase === PHASE.ROLL) {
       const rollBtn = document.createElement('button');
       rollBtn.className = 'btn btn--roll';
-      rollBtn.textContent = p.inJail ? '🎲 Действие в тюрьме' : '🎲 Бросить кубики';
+      rollBtn.textContent = p.inJail ? 'Тюрьма: выбрать действие' : 'Бросить кубики';
       rollBtn.addEventListener('click', () => {
         if (p.inJail && p.money >= JAIL_BAIL) {
-          this.showChoiceSlider({
+          this.showChoiceButtons({
             title: 'Тюрьма: выберите действие',
             left: 'Бросить кубики',
             right: `Залог ${formatMoney(JAIL_BAIL)}`,
-            onConfirm: (value) => {
+            onLeft: () => {
               rollBtn.disabled = true;
-              if (value === 1) this.doAction({ type: 'payJailBail' });
-              else this.doAction({ type: 'roll' });
+              this.doAction({ type: 'roll' });
+            },
+            onRight: () => {
+              rollBtn.disabled = true;
+              this.doAction({ type: 'payJailBail' });
             },
           });
           return;
@@ -649,8 +685,8 @@ export class UI {
         <div class="buy-prompt">
           <p>Купить <strong>${escapeHtml(cell.name)}</strong> за ${formatMoney(state.pendingAction.price)}?</p>
           <div class="buy-prompt__btns">
-            <button class="btn btn--buy" id="btn-buy">✅ Купить</button>
-            <button class="btn btn--pass" id="btn-pass">❌ Пас</button>
+            <button class="btn btn--buy" id="btn-buy">Купить</button>
+            <button class="btn btn--pass" id="btn-pass">Аукцион</button>
           </div>
         </div>
       `;
@@ -699,6 +735,55 @@ export class UI {
   highlightCurrentCell(state) {
     const p = state.players[state.currentPlayerIndex];
     if (!p?.bankrupt) this.highlightCell(p.position);
+  }
+
+  syncAuctionUi(state) {
+    const hub = document.querySelector('.hub');
+    const isAuction = state.phase === PHASE.AUCTION && state.auction;
+    hub?.classList.toggle('hub--auction', !!isAuction);
+    if (!isAuction) {
+      clearInterval(this._auctionTick);
+      this._auctionTick = null;
+      return;
+    }
+    if (!this._auctionTick) {
+      this._auctionTick = setInterval(() => {
+        if (this.lastState?.phase === PHASE.AUCTION) this.renderActions(this.lastState);
+      }, 500);
+    }
+  }
+
+  renderAuctionActions(state) {
+    const a = state.auction;
+    const cell = BOARD[a.cellId];
+    const leader = a.highBidder != null ? state.players[a.highBidder] : null;
+    const next = state.nextAuctionPrice ?? (a.highBidder == null ? a.startPrice : a.currentBid + (a.step || AUCTION_STEP));
+    const leftMs = Math.max(0, (a.endsAt || 0) - Date.now());
+    const sec = Math.ceil(leftMs / 1000);
+    const me = state.players.find(p => p.id === this.mySlot);
+    const canBid = state.canAuctionBid && me && me.money >= next && a.highBidder !== this.mySlot;
+
+    this.actionArea.innerHTML = `
+      <div class="auction-panel">
+        <div class="auction-panel__title">Аукцион: ${escapeHtml(cell?.name || '')}</div>
+        <div class="auction-panel__timer">${sec}с</div>
+        <div class="auction-panel__meta">
+          Старт: ${formatMoney(a.startPrice)} · шаг ${formatMoney(a.step || AUCTION_STEP)}
+        </div>
+        <div class="auction-panel__bid">
+          ${leader
+            ? `Лидер: <strong>${escapeHtml(leader.name)}</strong> — ${formatMoney(a.currentBid)}`
+            : 'Ставок пока нет'}
+        </div>
+        <div class="auction-panel__next">След. ставка: <strong>${formatMoney(next)}</strong></div>
+        <button class="btn btn--buy" id="btn-auction-bid" ${canBid ? '' : 'disabled'}>
+          Поставить ${formatMoney(next)}
+        </button>
+      </div>
+    `;
+    document.getElementById('btn-auction-bid')?.addEventListener('click', () => {
+      this.doAction({ type: 'auctionBid' });
+    });
   }
 }
 

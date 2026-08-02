@@ -6,22 +6,24 @@ export const JAIL_BAIL = 50_000;
 export const MAX_HOUSES = 5;
 export const MAX_PLAYERS = 5;
 export const MIN_PLAYERS = 1;
+export const AUCTION_STEP = 10_000;
+export const AUCTION_MS = 60_000;
 
-/** Позиции углов на прямоугольном поле 13×9 */
+/** Позиции углов на прямоугольном поле 13×9 (как board-frame) */
 export const JAIL_POS = 12;
 export const PARKING_POS = 20;
 export const GOTO_JAIL_POS = 32;
 
-/** Прямоугольное поле: 13 колонок × 9 рядов */
+/** Поле: квадратные углы + 11 клеток сверху/снизу + 7 по бокам */
 export const BOARD_COLS = 13;
 export const BOARD_ROWS = 9;
 
 export const PLAYER_SLOTS = [
-  { id: 0, name: 'Красная', color: '#e11d48', colorSoft: '#fecdd3', token: 'pawn', tokenImage: '/assets/chips/chip1.png' },
-  { id: 1, name: 'Синяя', color: '#2563eb', colorSoft: '#bfdbfe', token: 'pawn', tokenImage: '/assets/chips/chip2.png' },
-  { id: 2, name: 'Жёлтая', color: '#ca8a04', colorSoft: '#fef08a', token: 'pawn', tokenImage: '/assets/chips/chip4.png' },
-  { id: 3, name: 'Зелёная', color: '#16a34a', colorSoft: '#bbf7d0', token: 'pawn', tokenImage: '/assets/chips/chip3.png' },
-  { id: 4, name: 'Розовая', color: '#db2777', colorSoft: '#fbcfe8', token: 'pawn', tokenImage: '/assets/chips/chip5.png' },
+  { id: 0, name: 'Красная', color: '#e11d48', colorSoft: '#fecdd3', token: 'pawn', tokenImage: '/assets/chips/chip_red_norefl.png' },
+  { id: 1, name: 'Синяя', color: '#2563eb', colorSoft: '#bfdbfe', token: 'pawn', tokenImage: '/assets/chips/chip_blue_norefl.png' },
+  { id: 2, name: 'Жёлтая', color: '#ca8a04', colorSoft: '#fef08a', token: 'pawn', tokenImage: '/assets/chips/chip_yellow_norefl.png' },
+  { id: 3, name: 'Зелёная', color: '#16a34a', colorSoft: '#bbf7d0', token: 'pawn', tokenImage: '/assets/chips/chip_green_norefl.png' },
+  { id: 4, name: 'Розовая', color: '#db2777', colorSoft: '#fbcfe8', token: 'pawn', tokenImage: '/assets/chips/chip_pink_norefl.png' },
 ];
 
 export const GROUP_COLORS = {

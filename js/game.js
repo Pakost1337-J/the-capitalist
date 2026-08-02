@@ -1,17 +1,18 @@
 import {
   BOARD, CHANCE_CARDS, FORCE_MAJEURE_CARDS, START_MONEY, GO_SALARY, JAIL_BAIL, JAIL_POS,
-  MAX_HOUSES, PLAYER_SLOTS, getCell, getGroupProperties,
+  MAX_HOUSES, PLAYER_SLOTS, AUCTION_STEP, AUCTION_MS, getCell, getGroupProperties,
 } from './config.js';
 import { shuffle } from './utils.js';
 import {
   logBuy, logJail, logMoneyGain, logMoneyLoss, logPassStart,
-  logRent, logTax, logRefuse, logBuild,
+  logRent, logTax, logBuild,
 } from './flavor.js';
 
 export const PHASE = {
   ROLL: 'roll',
   MOVING: 'moving',
   ACTION: 'action',
+  AUCTION: 'auction',
   BUILD: 'build',
   END: 'end',
   GAME_OVER: 'game_over',
@@ -60,6 +61,7 @@ export class GameEngine {
     this.log = [];
     this.winner = null;
     this.pendingAction = null;
+    this.auction = null;
     this.housesBuilt = 0;
     this.maxHouses = 32;
 
@@ -89,9 +91,16 @@ export class GameEngine {
       log: [...this.log],
       winner: this.winner,
       pendingAction: this.pendingAction ? { ...this.pendingAction } : null,
+      auction: this.auction ? { ...this.auction } : null,
       propertyState: JSON.parse(JSON.stringify(this.propertyState)),
       housesBuilt: this.housesBuilt,
     };
+  }
+
+  nextAuctionPrice() {
+    if (!this.auction) return 0;
+    if (this.auction.highBidder == null) return this.auction.startPrice;
+    return this.auction.currentBid + AUCTION_STEP;
   }
 
   addLog(msg) {
@@ -240,8 +249,13 @@ export class GameEngine {
     const p = this.currentPlayer;
 
     if (ps.owner === null) {
-      this.pendingAction = { type: 'buy', cellId: cell.id, price: cell.price };
-      this.phase = PHASE.ACTION;
+      if (this.canAfford(p, cell.price)) {
+        this.pendingAction = { type: 'buy', cellId: cell.id, price: cell.price };
+        this.phase = PHASE.ACTION;
+      } else {
+        this.addLog(`${p.name} не хватает денег на «${cell.name}» — аукцион!`);
+        this.startAuction(cell.id);
+      }
     } else if (ps.owner !== p.id && !ps.mortgaged) {
       const rent = this.calcRent(cell.id);
       const owner = this.players[ps.owner];
@@ -250,6 +264,62 @@ export class GameEngine {
     } else {
       this.afterAction();
     }
+  }
+
+  startAuction(cellId) {
+    const cell = getCell(cellId);
+    if (!cell || this.propertyState[cellId]?.owner != null) return false;
+    this.pendingAction = null;
+    this.phase = PHASE.AUCTION;
+    this.auction = {
+      cellId,
+      startPrice: cell.price,
+      currentBid: 0,
+      highBidder: null,
+      step: AUCTION_STEP,
+      endsAt: Date.now() + AUCTION_MS,
+      startedBy: this.currentPlayer.id,
+    };
+    this.addLog(`Аукцион: «${cell.name}» от ${cell.price.toLocaleString('ru-RU')}$, шаг $${AUCTION_STEP.toLocaleString('ru-RU')}, 1 мин`);
+    return true;
+  }
+
+  placeAuctionBid(playerId) {
+    if (this.phase !== PHASE.AUCTION || !this.auction) return false;
+    const p = this.players[playerId];
+    if (!p || p.bankrupt) return false;
+    const next = this.nextAuctionPrice();
+    if (p.money < next) return false;
+    if (this.auction.highBidder === playerId) return false;
+
+    this.auction.currentBid = next;
+    this.auction.highBidder = playerId;
+    this.addLog(`${p.name} ставит $${next.toLocaleString('ru-RU')} за «${getCell(this.auction.cellId).name}»`);
+    return true;
+  }
+
+  finishAuction() {
+    if (!this.auction) return;
+    const { cellId, currentBid, highBidder } = this.auction;
+    const cell = getCell(cellId);
+    this.auction = null;
+
+    if (highBidder != null && currentBid > 0) {
+      const winner = this.players[highBidder];
+      if (winner && !winner.bankrupt && winner.money >= currentBid) {
+        winner.money -= currentBid;
+        winner.properties.push(cellId);
+        this.propertyState[cellId].owner = winner.id;
+        this.addLog(logBuy(winner.name, cell.name));
+        this.addLog(`Аукцион закрыт: $${currentBid.toLocaleString('ru-RU')}`);
+      } else {
+        this.addLog(`Аукцион сорвался — «${cell.name}» без владельца`);
+      }
+    } else {
+      this.addLog(`Аукцион окончен: на «${cell.name}» никто не поставил`);
+    }
+
+    this.afterAction();
   }
 
   payPlayer(from, to, amount, company) {
@@ -385,12 +455,13 @@ export class GameEngine {
 
   passProperty() {
     if (this.pendingAction?.type !== 'buy') return false;
-    const cell = getCell(this.pendingAction.cellId);
-    this.addLog(logRefuse(this.currentPlayer.name, cell.name));
+    const cellId = this.pendingAction.cellId;
+    const cell = getCell(cellId);
+    this.addLog(`${this.currentPlayer.name} выставляет «${cell.name}» на аукцион`);
     this.pendingAction = null;
-    this.afterAction();
-    return true;
+    return this.startAuction(cellId);
   }
+
 
   buildHouse(cellId) {
     const p = this.currentPlayer;
@@ -527,8 +598,17 @@ export class GameEngine {
   }
 
   applyAction(action, playerId) {
+    if (action.type === 'auctionBid') {
+      if (!this.placeAuctionBid(playerId)) return { ok: false, error: 'Нельзя сделать ставку' };
+      return { ok: true, auction: true };
+    }
+    if (action.type === 'auctionEnd') {
+      if (this.phase !== PHASE.AUCTION) return { ok: false, error: 'Нет аукциона' };
+      this.finishAuction();
+      return { ok: true };
+    }
+
     if (this.currentPlayer.id !== playerId) return { ok: false, error: 'Не ваш ход' };
-    const p = this.currentPlayer;
 
     switch (action.type) {
       case 'roll':
@@ -541,8 +621,8 @@ export class GameEngine {
         return { ok: true };
 
       case 'pass':
-        if (!this.passProperty()) return { ok: false, error: 'Нельзя отказаться' };
-        return { ok: true };
+        if (!this.passProperty()) return { ok: false, error: 'Нельзя начать аукцион' };
+        return { ok: true, auction: true };
 
       case 'build':
         if (!this.buildHouse(action.cellId)) return { ok: false, error: 'Нельзя построить' };

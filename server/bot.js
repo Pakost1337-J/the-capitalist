@@ -10,9 +10,14 @@ export function runBotTurn(game, onDone) {
 
   setTimeout(() => {
     if (game.phase === PHASE.ROLL) {
+      if (player.inJail && player.money >= 50_000 && Math.random() > 0.55) {
+        game.payJailBail();
+      }
       game.rollDice();
-      // ждём анимацию кубиков + хода фишки на клиенте
       handleAfterRoll(game, onDone);
+    } else if (game.phase === PHASE.AUCTION) {
+      tryBotAuctionBid(game);
+      onDone();
     } else if (game.phase === PHASE.END) {
       game.endTurn();
       onDone();
@@ -38,7 +43,15 @@ function handleAfterRoll(game, onDone) {
         game.passProperty();
       }
 
-      setTimeout(() => finishBotTurn(game, onDone), 900);
+      setTimeout(() => {
+        if (game.phase === PHASE.AUCTION) {
+          tryBotAuctionBid(game);
+        }
+        finishBotTurn(game, onDone);
+      }, 900);
+    } else if (game.phase === PHASE.AUCTION) {
+      tryBotAuctionBid(game);
+      onDone();
     } else if (game.phase === PHASE.END) {
       game.endTurn();
       onDone();
@@ -48,6 +61,35 @@ function handleAfterRoll(game, onDone) {
       finishBotTurn(game, onDone);
     }
   }, animWait);
+}
+
+function tryBotAuctionBid(game) {
+  if (game.phase !== PHASE.AUCTION || !game.auction) return;
+  const next = game.nextAuctionPrice();
+  const cell = getCell(game.auction.cellId);
+
+  for (const p of game.activePlayers) {
+    if (!p.isBot) continue;
+    if (game.auction.highBidder === p.id) continue;
+    if (p.money < next) continue;
+    if (shouldBotBid(p, cell, next, game) && Math.random() > 0.4) {
+      game.placeAuctionBid(p.id);
+      break;
+    }
+  }
+}
+
+function shouldBotBid(player, cell, price, game) {
+  if (player.money < price + 80_000) return false;
+  if (cell?.type === 'property') {
+    const ownedInGroup = Object.entries(game.propertyState)
+      .filter(([id, ps]) => {
+        const c = getCell(Number(id));
+        return c.group === cell.group && ps.owner === player.id;
+      }).length;
+    if (ownedInGroup > 0) return true;
+  }
+  return player.money > price * 1.5 && Math.random() > 0.5;
 }
 
 function finishBotTurn(game, onDone) {
@@ -75,11 +117,6 @@ function shouldBotBuy(player, cell, price, game) {
     if (player.properties.length < 2) return player.money > price + 200;
   }
 
-  if (cell.type === 'railroad') {
-    const rr = player.properties.filter(id => getCell(id).type === 'railroad').length;
-    if (rr > 0) return true;
-  }
-
   return player.money > price + 300 && Math.random() > 0.35;
 }
 
@@ -91,6 +128,19 @@ export function processBotChain(game, broadcast) {
     if (game.phase === PHASE.GAME_OVER) {
       game._botRunning = false;
       broadcast();
+      return;
+    }
+
+    if (game.phase === PHASE.AUCTION) {
+      tryBotAuctionBid(game);
+      broadcast();
+      // не блокируем аукцион вечным циклом — ставки ботов по таймеру
+      game._botRunning = false;
+      setTimeout(() => {
+        if (game.phase === PHASE.AUCTION) {
+          processBotChain(game, broadcast);
+        }
+      }, 4500);
       return;
     }
 

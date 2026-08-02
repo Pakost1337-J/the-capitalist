@@ -6,7 +6,7 @@ import { dirname, join } from 'path';
 import {
   createRoom, joinRoom, leaveRoom, getRoomBySocket,
   startGame, handleGameAction, getLobbyState, getGameState,
-  broadcastGame, startBotLoop, listPublicRooms,
+  broadcastGame, startBotLoop, listPublicRooms, scheduleAuctionEnd,
 } from './server/rooms.js';
 import { PHASE } from './js/game.js';
 import { getCustomPayload, saveCustom, resetCustom } from './server/customize.js';
@@ -130,7 +130,11 @@ io.on('connection', (socket) => {
     if (!room || !room.game) return cb?.({ ok: false, error: 'Игра не найдена' });
 
     const result = handleGameAction(room, socket.id, action);
-    if (result.error) return cb?.({ ok: false, error: result.error });
+    if (!result?.ok) return cb?.({ ok: false, error: result?.error || 'Ошибка' });
+
+    if (room.game.phase === PHASE.AUCTION) {
+      scheduleAuctionEnd(room, io);
+    }
 
     broadcastGame(room, io);
     cb?.({ ok: true });

@@ -165,13 +165,39 @@ export function listPublicRooms() {
 export function getGameState(room, socketId) {
   const member = room.members.find(m => m.socketId === socketId);
   const state = room.game.getState();
+  const me = member != null ? state.players[member.slot] : null;
+  const isAuction = state.phase === 'auction';
   return {
     ...state,
     roomId: room.id,
     roomName: room.name,
     mySlot: member?.slot ?? null,
-    isMyTurn: member && state.players[state.currentPlayerIndex]?.id === member.slot,
+    isMyTurn: member && (
+      isAuction
+        ? !!(me && !me.bankrupt)
+        : state.players[state.currentPlayerIndex]?.id === member.slot
+    ),
+    canAuctionBid: !!(isAuction && me && !me.bankrupt),
+    nextAuctionPrice: room.game.nextAuctionPrice?.() ?? null,
   };
+}
+
+export function scheduleAuctionEnd(room, io) {
+  if (room._auctionTimer) {
+    clearTimeout(room._auctionTimer);
+    room._auctionTimer = null;
+  }
+  const auction = room.game?.auction;
+  if (!auction || room.game.phase !== 'auction') return;
+
+  const delay = Math.max(200, (auction.endsAt || Date.now()) - Date.now());
+  room._auctionTimer = setTimeout(() => {
+    room._auctionTimer = null;
+    if (!room.game || room.game.phase !== 'auction') return;
+    room.game.finishAuction();
+    broadcastGame(room, io);
+    startBotLoop(room, io);
+  }, delay);
 }
 
 export function broadcastGame(room, io) {
@@ -181,7 +207,10 @@ export function broadcastGame(room, io) {
 }
 
 export function startBotLoop(room, io) {
-  processBotChain(room.game, () => broadcastGame(room, io));
+  processBotChain(room.game, () => {
+    if (room.game?.phase === 'auction') scheduleAuctionEnd(room, io);
+    broadcastGame(room, io);
+  });
 }
 
 export function findMemberSlot(room, socketId) {
