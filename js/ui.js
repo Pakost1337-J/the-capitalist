@@ -475,7 +475,7 @@ export class UI {
     el.dataset.player = String(p.id);
     el.style.setProperty('--token-color', p.color);
     el.title = p.name;
-    const img = resolveIconSrc(p.tokenImage || '');
+    const img = resolveIconSrc(p.tokenBoardImage || p.tokenImage || '');
     if (img) {
       el.classList.add('token--img');
       el.innerHTML = `<img src="${img}" alt="" />`;

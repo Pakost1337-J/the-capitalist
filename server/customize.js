@@ -43,7 +43,8 @@ export function loadCustom() {
         return {
           ...base,
           token: ov.token ?? base.token,
-          tokenImage: ov.tokenImage ?? '',
+          tokenImage: ov.tokenImage ?? base.tokenImage ?? '',
+          tokenBoardImage: ov.tokenBoardImage ?? base.tokenBoardImage ?? '',
           nameHint: ov.nameHint ?? '',
         };
       });
@@ -66,7 +67,8 @@ function syncRuntimeConfig() {
     const base = PLAYER_SLOTS.find(s => s.id === p.id);
     if (!base) continue;
     base.token = p.token;
-    base.tokenImage = p.tokenImage || '';
+    if (p.tokenImage) base.tokenImage = p.tokenImage;
+    if (p.tokenBoardImage) base.tokenBoardImage = p.tokenBoardImage;
   }
 }
 
@@ -90,7 +92,8 @@ export function saveCustom(payload) {
       return {
         ...base,
         token: (ov.token ?? base.token).toString().slice(0, 16),
-        tokenImage: (ov.tokenImage || '').toString().slice(0, 120),
+        tokenImage: (ov.tokenImage || base.tokenImage || '').toString().slice(0, 120),
+        tokenBoardImage: (ov.tokenBoardImage || base.tokenBoardImage || '').toString().slice(0, 120),
         nameHint: (ov.nameHint || '').toString().slice(0, 20),
       };
     });
@@ -104,6 +107,7 @@ export function saveCustom(payload) {
       id: p.id,
       token: p.token,
       tokenImage: p.tokenImage || '',
+      tokenBoardImage: p.tokenBoardImage || '',
       nameHint: p.nameHint || '',
     })),
   };

@@ -28,6 +28,7 @@ function createPlayer(slot, name, socketId, isBot) {
     chipName: cfg.name || `Фишка ${slot + 1}`,
     token: cfg.token,
     tokenImage: cfg.tokenImage || '',
+    tokenBoardImage: cfg.tokenBoardImage || '',
     socketId,
     isBot,
     money: START_MONEY,
