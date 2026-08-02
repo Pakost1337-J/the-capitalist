@@ -6,7 +6,7 @@ import { dirname, join } from 'path';
 import {
   createRoom, joinRoom, leaveRoom, getRoomBySocket,
   startGame, handleGameAction, getLobbyState, getGameState,
-  broadcastGame, startBotLoop, listPublicRooms, scheduleAuctionEnd, scheduleRentEnd,
+  broadcastGame, startBotLoop, listPublicRooms, scheduleAuctionEnd, scheduleRentEnd, scheduleTurnTimers,
 } from './server/rooms.js';
 import { PHASE } from './js/game.js';
 import { getCustomPayload, saveCustom, resetCustom } from './server/customize.js';
@@ -118,6 +118,7 @@ io.on('connection', (socket) => {
 
       cb?.({ ok: true });
       broadcastServerInfo();
+      scheduleTurnTimers(room, io);
       startBotLoop(room, io);
     } catch (err) {
       console.error('start-game error:', err);
@@ -137,6 +138,7 @@ io.on('connection', (socket) => {
     }
     // всегда: либо ставит таймер долга, либо снимает старый
     scheduleRentEnd(room, io);
+    scheduleTurnTimers(room, io);
 
     broadcastGame(room, io);
     cb?.({ ok: true });

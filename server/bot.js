@@ -2,6 +2,18 @@ import { PHASE } from '../js/game.js';
 import { getCell } from '../js/config.js';
 
 export function runBotTurn(game, onDone) {
+  // Ответ бота на входящую сделку (даже не в свой ход)
+  if (game.deal) {
+    const to = game.players[game.deal.toId];
+    if (to?.isBot && !to.bankrupt) {
+      setTimeout(() => {
+        settleBotDeal(game);
+        onDone();
+      }, 900);
+      return;
+    }
+  }
+
   const player = game.currentPlayer;
   if (!player?.isBot || player.bankrupt || game.phase === PHASE.GAME_OVER) {
     onDone();
@@ -10,6 +22,10 @@ export function runBotTurn(game, onDone) {
 
   setTimeout(() => {
     if (game.phase === PHASE.ROLL) {
+      if (game.deal) {
+        onDone();
+        return;
+      }
       if (player.inJail && player.money >= 50_000 && Math.random() > 0.55) {
         game.payJailBail();
       }
@@ -18,7 +34,10 @@ export function runBotTurn(game, onDone) {
     } else if (game.phase === PHASE.AUCTION) {
       tryBotAuctionBid(game);
       onDone();
-    } else if (game.phase === PHASE.ACTION && game.pendingAction?.type === 'rent') {
+    } else if (
+      game.phase === PHASE.ACTION
+      && ['rent', 'tax', 'force'].includes(game.pendingAction?.type)
+    ) {
       settleBotRent(game);
       finishBotTurn(game, onDone);
     } else if (game.phase === PHASE.END) {
@@ -52,7 +71,10 @@ function handleAfterRoll(game, onDone) {
         }
         finishBotTurn(game, onDone);
       }, 900);
-    } else if (game.phase === PHASE.ACTION && game.pendingAction?.type === 'rent') {
+    } else if (
+      game.phase === PHASE.ACTION
+      && ['rent', 'tax', 'force'].includes(game.pendingAction?.type)
+    ) {
       settleBotRent(game);
       setTimeout(() => finishBotTurn(game, onDone), 700);
     } else if (game.phase === PHASE.AUCTION) {
@@ -100,10 +122,20 @@ function shouldBotBid(player, cell, price, game) {
 
 function settleBotRent(game) {
   const pa = game.pendingAction;
-  if (!pa || pa.type !== 'rent') return;
+  if (!pa || !['rent', 'tax', 'force'].includes(pa.type)) return;
   const player = game.currentPlayer;
   let guard = 0;
-  while (player.money < pa.amount && guard < 12) {
+  while (player.money < pa.amount && guard < 16) {
+    const shareProp = player.properties.find(id => {
+      const ps = game.propertyState[id];
+      const cell = getCell(id);
+      return ps && !ps.mortgaged && (ps.houses || 0) > 0 && cell?.houseCost;
+    });
+    if (shareProp != null) {
+      game.sellShare(shareProp);
+      guard += 1;
+      continue;
+    }
     const prop = player.properties.find(id => {
       const ps = game.propertyState[id];
       return ps && !ps.mortgaged && (ps.houses || 0) === 0;
@@ -112,21 +144,23 @@ function settleBotRent(game) {
     game.mortgageProperty(prop);
     guard += 1;
   }
-  game.payRentDebt();
+  if (pa.type === 'tax') game.payTaxDebt();
+  else if (pa.type === 'force') game.payCardDebt();
+  else game.payRentDebt();
 }
 
 function finishBotTurn(game, onDone) {
-  if (game.phase === PHASE.ACTION && game.pendingAction?.type === 'rent') {
+  if (
+    game.phase === PHASE.ACTION
+    && ['rent', 'tax', 'force'].includes(game.pendingAction?.type)
+  ) {
     settleBotRent(game);
   }
+  // endTurn уже вызывается из afterAction / advanceAfterTurnActions
   if (game.phase === PHASE.END) {
-    setTimeout(() => {
-      game.endTurn();
-      onDone();
-    }, 500);
-  } else {
-    onDone();
+    game.endTurn();
   }
+  setTimeout(onDone, 400);
 }
 
 function shouldBotBuy(player, cell, price, game) {
@@ -146,6 +180,32 @@ function shouldBotBuy(player, cell, price, game) {
   return player.money > price + 300 && Math.random() > 0.35;
 }
 
+function settleBotDeal(game) {
+  const d = game.deal;
+  if (!d) return;
+  const to = game.players[d.toId];
+  if (!to?.isBot) return;
+
+  let offerMoney = Math.max(0, Number(d.offerMoney) || 0);
+  let askMoney = Math.max(0, Number(d.askMoney) || 0);
+  let offerCells = [...(d.offerCells || [])];
+  let askCells = [...(d.askCells || [])];
+  if (d.cellId != null && !askCells.length) {
+    askCells = [d.cellId];
+    if (!offerMoney && d.price != null) offerMoney = Number(d.price) || 0;
+  }
+
+  const giveValue = offerMoney + offerCells.reduce((s, id) => s + (getCell(id)?.price || 0), 0);
+  const takeValue = askMoney + askCells.reduce((s, id) => s + (getCell(id)?.price || 0), 0);
+  const okMoney = to.money >= askMoney;
+  const fair = takeValue <= 0 || giveValue >= takeValue * 0.75;
+  if (okMoney && fair && Math.random() > 0.3) {
+    game.acceptDeal(to.id);
+  } else {
+    game.rejectDeal(to.id);
+  }
+}
+
 export function processBotChain(game, broadcast) {
   if (game._botRunning) return;
   game._botRunning = true;
@@ -154,6 +214,19 @@ export function processBotChain(game, broadcast) {
     if (game.phase === PHASE.GAME_OVER) {
       game._botRunning = false;
       broadcast();
+      return;
+    }
+
+    if (game.deal) {
+      const to = game.players[game.deal.toId];
+      if (to?.isBot && !to.bankrupt) {
+        runBotTurn(game, () => {
+          broadcast();
+          tick();
+        });
+        return;
+      }
+      game._botRunning = false;
       return;
     }
 

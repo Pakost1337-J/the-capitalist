@@ -1,6 +1,7 @@
 import {
   BOARD, BOARD_SIZE, CHANCE_CARDS, FORCE_MAJEURE_CARDS, START_MONEY, GO_SALARY, JAIL_BAIL, JAIL_POS,
-  MAX_HOUSES, PLAYER_SLOTS, AUCTION_STEP, AUCTION_MS, RENT_MS, getCell, getGroupProperties,
+  MAX_HOUSES, PLAYER_SLOTS, AUCTION_STEP, AUCTION_MS, RENT_MS, TURN_MS, DEAL_MS, NO_SHARE_GROUPS,
+  getCell, getGroupProperties,
 } from './config.js';
 import { shuffle } from './utils.js';
 import {
@@ -63,6 +64,11 @@ export class GameEngine {
     this.winner = null;
     this.pendingAction = null;
     this.auction = null;
+    this.deal = null;
+    this.dealUiOpen = false;
+    this.shareUiOpen = false;
+    this.turnEndsAt = null;
+    this._turnLeftMs = null;
     this.notice = null;
     this.housesBuilt = 0;
     this.maxHouses = 32;
@@ -73,6 +79,8 @@ export class GameEngine {
         this.propertyState[cell.id] = { owner: null, houses: 0, mortgaged: false };
       }
     }
+
+    this.beginTurnTimer();
   }
 
   get currentPlayer() {
@@ -94,10 +102,293 @@ export class GameEngine {
       winner: this.winner,
       pendingAction: this.pendingAction ? { ...this.pendingAction } : null,
       auction: this.auction ? { ...this.auction } : null,
+      deal: this.deal ? { ...this.deal } : null,
+      turnEndsAt: this.turnEndsAt,
+      canDeal: this.canOfferDeal(this.currentPlayer?.id),
+      dealUiOpen: !!this.dealUiOpen,
+      canBuyShares: this.canBuyShares(this.currentPlayer?.id),
+      shareUiOpen: !!this.shareUiOpen,
+      shareBuyOptions: this.getShareBuyOptions(this.currentPlayer?.id),
       notice: this.notice ? { ...this.notice } : null,
       propertyState: JSON.parse(JSON.stringify(this.propertyState)),
       housesBuilt: this.housesBuilt,
     };
+  }
+
+  beginTurnTimer() {
+    this.turnEndsAt = Date.now() + TURN_MS;
+    this._turnLeftMs = null;
+  }
+
+  pauseTurnTimer() {
+    if (this.turnEndsAt != null) {
+      this._turnLeftMs = Math.max(0, this.turnEndsAt - Date.now());
+    }
+    this.turnEndsAt = null;
+  }
+
+  resumeTurnTimer() {
+    if (this._turnLeftMs != null) {
+      this.turnEndsAt = Date.now() + this._turnLeftMs;
+      this._turnLeftMs = null;
+    } else if (this.phase === PHASE.ROLL && !this.deal) {
+      this.beginTurnTimer();
+    }
+  }
+
+  /** Компании владельца, доступные для сделки */
+  ownedTradeable(ownerId) {
+    const list = [];
+    const owner = this.players[ownerId];
+    if (!owner || owner.bankrupt) return list;
+    for (const cellId of owner.properties || []) {
+      const cell = getCell(cellId);
+      const ps = this.propertyState[cellId];
+      if (!cell || !ps || ps.owner !== ownerId) continue;
+      if (!['property', 'railroad', 'utility'].includes(cell.type)) continue;
+      if (ps.mortgaged || (ps.houses || 0) > 0) continue;
+      list.push({
+        cellId: cell.id,
+        name: cell.name,
+        price: cell.price || 0,
+        ownerId,
+        ownerName: owner.name,
+      });
+    }
+    return list;
+  }
+
+  /** Компании других игроков, доступные для сделки */
+  dealableCompanies(buyerId) {
+    const list = [];
+    for (const p of this.activePlayers) {
+      if (p.id === buyerId) continue;
+      list.push(...this.ownedTradeable(p.id));
+    }
+    return list;
+  }
+
+  canOfferDeal(playerId) {
+    if (playerId == null || this.phase !== PHASE.ROLL || this.deal) return false;
+    const p = this.players[playerId];
+    if (!p || p.bankrupt || p.id !== this.currentPlayer?.id) return false;
+    const others = this.activePlayers.filter(o => o.id !== playerId);
+    if (!others.length) return false;
+    return p.money > 0
+      || this.ownedTradeable(playerId).length > 0
+      || this.dealableCompanies(playerId).length > 0;
+  }
+
+  /** Пауза таймера хода, пока игрок собирает сделку */
+  beginDealUi(playerId) {
+    if (this.phase !== PHASE.ROLL || this.deal) return false;
+    if (this.currentPlayer?.id !== playerId) return false;
+    if (!this.canOfferDeal(playerId)) return false;
+    if (!this.dealUiOpen) this.pauseTurnTimer();
+    this.dealUiOpen = true;
+    return true;
+  }
+
+  cancelDealUi(playerId) {
+    if (this.currentPlayer?.id !== playerId) return false;
+    if (!this.dealUiOpen || this.deal) return false;
+    this.dealUiOpen = false;
+    this.resumeTurnTimer();
+    return true;
+  }
+
+  _normalizeDealCells(ids) {
+    const out = [];
+    const seen = new Set();
+    for (const raw of ids || []) {
+      const id = Number(raw);
+      if (!Number.isFinite(id) || seen.has(id)) continue;
+      seen.add(id);
+      out.push(id);
+    }
+    return out;
+  }
+
+  _cellsOwnedBy(ids, ownerId) {
+    for (const id of ids) {
+      const cell = getCell(id);
+      const ps = this.propertyState[id];
+      if (!cell || !ps || ps.owner !== ownerId) return false;
+      if (ps.mortgaged || (ps.houses || 0) > 0) return false;
+      if (!['property', 'railroad', 'utility'].includes(cell.type)) return false;
+    }
+    return true;
+  }
+
+  _transferCells(from, to, cellIds) {
+    for (const id of cellIds) {
+      from.properties = from.properties.filter(x => x !== id);
+      if (!to.properties.includes(id)) to.properties.push(id);
+      this.propertyState[id].owner = to.id;
+    }
+  }
+
+  proposeDeal(fromId, raw = {}) {
+    if (this.phase !== PHASE.ROLL || this.deal) return false;
+    if (this.currentPlayer?.id !== fromId) return false;
+    const from = this.players[fromId];
+    const to = this.players[raw.toId];
+    if (!from || !to || from.bankrupt || to.bankrupt || fromId === to.id) return false;
+
+    // Совместимость со старым форматом { cellId, price }
+    let offerMoney = Math.max(0, Math.floor(Number(raw.offerMoney) || 0));
+    let askMoney = Math.max(0, Math.floor(Number(raw.askMoney) || 0));
+    let offerCells = this._normalizeDealCells(raw.offerCells);
+    let askCells = this._normalizeDealCells(raw.askCells);
+    if (raw.cellId != null && !askCells.length) {
+      askCells = this._normalizeDealCells([raw.cellId]);
+      if (!offerMoney && raw.price != null) offerMoney = Math.max(0, Math.floor(Number(raw.price) || 0));
+    }
+
+    if (!offerMoney && !askMoney && !offerCells.length && !askCells.length) return false;
+    if (!this.canAfford(from, offerMoney)) return false;
+    if (!this.canAfford(to, askMoney)) return false;
+    if (!this._cellsOwnedBy(offerCells, fromId)) return false;
+    if (!this._cellsOwnedBy(askCells, to.id)) return false;
+
+    this.dealUiOpen = false;
+    this.pauseTurnTimer();
+    this.deal = {
+      fromId,
+      toId: to.id,
+      offerMoney,
+      askMoney,
+      offerCells,
+      askCells,
+      endsAt: Date.now() + DEAL_MS,
+    };
+
+    const parts = [];
+    if (offerCells.length) parts.push(offerCells.map(id => `«${getCell(id)?.name}»`).join(', '));
+    if (offerMoney) parts.push(`$${offerMoney.toLocaleString('ru-RU')}`);
+    const give = parts.length ? parts.join(' + ') : '—';
+    const getParts = [];
+    if (askCells.length) getParts.push(askCells.map(id => `«${getCell(id)?.name}»`).join(', '));
+    if (askMoney) getParts.push(`$${askMoney.toLocaleString('ru-RU')}`);
+    const get = getParts.length ? getParts.join(' + ') : '—';
+    this.addLog(`${from.name} предлагает ${to.name} сделку: отдаёт ${give}, хочет ${get}`);
+    return true;
+  }
+
+  acceptDeal(playerId) {
+    const d = this.deal;
+    if (!d || d.toId !== playerId) return false;
+    const from = this.players[d.fromId];
+    const to = this.players[d.toId];
+    if (!from || !to || from.bankrupt || to.bankrupt) {
+      this.clearDeal(true);
+      return false;
+    }
+
+    const offerMoney = Math.max(0, Math.floor(Number(d.offerMoney) || 0));
+    const askMoney = Math.max(0, Math.floor(Number(d.askMoney) || 0));
+    const offerCells = this._normalizeDealCells(d.offerCells);
+    const askCells = this._normalizeDealCells(d.askCells);
+
+    if (!this.canAfford(from, offerMoney) || !this.canAfford(to, askMoney)) {
+      this.addLog('Сделка сорвалась: не хватает денег');
+      this.clearDeal(true);
+      return false;
+    }
+    if (!this._cellsOwnedBy(offerCells, from.id) || !this._cellsOwnedBy(askCells, to.id)) {
+      this.addLog('Сделка сорвалась: компания недоступна');
+      this.clearDeal(true);
+      return false;
+    }
+
+    if (offerMoney) {
+      from.money -= offerMoney;
+      to.money += offerMoney;
+    }
+    if (askMoney) {
+      to.money -= askMoney;
+      from.money += askMoney;
+    }
+    this._transferCells(from, to, offerCells);
+    this._transferCells(to, from, askCells);
+
+    this.addLog(`🤝 Сделка между ${from.name} и ${to.name} заключена`);
+    this.clearDeal(true);
+    return true;
+  }
+
+  rejectDeal(playerId) {
+    const d = this.deal;
+    if (!d) return false;
+    if (playerId !== d.toId && playerId !== d.fromId) return false;
+    const from = this.players[d.fromId];
+    const to = this.players[d.toId];
+    const byOwner = playerId === d.toId;
+    this.addLog(
+      byOwner
+        ? `${to?.name || 'Игрок'} отклоняет сделку`
+        : `${from?.name || 'Игрок'} отменяет сделку`
+    );
+    this.clearDeal(true);
+    return true;
+  }
+
+  clearDeal(resumeTimer = false) {
+    this.deal = null;
+    this.dealUiOpen = false;
+    if (resumeTimer && this.phase === PHASE.ROLL) this.resumeTurnTimer();
+  }
+
+  finishDealTimeout() {
+    if (!this.deal) return;
+    const to = this.players[this.deal.toId];
+    this.addLog(`⏱ Время сделки истекло${to ? ` — ${to.name}` : ''}`);
+    this.clearDeal(true);
+  }
+
+  finishTurnTimeout() {
+    if (this.phase !== PHASE.ROLL || this.deal || this.dealUiOpen || this.shareUiOpen) return false;
+    this.addLog(`⏱ Время хода истекло — бросок автоматически`);
+    return this.rollDice();
+  }
+
+  canBuyShares(playerId) {
+    if (playerId == null || this.phase !== PHASE.ROLL || this.deal || this.dealUiOpen) return false;
+    const p = this.players[playerId];
+    if (!p || p.bankrupt || p.id !== this.currentPlayer?.id) return false;
+    return this.getBuildableProperties(playerId).length > 0;
+  }
+
+  getShareBuyOptions(playerId) {
+    if (playerId == null) return [];
+    return this.getBuildableProperties(playerId).map(id => {
+      const cell = getCell(id);
+      const ps = this.propertyState[id];
+      return {
+        cellId: id,
+        name: cell?.name || '',
+        price: cell?.houseCost || 0,
+        houses: ps?.houses || 0,
+        max: MAX_HOUSES,
+      };
+    });
+  }
+
+  beginShareUi(playerId) {
+    if (this.phase !== PHASE.ROLL || this.deal) return false;
+    if (this.currentPlayer?.id !== playerId) return false;
+    if (!this.getBuildableProperties(playerId).length) return false;
+    if (!this.shareUiOpen) this.pauseTurnTimer();
+    this.shareUiOpen = true;
+    return true;
+  }
+
+  cancelShareUi(playerId) {
+    if (this.currentPlayer?.id !== playerId) return false;
+    if (!this.shareUiOpen || this.deal) return false;
+    this.shareUiOpen = false;
+    this.resumeTurnTimer();
+    return true;
   }
 
   setOwnNotice(playerName, company) {
@@ -145,6 +436,15 @@ export class GameEngine {
     if (!ps || ps.owner === null || ps.mortgaged) return 0;
 
     if (cell.type === 'property') {
+      // Китай: аренда по числу полей страны у владельца (акций нет)
+      if (cell.noShares || NO_SHARE_GROUPS.has(cell.group)) {
+        const owned = getGroupProperties(cell.group).filter(c => (
+          this.propertyState[c.id]?.owner === ps.owner
+          && !this.propertyState[c.id]?.mortgaged
+        )).length;
+        const idx = Math.max(0, Math.min(owned - 1, (cell.rent?.length || 1) - 1));
+        return cell.rent?.[idx] || cell.rent?.[0] || 0;
+      }
       const hasMonopoly = this.ownsGroup(ps.owner, cell.group);
       if (ps.houses > 0) return cell.rent[ps.houses];
       return hasMonopoly ? cell.rent[0] * 2 : cell.rent[0];
@@ -181,9 +481,14 @@ export class GameEngine {
 
   rollDice() {
     if (this.phase !== PHASE.ROLL) return false;
+    if (this.deal) return false;
     const p = this.currentPlayer;
     if (p.bankrupt) return false;
 
+    this.turnEndsAt = null;
+    this._turnLeftMs = null;
+    this.dealUiOpen = false;
+    this.shareUiOpen = false;
     this.dice = [rand(), rand()];
     this.doubles = this.dice[0] === this.dice[1];
     this.addLog(`${p.name} бросает ${this.dice[0]}:${this.dice[1]}`);
@@ -205,6 +510,7 @@ export class GameEngine {
         } else {
           this.addLog(`${p.name} остаётся в тюрьме (${p.jailTurns}/3)`);
           this.phase = PHASE.END;
+          this.endTurn();
         }
       }
     } else {
@@ -250,7 +556,7 @@ export class GameEngine {
         this.drawForceMajeure();
         break;
       case 'tax':
-        this.payTax(cell.taxPercent || 6);
+        this.startTaxDebt(cell.taxPercent || 6, cell.id);
         break;
       case 'gotojail':
         this.sendToJail();
@@ -306,8 +612,42 @@ export class GameEngine {
   }
 
   finishRentDebt() {
-    if (this.phase !== PHASE.ACTION || this.pendingAction?.type !== 'rent') return;
-    this.payRentDebt();
+    const pa = this.pendingAction;
+    if (this.phase !== PHASE.ACTION) return;
+    if (pa?.type === 'rent') this.payRentDebt();
+    else if (pa?.type === 'tax') this.payTaxDebt();
+    else if (pa?.type === 'force') this.payCardDebt();
+  }
+
+  /** Налог 6% — панель долга с таймером (как аренда) */
+  startTaxDebt(percent = 6, cellId = null) {
+    const p = this.currentPlayer;
+    const amount = Math.max(0, Math.round(this.calcCapital(p) * (percent / 100)));
+    this.pendingAction = {
+      type: 'tax',
+      cellId: cellId ?? p.position,
+      amount,
+      percent,
+      endsAt: Date.now() + RENT_MS,
+    };
+    this.phase = PHASE.ACTION;
+    this.addLog(`${p.name}: налог ${percent}% — $${amount.toLocaleString('ru-RU')}`);
+  }
+
+  payTaxDebt() {
+    const pa = this.pendingAction;
+    if (this.phase !== PHASE.ACTION || pa?.type !== 'tax') return false;
+    const p = this.currentPlayer;
+    const amount = pa.amount;
+    this.pendingAction = null;
+    if (p.money >= amount) {
+      p.money -= amount;
+      this.addLog(logTax(p.name, amount));
+      this.afterAction();
+    } else {
+      this.handleBankruptcy(p, null, amount);
+    }
+    return true;
   }
 
   /** Таймер покупки истёк — объявить аукцион */
@@ -394,26 +734,15 @@ export class GameEngine {
     return capital;
   }
 
-  /** Налог 6% от всего капитала (правила Monopoly Club) */
-  payTax(percent = 6) {
-    const p = this.currentPlayer;
-    const amount = Math.max(0, Math.round(this.calcCapital(p) * (percent / 100)));
-    if (p.money >= amount) {
-      p.money -= amount;
-      this.addLog(logTax(p.name, amount));
-      this.afterAction();
-    } else {
-      this.handleBankruptcy(p, null, amount);
-    }
-  }
-
   sendToJail() {
     const p = this.currentPlayer;
     p.position = JAIL_POS;
     p.inJail = true;
     p.jailTurns = 0;
+    this.doubles = false;
     this.addLog(logJail(p.name));
     this.phase = PHASE.END;
+    this.endTurn();
   }
 
   drawChance() {
@@ -432,20 +761,25 @@ export class GameEngine {
 
   applyChanceCard(card, kind = 'chance') {
     const p = this.currentPlayer;
+    const fieldName = kind === 'force' ? 'Форс мажор' : 'Шанс';
 
     if (card.money) {
       if (card.money > 0) {
         p.money += card.money;
         this.addLog(logMoneyGain(p.name, card.money));
-      } else if (p.money >= Math.abs(card.money)) {
-        p.money += card.money;
-        this.addLog(logMoneyLoss(p.name, Math.abs(card.money)));
+        this.afterAction();
       } else {
-        this.handleBankruptcy(p, null, Math.abs(card.money));
-        return;
+        this.startCardDebt({
+          amount: Math.abs(card.money),
+          text: card.text || '',
+          fieldName,
+          kind,
+        });
       }
-      this.afterAction();
-    } else if (card.birthday) {
+      return;
+    }
+
+    if (card.birthday) {
       this.addLog(`${p.name}: день рождения — все скидываются по $${card.birthday.toLocaleString('ru-RU')}`);
       for (const other of this.activePlayers) {
         if (other.id !== p.id) {
@@ -454,38 +788,89 @@ export class GameEngine {
         }
       }
       this.afterAction();
-    } else if (card.goToStart) {
+      return;
+    }
+
+    if (card.goToStart) {
       p.position = 0;
       p.money += GO_SALARY;
       this.addLog(`${p.name} телепортируется на Старт (+$${GO_SALARY.toLocaleString('ru-RU')})`);
       this.afterAction();
-    } else if (card.goToJail) {
+      return;
+    }
+
+    if (card.goToJail) {
       this.sendToJail();
-    } else if (card.goTo !== undefined) {
+      return;
+    }
+
+    if (card.goTo !== undefined) {
       p.position = card.goTo;
       this.addLog(`${p.name} переходит на «${getCell(card.goTo)?.name || 'поле'}»`);
       this.afterAction();
-    } else if (card.moveBack) {
+      return;
+    }
+
+    if (card.moveBack) {
       this.addLog(`${p.name} отступает на ${card.moveBack} клетки`);
       p.position = (p.position - card.moveBack + BOARD_SIZE) % BOARD_SIZE;
       this.landOnCell();
-    } else if (card.repairPerHouse) {
+      return;
+    }
+
+    if (card.repairPerHouse) {
       let total = 0;
       for (const pid of p.properties) {
-        total += this.propertyState[pid].houses * card.repairPerHouse;
+        total += (this.propertyState[pid].houses || 0) * card.repairPerHouse;
       }
-      if (p.money >= total) {
-        p.money -= total;
-        this.addLog(`${p.name} чинит филиалы на $${total.toLocaleString('ru-RU')}`);
-      } else {
-        this.handleBankruptcy(p, null, total);
+      if (total <= 0) {
+        this.addLog(`${p.name}: ${card.text || 'ремонт'} — убытков нет`);
+        this.afterAction();
         return;
       }
+      this.startCardDebt({
+        amount: total,
+        text: card.text || 'Ремонт филиалов',
+        fieldName,
+        kind,
+      });
+      return;
+    }
+
+    this.addLog(card.text || `${p.name}: сюрприз на поле`);
+    this.afterAction();
+  }
+
+  /** Убыток с карты Шанс / Форс-мажор — панель долга */
+  startCardDebt({ amount, text, fieldName, kind }) {
+    const p = this.currentPlayer;
+    this.pendingAction = {
+      type: 'force',
+      cellId: p.position,
+      amount,
+      text: text || '',
+      fieldName: fieldName || (kind === 'force' ? 'Форс мажор' : 'Шанс'),
+      kind: kind || 'force',
+      endsAt: Date.now() + RENT_MS,
+    };
+    this.phase = PHASE.ACTION;
+    this.addLog(`${p.name}: ${text || 'убыток'} — $${amount.toLocaleString('ru-RU')}`);
+  }
+
+  payCardDebt() {
+    const pa = this.pendingAction;
+    if (this.phase !== PHASE.ACTION || pa?.type !== 'force') return false;
+    const p = this.currentPlayer;
+    const amount = pa.amount;
+    this.pendingAction = null;
+    if (p.money >= amount) {
+      p.money -= amount;
+      this.addLog(logMoneyLoss(p.name, amount));
       this.afterAction();
     } else {
-      this.addLog(card.text || `${p.name}: сюрприз на поле`);
-      this.afterAction();
+      this.handleBankruptcy(p, null, amount);
     }
+    return true;
   }
 
   buyProperty() {
@@ -515,12 +900,18 @@ export class GameEngine {
   }
 
 
+  allowsShares(cell) {
+    if (!cell || cell.type !== 'property') return false;
+    if (cell.noShares || NO_SHARE_GROUPS.has(cell.group)) return false;
+    return !!cell.houseCost;
+  }
+
   buildHouse(cellId) {
     const p = this.currentPlayer;
     const cell = getCell(cellId);
     const ps = this.propertyState[cellId];
 
-    if (cell.type !== 'property') return false;
+    if (!this.allowsShares(cell)) return false;
     if (ps.owner !== p.id) return false;
     if (!this.ownsGroup(p.id, cell.group)) return false;
     if (ps.houses >= MAX_HOUSES) return false;
@@ -540,11 +931,13 @@ export class GameEngine {
 
   getBuildableProperties(playerId) {
     const p = this.players[playerId];
+    if (!p) return [];
     const result = [];
     for (const cellId of p.properties) {
       const cell = getCell(cellId);
       const ps = this.propertyState[cellId];
-      if (cell.type !== 'property') continue;
+      if (!this.allowsShares(cell)) continue;
+      if (ps.mortgaged) continue;
       if (!this.ownsGroup(playerId, cell.group)) continue;
       if (ps.houses >= MAX_HOUSES) continue;
       if (this.housesBuilt >= this.maxHouses) continue;
@@ -558,26 +951,67 @@ export class GameEngine {
   }
 
   afterAction() {
+    if (this.phase === PHASE.GAME_OVER) return;
     const p = this.currentPlayer;
-    const buildable = this.getBuildableProperties(p.id);
-    if (buildable.length > 0 && this.isOnlinePlayer(p)) {
-      this.phase = PHASE.BUILD;
-      this.pendingAction = { type: 'build', options: buildable };
-    } else if (buildable.length > 0 && p.isBot) {
+    if (!p || p.bankrupt) {
+      this.phase = PHASE.END;
+      this.endTurn();
+      return;
+    }
+
+    // Акции покупаются перед броском; бот докупает в конце хода
+    if (p.isBot) {
+      const buildable = this.getBuildableProperties(p.id);
       for (const cellId of buildable) {
-        if (p.money >= getCell(cellId).houseCost + 150) {
+        if (p.money >= getCell(cellId).houseCost + 150_000) {
           this.buildHouse(cellId);
         }
       }
-      this.phase = PHASE.END;
-    } else {
-      this.phase = PHASE.END;
     }
+    this.advanceAfterTurnActions();
+  }
+
+  /** После всех действий хода: дубль → ещё бросок, иначе ход следующего */
+  advanceAfterTurnActions() {
+    if (this.phase === PHASE.GAME_OVER) return;
+    this.pendingAction = null;
+    const p = this.currentPlayer;
+    if (!p || p.bankrupt) {
+      this.phase = PHASE.END;
+      this.endTurn();
+      return;
+    }
+    if (this.doubles && !p.inJail) {
+      this.phase = PHASE.ROLL;
+      this.beginTurnTimer();
+      this.addLog(`${p.name} выбил дубль — ходит ещё раз`);
+      return;
+    }
+    this.phase = PHASE.END;
+    this.endTurn();
   }
 
   finishBuild() {
-    this.pendingAction = null;
-    this.phase = PHASE.END;
+    this.advanceAfterTurnActions();
+  }
+
+  /** Продать 1 акцию — половина стоимости */
+  sellShare(cellId) {
+    const p = this.currentPlayer;
+    const cell = getCell(cellId);
+    const ps = this.propertyState[cellId];
+    if (!ps || ps.owner !== p.id || ps.mortgaged) return false;
+    if (!this.allowsShares(cell)) return false;
+    if ((ps.houses || 0) < 1) return false;
+    const group = getGroupProperties(cell.group);
+    const maxH = Math.max(...group.map(g => this.propertyState[g.id]?.houses || 0));
+    if (ps.houses < maxH) return false;
+    const cash = Math.floor(cell.houseCost / 2);
+    ps.houses -= 1;
+    this.housesBuilt = Math.max(0, this.housesBuilt - 1);
+    p.money += cash;
+    this.addLog(`${p.name} продаёт акцию «${cell.name}» (+$${cash.toLocaleString('ru-RU')})`);
+    return true;
   }
 
   /** Заложить компанию — половина цены, иконка замка на клетке */
@@ -628,6 +1062,11 @@ export class GameEngine {
     this.phase = PHASE.ROLL;
     this.doubles = false;
     this.pendingAction = null;
+    this.deal = null;
+    this.dealUiOpen = false;
+    this.shareUiOpen = false;
+    this._turnLeftMs = null;
+    this.beginTurnTimer();
     this.addLog(`— Ход: ${this.currentPlayer.name} —`);
     return true;
   }
@@ -635,15 +1074,17 @@ export class GameEngine {
   handleBankruptcy(debtor, creditor, amount) {
     this.addLog(`💀 ${debtor.name} обанкротился!`);
     this.liquidatePlayer(debtor, creditor);
+    this.pendingAction = null;
+    this.doubles = false;
 
     if (this.activePlayers.length <= 1) {
       this.winner = this.activePlayers[0] || creditor;
       this.phase = PHASE.GAME_OVER;
       this.addLog(`🏆 ${this.winner?.name} побеждает!`);
-    } else {
-      this.phase = PHASE.END;
+      return;
     }
-    this.pendingAction = null;
+    this.phase = PHASE.END;
+    this.endTurn();
   }
 
   liquidatePlayer(player, creditor) {
@@ -692,12 +1133,45 @@ export class GameEngine {
       return { ok: true };
     }
 
+    if (action.type === 'acceptDeal') {
+      if (!this.acceptDeal(playerId)) return { ok: false, error: 'Нельзя принять сделку' };
+      return { ok: true };
+    }
+    if (action.type === 'rejectDeal') {
+      if (!this.rejectDeal(playerId)) return { ok: false, error: 'Нельзя отклонить сделку' };
+      return { ok: true };
+    }
+
     if (this.currentPlayer.id !== playerId) return { ok: false, error: 'Не ваш ход' };
 
     switch (action.type) {
       case 'roll':
         if (this.phase !== PHASE.ROLL) return { ok: false, error: 'Сейчас нельзя бросать' };
+        if (this.deal) return { ok: false, error: 'Сначала завершите сделку' };
+        if (this.shareUiOpen) this.shareUiOpen = false;
         this.rollDice();
+        return { ok: true };
+
+      case 'beginDealUi':
+        if (this.shareUiOpen) this.cancelShareUi(playerId);
+        if (!this.beginDealUi(playerId)) return { ok: false, error: 'Сейчас нельзя предложить сделку' };
+        return { ok: true };
+
+      case 'cancelDealUi':
+        if (!this.cancelDealUi(playerId)) return { ok: false, error: 'Нечего отменять' };
+        return { ok: true };
+
+      case 'proposeDeal':
+        if (!this.proposeDeal(playerId, action)) return { ok: false, error: 'Нельзя предложить сделку' };
+        return { ok: true, deal: true };
+
+      case 'beginShareUi':
+        if (this.dealUiOpen) this.cancelDealUi(playerId);
+        if (!this.beginShareUi(playerId)) return { ok: false, error: 'Сейчас нельзя купить акции' };
+        return { ok: true };
+
+      case 'cancelShareUi':
+        if (!this.cancelShareUi(playerId)) return { ok: false, error: 'Нечего закрывать' };
         return { ok: true };
 
       case 'buy':
@@ -709,11 +1183,18 @@ export class GameEngine {
         return { ok: true, auction: true };
 
       case 'build':
-        if (!this.buildHouse(action.cellId)) return { ok: false, error: 'Нельзя построить' };
+        if (this.phase !== PHASE.BUILD && !(this.phase === PHASE.ROLL && this.shareUiOpen)) {
+          return { ok: false, error: 'Сейчас нельзя покупать акции' };
+        }
+        if (!this.buildHouse(action.cellId)) return { ok: false, error: 'Нельзя купить акцию' };
         return { ok: true };
 
       case 'finishBuild':
-        if (this.phase !== PHASE.BUILD) return { ok: false, error: 'Не фаза строительства' };
+        if (this.phase === PHASE.ROLL && this.shareUiOpen) {
+          this.cancelShareUi(playerId);
+          return { ok: true };
+        }
+        if (this.phase !== PHASE.BUILD) return { ok: false, error: 'Не фаза покупки акций' };
         this.finishBuild();
         return { ok: true };
 
@@ -726,15 +1207,39 @@ export class GameEngine {
         if (!this.payJailBail()) return { ok: false, error: 'Нельзя заплатить залог' };
         return { ok: true };
 
-      case 'payDebt':
-        if (!this.payRentDebt()) return { ok: false, error: 'Нет долга к погашению' };
+      case 'payDebt': {
+        const kind = this.pendingAction?.type;
+        if (kind === 'rent') {
+          if (!this.payRentDebt()) return { ok: false, error: 'Нет долга к погашению' };
+          return { ok: true };
+        }
+        if (kind === 'tax') {
+          if (!this.payTaxDebt()) return { ok: false, error: 'Нет налога к погашению' };
+          return { ok: true };
+        }
+        if (kind === 'force') {
+          if (!this.payCardDebt()) return { ok: false, error: 'Нет убытка к погашению' };
+          return { ok: true };
+        }
+        return { ok: false, error: 'Нет долга к погашению' };
+      }
+
+      case 'sellShare':
+        if (
+          this.phase !== PHASE.END
+          && this.phase !== PHASE.BUILD
+          && !(this.phase === PHASE.ACTION && ['rent', 'tax', 'force'].includes(this.pendingAction?.type))
+        ) {
+          return { ok: false, error: 'Сейчас нельзя продавать акции' };
+        }
+        if (!this.sellShare(action.cellId)) return { ok: false, error: 'Нельзя продать акцию' };
         return { ok: true };
 
       case 'mortgage':
         if (
           this.phase !== PHASE.END
           && this.phase !== PHASE.BUILD
-          && !(this.phase === PHASE.ACTION && this.pendingAction?.type === 'rent')
+          && !(this.phase === PHASE.ACTION && ['rent', 'tax', 'force'].includes(this.pendingAction?.type))
         ) {
           return { ok: false, error: 'Сейчас нельзя закладывать' };
         }

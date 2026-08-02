@@ -8,8 +8,15 @@ export const MAX_PLAYERS = 5;
 export const MIN_PLAYERS = 1;
 export const AUCTION_STEP = 10_000;
 export const AUCTION_MS = 60_000;
-/** Таймер погашения аренды (чужое поле) */
-export const RENT_MS = 60_000;
+/** Таймер погашения аренды / налога (2 мин) */
+export const RENT_MS = 120_000;
+/** Таймер перед броском костей */
+export const TURN_MS = 120_000;
+/** Таймер ответа на сделку */
+export const DEAL_MS = 120_000;
+
+/** Группы без покупки акций (Китай, Корея) */
+export const NO_SHARE_GROUPS = new Set(['cn', 'kr']);
 
 /** Позиции углов: board-frame = 38 клеток (как Monopoly Club) */
 export const JAIL_POS = 12;
@@ -131,15 +138,16 @@ export const BOARD = [
   // Верх: Старт → Тюрьма
   { id: 0, type: 'go', name: 'Старт', icon: '🏁', brand: 'GO', country: '', flag: '' },
   { id: 1, type: 'property', name: 'Rolls-Royce', brand: 'Rolls-Royce', country: 'GB', flag: '🇬🇧', group: 'gb', price: 60, houseCost: 50, rent: [2, 10, 30, 90, 160, 250] },
-  { id: 2, type: 'property', name: 'Alibaba', brand: 'Alibaba', country: 'CN', flag: '🇨🇳', group: 'cn', price: 200, houseCost: 100, rent: [16, 80, 220, 600, 800, 1000] },
+  // Китай / Корея — без акций (аренда от числа полей страны)
+  { id: 2, type: 'property', name: 'Alibaba', brand: 'Alibaba', country: 'CN', flag: '🇨🇳', group: 'cn', price: 200, rent: [16, 80, 220, 600, 800, 1000], noShares: true },
   { id: 3, type: 'property', name: 'BP', brand: 'BP', country: 'GB', flag: '🇬🇧', group: 'gb', price: 60, houseCost: 50, rent: [4, 20, 60, 180, 320, 450] },
   { id: 4, type: 'property', name: 'BBC', brand: 'BBC', country: 'GB', flag: '🇬🇧', group: 'gb', price: 80, houseCost: 50, rent: [6, 30, 90, 270, 400, 550] },
   { id: 5, type: 'forcemajeure', name: 'ФОРС МАЖОР', icon: '⚠', brand: 'FM', country: '', flag: '' },
-  { id: 6, type: 'utility', name: 'Samsung', brand: 'Samsung', country: 'KR', flag: '🇰🇷', group: 'kr', price: 150, rent: [25, 50], diceRent: true },
+  { id: 6, type: 'utility', name: 'Samsung', brand: 'Samsung', country: 'KR', flag: '🇰🇷', group: 'kr', price: 150, rent: [25, 50], diceRent: true, noShares: true },
   { id: 7, type: 'chance', name: 'ШАНС', icon: '?', brand: '?', country: '', flag: '' },
   { id: 8, type: 'property', name: 'Danone', brand: 'Danone', country: 'FR', flag: '🇫🇷', group: 'fr', price: 100, houseCost: 50, rent: [8, 40, 100, 300, 450, 600] },
   { id: 9, type: 'property', name: 'Hennessy', brand: 'Hennessy', country: 'FR', flag: '🇫🇷', group: 'fr', price: 100, houseCost: 50, rent: [8, 40, 100, 300, 450, 600] },
-  { id: 10, type: 'property', name: 'Lenovo', brand: 'Lenovo', country: 'CN', flag: '🇨🇳', group: 'cn', price: 200, houseCost: 100, rent: [16, 80, 220, 600, 800, 1000] },
+  { id: 10, type: 'property', name: 'Lenovo', brand: 'Lenovo', country: 'CN', flag: '🇨🇳', group: 'cn', price: 200, rent: [16, 80, 220, 600, 800, 1000], noShares: true },
   { id: 11, type: 'property', name: "L'Oréal", brand: "L'Oréal", country: 'FR', flag: '🇫🇷', group: 'fr', price: 120, houseCost: 100, rent: [10, 50, 150, 450, 625, 750] },
   { id: 12, type: 'jail', name: 'Тюрьма', icon: '⛓️', brand: 'JAIL', country: '', flag: '' },
 
@@ -154,15 +162,15 @@ export const BOARD = [
 
   // Низ: Отдых → Арест
   { id: 20, type: 'property', name: 'Sony', brand: 'Sony', country: 'JP', flag: '🇯🇵', group: 'jp', price: 220, houseCost: 150, rent: [18, 90, 250, 700, 875, 1050] },
-  { id: 21, type: 'property', name: 'Huawei', brand: 'Huawei', country: 'CN', flag: '🇨🇳', group: 'cn', price: 200, houseCost: 100, rent: [16, 80, 220, 600, 800, 1000] },
+  { id: 21, type: 'property', name: 'Huawei', brand: 'Huawei', country: 'CN', flag: '🇨🇳', group: 'cn', price: 200, rent: [16, 80, 220, 600, 800, 1000], noShares: true },
   { id: 22, type: 'property', name: 'Canon', brand: 'Canon', country: 'JP', flag: '🇯🇵', group: 'jp', price: 220, houseCost: 150, rent: [18, 90, 250, 700, 875, 1050] },
   { id: 23, type: 'property', name: 'Toyota', brand: 'Toyota', country: 'JP', flag: '🇯🇵', group: 'jp', price: 240, houseCost: 150, rent: [20, 100, 300, 750, 925, 1100] },
   { id: 24, type: 'forcemajeure', name: 'ФОРС МАЖОР', icon: '⚠', brand: 'FM', country: '', flag: '' },
-  { id: 25, type: 'utility', name: 'Hyundai', brand: 'Hyundai', country: 'KR', flag: '🇰🇷', group: 'kr', price: 150, rent: [25, 50], diceRent: true },
+  { id: 25, type: 'utility', name: 'Hyundai', brand: 'Hyundai', country: 'KR', flag: '🇰🇷', group: 'kr', price: 150, rent: [25, 50], diceRent: true, noShares: true },
   { id: 26, type: 'chance', name: 'ШАНС', icon: '?', brand: '?', country: '', flag: '' },
   { id: 27, type: 'property', name: 'Siemens', brand: 'Siemens', country: 'DE', flag: '🇩🇪', group: 'de', price: 260, houseCost: 150, rent: [22, 110, 330, 800, 975, 1150] },
   { id: 28, type: 'property', name: 'Adidas', brand: 'adidas', country: 'DE', flag: '🇩🇪', group: 'de', price: 260, houseCost: 150, rent: [22, 110, 330, 800, 975, 1150] },
-  { id: 29, type: 'property', name: 'Xiaomi', brand: 'Xiaomi', country: 'CN', flag: '🇨🇳', group: 'cn', price: 200, houseCost: 100, rent: [16, 80, 220, 600, 800, 1000] },
+  { id: 29, type: 'property', name: 'Xiaomi', brand: 'Xiaomi', country: 'CN', flag: '🇨🇳', group: 'cn', price: 200, rent: [16, 80, 220, 600, 800, 1000], noShares: true },
   { id: 30, type: 'property', name: 'Mercedes', brand: 'Mercedes', country: 'DE', flag: '🇩🇪', group: 'de', price: 280, houseCost: 150, rent: [24, 120, 360, 850, 1025, 1200] },
   { id: 31, type: 'gotojail', name: 'Арест', icon: '🎲', brand: 'GO JAIL', country: '', flag: '' },
 
@@ -228,15 +236,16 @@ export const CHANCE_CARDS = [
 
 /** Форс-мажор — штрафы */
 export const FORCE_MAJEURE_CARDS = [
-  { text: 'Форс-мажор накрыл с головой', money: -50_000 },
-  { text: 'Штраф за превышение оптимизма', money: -100_000 },
-  { text: 'Сломался лифт успеха', money: -150_000 },
-  { text: 'Штраф за неправильную парковку совести', money: -25_000 },
-  { text: 'Медицинский сбор за нервы', money: -75_000 },
-  { text: 'Ремонт всех филиалов разом', repairPerHouse: 40_000 },
-  { text: 'Арест — не повезло', goToJail: true },
-  { text: 'Шаг назад в карьере (−3 клетки)', moveBack: 3 },
-  { text: 'Налоговая нашла «серые» схемы', money: -80_000 },
+  { text: 'Мороз −37°C остановил работу нескольких ваших филиалов.', money: -50_000 },
+  { text: 'Банковский кризис привёл к отказу в кредите.', money: -50_000 },
+  { text: 'Безответственность персонала привела к убыткам.', money: -50_000 },
+  { text: 'Избыток штата снизил рентабельность.', money: -100_000 },
+  { text: 'Конкурент переманил часть ваших клиентов.', money: -100_000 },
+  { text: 'Сезонный спад сократил прибыль компании.', money: -150_000 },
+  { text: 'Пожарная инспекция оштрафовала за нарушения.', money: -100_000 },
+  { text: 'Ремонт всех филиалов разом.', repairPerHouse: 40_000 },
+  { text: 'Арест — не повезло.', goToJail: true },
+  { text: 'Шаг назад в карьере (−3 клетки).', moveBack: 3 },
 ];
 
 export function getCell(id) {

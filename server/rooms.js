@@ -168,6 +168,8 @@ export function getGameState(room, socketId) {
   const state = room.game.getState();
   const me = member != null ? state.players[member.slot] : null;
   const isAuction = state.phase === 'auction';
+  const deal = state.deal;
+  const isDealParty = !!(deal && member && (deal.toId === member.slot || deal.fromId === member.slot));
   return {
     ...state,
     roomId: room.id,
@@ -178,8 +180,12 @@ export function getGameState(room, socketId) {
         ? !!(me && !me.bankrupt)
         : state.players[state.currentPlayerIndex]?.id === member.slot
     ),
+    canRespondDeal: !!(deal && member && deal.toId === member.slot),
+    isDealParty,
     canAuctionBid: !!(isAuction && me && !me.bankrupt),
     nextAuctionPrice: room.game.nextAuctionPrice?.() ?? null,
+    dealableCompanies: room.game.dealableCompanies?.(member?.slot) || [],
+    myTradeableCompanies: room.game.ownedTradeable?.(member?.slot) || [],
   };
 }
 
@@ -209,7 +215,7 @@ export function scheduleRentEnd(room, io) {
   }
   const pa = room.game?.pendingAction;
   if (!pa || room.game.phase !== 'action') return;
-  if (pa.type !== 'rent' && pa.type !== 'buy') return;
+  if (pa.type !== 'rent' && pa.type !== 'buy' && pa.type !== 'tax' && pa.type !== 'force') return;
 
   const delay = Math.max(200, (pa.endsAt || Date.now()) - Date.now());
   const kind = pa.type;
@@ -217,12 +223,56 @@ export function scheduleRentEnd(room, io) {
     room._rentTimer = null;
     if (!room.game || room.game.phase !== 'action') return;
     if (room.game.pendingAction?.type !== kind) return;
-    if (kind === 'rent') room.game.finishRentDebt();
+    if (kind === 'rent' || kind === 'tax' || kind === 'force') room.game.finishRentDebt();
     else if (kind === 'buy') room.game.finishBuyOffer();
     if (room.game.phase === 'auction') scheduleAuctionEnd(room, io);
+    scheduleTurnTimers(room, io);
     broadcastGame(room, io);
     startBotLoop(room, io);
   }, delay);
+}
+
+/** Таймер хода (бросок) и ответа на сделку */
+export function scheduleTurnTimers(room, io) {
+  if (room._turnTimer) {
+    clearTimeout(room._turnTimer);
+    room._turnTimer = null;
+  }
+  if (room._dealTimer) {
+    clearTimeout(room._dealTimer);
+    room._dealTimer = null;
+  }
+  const game = room.game;
+  if (!game) return;
+
+  if (game.deal) {
+    const delay = Math.max(200, (game.deal.endsAt || Date.now()) - Date.now());
+    room._dealTimer = setTimeout(() => {
+      room._dealTimer = null;
+      if (!room.game?.deal) return;
+      room.game.finishDealTimeout();
+      scheduleTurnTimers(room, io);
+      broadcastGame(room, io);
+      startBotLoop(room, io);
+    }, delay);
+    return;
+  }
+
+  if (game.phase === 'roll' && game.turnEndsAt && !game.dealUiOpen && !game.shareUiOpen) {
+    const delay = Math.max(200, game.turnEndsAt - Date.now());
+    room._turnTimer = setTimeout(() => {
+      room._turnTimer = null;
+      if (!room.game || room.game.phase !== 'roll' || room.game.deal || room.game.dealUiOpen || room.game.shareUiOpen) return;
+      const rolled = room.game.finishTurnTimeout();
+      if (rolled) {
+        scheduleRentEnd(room, io);
+        if (room.game.phase === 'auction') scheduleAuctionEnd(room, io);
+      }
+      scheduleTurnTimers(room, io);
+      broadcastGame(room, io);
+      startBotLoop(room, io);
+    }, delay);
+  }
 }
 
 export function broadcastGame(room, io) {
@@ -235,6 +285,7 @@ export function startBotLoop(room, io) {
   processBotChain(room.game, () => {
     if (room.game?.phase === 'auction') scheduleAuctionEnd(room, io);
     scheduleRentEnd(room, io);
+    scheduleTurnTimers(room, io);
     broadcastGame(room, io);
   });
 }

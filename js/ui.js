@@ -9,7 +9,7 @@ import {
   makeDieCubeHTML,
   throwDice,
   resolveMovePath,
-  DIE_FACE_ROT,
+  dieRestPose,
 } from './animations.js';
 
 export class UI {
@@ -42,21 +42,15 @@ export class UI {
     this.ownToast = document.getElementById('own-toast');
     this._dismissedNoticeId = null;
     this._noticeTimer = null;
-
-    document.getElementById('new-game')?.addEventListener('click', () => {
-      this.showChoiceButtons({
-        title: 'Выйти из игры?',
-        left: 'Остаться',
-        right: 'Выйти',
-        onLeft: () => {},
-        onRight: () => location.reload(),
-      });
-    });
+    this._dealCompose = null;
+    this._shareBuy = false;
+    this._rentMortgagePick = false;
+    this._rentSharesPick = false;
 
     if (this.die1) this.die1.innerHTML = makeDieCubeHTML();
     if (this.die2) this.die2.innerHTML = makeDieCubeHTML();
-    this.setDieFace(this.die1, 1);
-    this.setDieFace(this.die2, 1);
+    this.setDieFace(this.die1, 5, this.die1Throw, { restZ: -10, restX: -6 });
+    this.setDieFace(this.die2, 4, this.die2Throw, { restZ: 16, restX: 10 });
 
     this.setupChat();
     this.buildBoard();
@@ -468,18 +462,31 @@ export class UI {
     }
   }
 
-  setDieFace(cube, value) {
+  setDieFace(cube, value, throwEl = null, rest = null) {
     if (!cube) return;
-    const face = DIE_FACE_ROT[value] || DIE_FACE_ROT[1];
+    const el = throwEl || (cube === this.die1 ? this.die1Throw : this.die2Throw);
+    const fallback = cube === this.die1
+      ? { restZ: -10, restX: -6 }
+      : { restZ: 16, restX: 10 };
+    const pose = dieRestPose(value, rest || {
+      restZ: Number(el?.dataset.restZ) || fallback.restZ,
+      restX: Number(el?.dataset.restX) || fallback.restX,
+    });
     cube.style.transition = 'none';
-    cube.style.transform = `rotateX(${face.x}deg) rotateY(${face.y}deg)`;
+    cube.style.transform = pose.cube;
+    if (el) {
+      el.style.transition = 'none';
+      el.style.transform = pose.throw;
+      el.dataset.restZ = String(rest?.restZ ?? (Number(el.dataset.restZ) || fallback.restZ));
+      el.dataset.restX = String(rest?.restX ?? (Number(el.dataset.restX) || fallback.restX));
+    }
   }
 
   syncDiceFaces(state) {
     const d1 = clampDie(state.dice?.[0]);
     const d2 = clampDie(state.dice?.[1]);
-    this.setDieFace(this.die1, d1);
-    this.setDieFace(this.die2, d2);
+    this.setDieFace(this.die1, d1, this.die1Throw);
+    this.setDieFace(this.die2, d2, this.die2Throw);
     this.die1Throw?.classList.toggle('die-throw--doubles', !!state.doubles);
     this.die2Throw?.classList.toggle('die-throw--doubles', !!state.doubles);
   }
@@ -761,6 +768,31 @@ export class UI {
     return `/assets/ownership/${n}_${sideKey}.png`;
   }
 
+  /** Спрайт акций / маркеров страны на клетке */
+  shareSpriteSrc(kind, count, vertical) {
+    const n = Math.max(1, Math.min(Number(count) || 1, kind === 'ko' ? 2 : kind === 'chn' ? 4 : 5));
+    if (kind === 'leaf') {
+      if (n >= 5) return vertical ? '/assets/icons/shares/gold-v.png' : '/assets/icons/shares/gold.png';
+      return `/assets/icons/shares/leaf-${n}${vertical ? 'v' : ''}.png`;
+    }
+    if (kind === 'chn') return `/assets/icons/shares/chn-${n}.png`;
+    if (kind === 'ko') return `/assets/icons/shares/ko-${n}.png`;
+    return '';
+  }
+
+  countOwnedInGroup(state, ownerId, group) {
+    return BOARD.filter(c => (
+      c.group === group
+      && state.propertyState[c.id]?.owner === ownerId
+      && !state.propertyState[c.id]?.mortgaged
+    )).length;
+  }
+
+  paintShareMarker(container, src, countClass) {
+    if (!container || !src) return;
+    container.innerHTML = `<img class="share-mark ${countClass || ''}" src="${src}" alt="" draggable="false" />`;
+  }
+
   renderHouses(state) {
     document.querySelectorAll('[data-houses]').forEach(el => { el.innerHTML = ''; });
     document.querySelectorAll('.cell').forEach(c => {
@@ -777,16 +809,28 @@ export class UI {
       const owner = ps.owner != null ? state.players[ps.owner] : null;
       const cellEl = this.cells[cellId];
       const side = this.cellSide(Number(cellId));
+      const cell = BOARD[Number(cellId)];
+      const vertical = side === 'left' || side === 'right';
+      const container = document.querySelector(`[data-houses="${cellId}"]`);
 
-      if (ps.houses > 0 && owner) {
-        const container = document.querySelector(`[data-houses="${cellId}"]`);
-        if (container) {
-          for (let i = 0; i < ps.houses; i++) {
-            const house = document.createElement('div');
-            house.className = 'house';
-            house.style.background = owner.color || '#666';
-            container.appendChild(house);
+      if (owner && cell && !ps.mortgaged) {
+        if (cell.group === 'cn') {
+          const n = this.countOwnedInGroup(state, owner.id, 'cn');
+          if (n > 0) {
+            this.paintShareMarker(container, this.shareSpriteSrc('chn', n, false), `share-mark--chn share-mark--n${n}`);
           }
+        } else if (cell.group === 'kr') {
+          const n = this.countOwnedInGroup(state, owner.id, 'kr');
+          if (n > 0) {
+            this.paintShareMarker(container, this.shareSpriteSrc('ko', n, false), `share-mark--ko share-mark--n${n}`);
+          }
+        } else if ((ps.houses || 0) > 0) {
+          const n = Math.min(5, ps.houses);
+          this.paintShareMarker(
+            container,
+            this.shareSpriteSrc('leaf', n, vertical),
+            `share-mark--leaf share-mark--n${n}${n >= 5 ? ' share-mark--gold' : ''}`,
+          );
         }
       }
 
@@ -819,6 +863,7 @@ export class UI {
     this.actionArea.innerHTML = '';
 
     if (state.phase === PHASE.GAME_OVER) {
+      this._dealCompose = null;
       const won = state.winner?.id === this.mySlot;
       this.actionArea.innerHTML = `
         <div class="winner-banner">${won ? '🏆 Вы победили!' : `🏆 ${state.winner?.name} победил!`}</div>
@@ -827,22 +872,35 @@ export class UI {
       return;
     }
 
+    if (state.deal) {
+      this._dealCompose = null;
+      this.renderDealPending(state);
+      return;
+    }
+
     if (state.phase === PHASE.AUCTION && state.auction) {
+      this._dealCompose = null;
       this.renderAuctionActions(state);
       return;
     }
 
-    if (state.phase === PHASE.ACTION && state.pendingAction?.type === 'rent') {
+    if (
+      state.phase === PHASE.ACTION
+      && ['rent', 'tax', 'force'].includes(state.pendingAction?.type)
+    ) {
+      this._dealCompose = null;
       this.renderRentActions(state);
       return;
     }
 
     if (state.phase === PHASE.ACTION && state.pendingAction?.type === 'buy') {
+      this._dealCompose = null;
       this.renderBuyActions(state);
       return;
     }
 
     if (!isMyTurn || state.phase === PHASE.MOVING) {
+      this._dealCompose = null;
       this.actionArea.innerHTML = `<div class="wait-turn">Ход игрока <strong>${escapeHtml(p.name)}</strong></div>`;
       return;
     }
@@ -850,88 +908,26 @@ export class UI {
     if (p.bankrupt) return;
 
     if (state.phase === PHASE.ROLL) {
-      const rollBtn = document.createElement('button');
-      rollBtn.className = 'btn btn--roll';
-      rollBtn.textContent = p.inJail ? 'ТЮРЬМА: ВЫБРАТЬ' : 'БРОСИТЬ КОСТИ';
-      rollBtn.addEventListener('click', () => {
-        if (p.inJail && p.money >= JAIL_BAIL) {
-          this.showChoiceButtons({
-            title: 'Тюрьма: выберите действие',
-            left: 'Бросить кубики',
-            right: `Залог ${formatMoney(JAIL_BAIL)}`,
-            onLeft: () => {
-              rollBtn.disabled = true;
-              this.doAction({ type: 'roll' });
-            },
-            onRight: () => {
-              rollBtn.disabled = true;
-              this.doAction({ type: 'payJailBail' });
-            },
-          });
-          return;
-        }
-        rollBtn.disabled = true;
-        this.doAction({ type: 'roll' });
-      });
-      this.actionArea.appendChild(rollBtn);
+      if (this._dealCompose) {
+        this.renderDealCompose(state);
+        return;
+      }
+      if (this._shareBuy || state.shareUiOpen) {
+        this.renderShareBuy(state);
+        return;
+      }
+      this.renderRollActions(state);
+      return;
     }
 
     if (state.phase === PHASE.BUILD && state.pendingAction?.type === 'build') {
-      const options = state.pendingAction.options;
-      this.actionArea.innerHTML = `
-        <div class="build-prompt">
-          <p>🏗️ Строить филиалы?</p>
-          <div class="build-prompt__list">
-            ${options.map(id => {
-              const cell = BOARD[id];
-              const ps = state.propertyState[id];
-              return `<button class="btn btn--build" data-build="${id}">
-                ${escapeHtml(cell.name)} (${ps.houses}/5) ${formatMoney(cell.houseCost)}
-              </button>`;
-            }).join('')}
-          </div>
-          <button class="btn btn--pass" id="btn-finish-build">Готово</button>
-        </div>
-      `;
-      this.actionArea.querySelectorAll('[data-build]').forEach(btn => {
-        btn.addEventListener('click', () => this.doAction({ type: 'build', cellId: Number(btn.dataset.build) }));
-      });
-      document.getElementById('btn-finish-build').addEventListener('click', () => this.doAction({ type: 'finishBuild' }));
+      this.renderShareBuy(state, state.pendingAction.options);
+      return;
     }
 
-    if (state.phase === PHASE.END || (state.phase === PHASE.BUILD && !state.pendingAction)) {
-      if (isMyTurn && p) {
-        const mortgageable = p.properties.filter(id => {
-          const ps = state.propertyState[id];
-          const cell = BOARD[id];
-          return ps && !ps.mortgaged && (ps.houses || 0) === 0 && cell?.price;
-        });
-        const unmortgageable = p.properties.filter(id => state.propertyState[id]?.mortgaged);
-        if (mortgageable.length || unmortgageable.length) {
-          const box = document.createElement('div');
-          box.className = 'mortgage-prompt';
-          box.innerHTML = `
-            ${mortgageable.slice(0, 4).map(id => `
-              <button class="btn btn--pass" data-mortgage="${id}">🔒 ${escapeHtml(BOARD[id].name)}</button>
-            `).join('')}
-            ${unmortgageable.slice(0, 4).map(id => `
-              <button class="btn btn--buy" data-unmortgage="${id}">🔓 ${escapeHtml(BOARD[id].name)}</button>
-            `).join('')}
-          `;
-          box.querySelectorAll('[data-mortgage]').forEach(btn => {
-            btn.addEventListener('click', () => this.doAction({ type: 'mortgage', cellId: Number(btn.dataset.mortgage) }));
-          });
-          box.querySelectorAll('[data-unmortgage]').forEach(btn => {
-            btn.addEventListener('click', () => this.doAction({ type: 'unmortgage', cellId: Number(btn.dataset.unmortgage) }));
-          });
-          this.actionArea.appendChild(box);
-        }
-      }
-      const endBtn = document.createElement('button');
-      endBtn.className = 'btn btn--end';
-      endBtn.textContent = '➡️ Завершить ход';
-      endBtn.addEventListener('click', () => this.doAction({ type: 'endTurn' }));
-      this.actionArea.appendChild(endBtn);
+    // Ход переключается автоматически — END почти не показывается
+    if (state.phase === PHASE.END) {
+      this.actionArea.innerHTML = `<div class="wait-turn">Переход хода…</div>`;
     }
   }
 
@@ -949,12 +945,22 @@ export class UI {
   syncTimedUi(state) {
     const hub = document.querySelector('.hub');
     const isAuction = state.phase === PHASE.AUCTION && state.auction;
-    const isRent = state.phase === PHASE.ACTION && state.pendingAction?.type === 'rent';
+    const isRent = state.phase === PHASE.ACTION && (
+      ['rent', 'tax', 'force'].includes(state.pendingAction?.type)
+    );
     const isBuy = state.phase === PHASE.ACTION && state.pendingAction?.type === 'buy';
+    const isRollTimed = state.phase === PHASE.ROLL && state.isMyTurn && !state.deal;
+    const isDeal = !!state.deal;
     hub?.classList.toggle('hub--auction', !!isAuction);
-    hub?.classList.toggle('hub--rent', !!(isRent || isBuy));
-    if (!isRent) this._rentMortgagePick = false;
-    const timed = isAuction || isRent || isBuy;
+    hub?.classList.toggle('hub--rent', !!(isRent || isBuy || isDeal));
+    hub?.classList.toggle('hub--roll-timed', !!isRollTimed);
+    if (!isRent) {
+      this._rentMortgagePick = false;
+      this._rentSharesPick = false;
+    }
+    if (state.phase !== PHASE.ROLL || state.deal) this._dealCompose = null;
+    if (state.phase !== PHASE.ROLL || !state.shareUiOpen) this._shareBuy = false;
+    const timed = isAuction || isRent || isBuy || isRollTimed || isDeal;
     if (!timed) {
       clearInterval(this._auctionTick);
       this._auctionTick = null;
@@ -964,12 +970,382 @@ export class UI {
       this._auctionTick = setInterval(() => {
         const s = this.lastState;
         if (!s) return;
+        // Не перерисовываем формы сделки/акций целиком
+        if (this._dealCompose || this._shareBuy) {
+          this.refreshFlipTimers(s);
+          return;
+        }
         const pa = s.pendingAction?.type;
-        if (s.phase === PHASE.AUCTION || (s.phase === PHASE.ACTION && (pa === 'rent' || pa === 'buy'))) {
+        if (
+          s.phase === PHASE.AUCTION
+          || (s.phase === PHASE.ACTION && (pa === 'rent' || pa === 'buy' || pa === 'tax' || pa === 'force'))
+          || (s.phase === PHASE.ROLL && s.isMyTurn)
+          || s.deal
+        ) {
           this.renderActions(s);
         }
       }, 250);
     }
+  }
+
+  refreshFlipTimers(state) {
+    const endsAt = state.deal?.endsAt || state.turnEndsAt
+      || state.pendingAction?.endsAt || state.auction?.endsAt;
+    if (endsAt == null) return;
+    const well = this.actionArea?.querySelector('.flip-timer');
+    if (!well) return;
+    const html = this.flipTimerHtml(Math.max(0, endsAt - Date.now()));
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html.trim();
+    const next = tmp.firstElementChild;
+    if (next) well.replaceWith(next);
+  }
+
+  renderRollActions(state) {
+    const p = state.players[state.currentPlayerIndex];
+    const canDeal = !!state.canDeal;
+    const canBuyShares = !!state.canBuyShares;
+    const leftMs = Math.max(0, (state.turnEndsAt || 0) - Date.now());
+
+    this.actionArea.innerHTML = `
+      <div class="roll-panel">
+        <div class="roll-panel__btns">
+          <button type="button" class="btn btn--roll" id="btn-roll">
+            ${p.inJail ? 'ТЮРЬМА: ВЫБРАТЬ' : 'БРОСИТЬ КОСТИ'}
+          </button>
+          ${canDeal ? `
+            <button type="button" class="btn btn--roll" id="btn-deal">
+              ПРЕДЛОЖИТЬ СДЕЛКУ
+            </button>
+          ` : ''}
+          ${canBuyShares ? `
+            <button type="button" class="btn btn--roll" id="btn-shares">
+              КУПИТЬ АКЦИИ
+            </button>
+          ` : ''}
+        </div>
+        ${this.flipTimerHtml(leftMs)}
+      </div>
+    `;
+
+    document.getElementById('btn-roll')?.addEventListener('click', () => {
+      const btn = document.getElementById('btn-roll');
+      if (p.inJail && p.money >= JAIL_BAIL) {
+        this.showChoiceButtons({
+          title: 'Тюрьма: выберите действие',
+          left: 'Бросить кубики',
+          right: `Залог ${formatMoney(JAIL_BAIL)}`,
+          onLeft: () => {
+            if (btn) btn.disabled = true;
+            this.doAction({ type: 'roll' });
+          },
+          onRight: () => {
+            if (btn) btn.disabled = true;
+            this.doAction({ type: 'payJailBail' });
+          },
+        });
+        return;
+      }
+      if (btn) btn.disabled = true;
+      this.doAction({ type: 'roll' });
+    });
+
+    document.getElementById('btn-deal')?.addEventListener('click', async () => {
+      this._shareBuy = false;
+      this._dealCompose = { step: 'partner', toId: null, offerMoney: 0, askMoney: 0, offerCells: [], askCells: [] };
+      await this.doAction({ type: 'beginDealUi' });
+      this.renderDealCompose(this.lastState || state);
+    });
+
+    document.getElementById('btn-shares')?.addEventListener('click', async () => {
+      this._dealCompose = null;
+      this._shareBuy = true;
+      await this.doAction({ type: 'beginShareUi' });
+      this.renderShareBuy(this.lastState || state);
+    });
+  }
+
+  renderShareBuy(state, optionIds = null) {
+    const options = optionIds
+      ? optionIds.map(id => {
+          const cell = BOARD[id];
+          const ps = state.propertyState[id];
+          return {
+            cellId: id,
+            name: cell?.name || '',
+            price: cell?.houseCost || 0,
+            houses: ps?.houses || 0,
+            max: 5,
+          };
+        })
+      : (state.shareBuyOptions || []);
+    const me = state.players.find(pl => pl.id === this.mySlot);
+
+    this.actionArea.innerHTML = `
+      <div class="deal-panel">
+        <p class="deal-panel__title">Купить акции</p>
+        <p class="deal-panel__hint">Монополия страны · у вас ${formatMoney(me?.money || 0)}</p>
+        <div class="deal-panel__list">
+          ${options.length
+            ? options.map(o => `
+                <button type="button" class="btn btn--club" data-buy-share="${o.cellId}">
+                  ${escapeHtml(o.name)} · ${o.houses}/${o.max} · ${formatMoney(o.price)}
+                </button>
+              `).join('')
+            : '<p class="deal-empty">Нечего покупать</p>'}
+        </div>
+        <button type="button" class="btn btn--club-muted" id="btn-shares-done">Готово</button>
+      </div>
+    `;
+
+    this.actionArea.querySelectorAll('[data-buy-share]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        await this.doAction({ type: 'build', cellId: Number(btn.dataset.buyShare) });
+        if (this.lastState) this.renderShareBuy(this.lastState);
+      });
+    });
+    document.getElementById('btn-shares-done')?.addEventListener('click', async () => {
+      this._shareBuy = false;
+      if (state.phase === PHASE.BUILD) {
+        await this.doAction({ type: 'finishBuild' });
+      } else {
+        await this.doAction({ type: 'cancelShareUi' });
+        if (this.lastState?.phase === PHASE.ROLL) this.renderRollActions(this.lastState);
+      }
+    });
+  }
+
+  dealCompanyChipHtml(cellId) {
+    const cell = BOARD[cellId];
+    if (!cell) return '';
+    const logo = BRAND_LOGO_SRC[cell.name] || BRAND_LOGO_SRC[cell.brand] || '';
+    return `
+      <div class="deal-chip" title="${escapeHtml(cell.name)}">
+        ${logo
+          ? `<img class="deal-chip__logo" src="${logo}" alt="${escapeHtml(cell.name)}" />`
+          : `<span class="deal-chip__letter">${escapeHtml((cell.brand || cell.name || '?').slice(0, 1))}</span>`}
+        <span class="deal-chip__name">${escapeHtml(cell.name)}</span>
+      </div>
+    `;
+  }
+
+  dealBundleHtml({ money = 0, cells = [] }) {
+    const parts = [];
+    for (const id of cells) parts.push(this.dealCompanyChipHtml(id));
+    if (money > 0) {
+      if (parts.length) parts.push('<div class="deal-plus">+</div>');
+      parts.push(`<div class="deal-money">${formatMoney(money)}</div>`);
+    }
+    if (!parts.length) parts.push('<div class="deal-empty">—</div>');
+    return `<div class="deal-bundle">${parts.join('')}</div>`;
+  }
+
+  renderDealCompose(state) {
+    const me = state.players.find(pl => pl.id === this.mySlot);
+    const partners = (state.players || []).filter(p => !p.bankrupt && p.id !== this.mySlot);
+    const mine = state.myTradeableCompanies || [];
+    const theirsAll = state.dealableCompanies || [];
+    const draft = this._dealCompose || {
+      step: 'partner',
+      toId: null,
+      offerMoney: 0,
+      askMoney: 0,
+      offerCells: [],
+      askCells: [],
+    };
+
+    if (!partners.length) {
+      this._dealCompose = null;
+      this.renderRollActions(state);
+      return;
+    }
+
+    if (draft.step === 'partner' || draft.toId == null) {
+      this.actionArea.innerHTML = `
+        <div class="deal-panel">
+          <p class="deal-panel__title">Кому предложить сделку?</p>
+          <div class="deal-panel__list">
+            ${partners.map(p => `
+              <button type="button" class="btn btn--club" data-deal-to="${p.id}">
+                ${escapeHtml(p.name)} · ${formatMoney(p.money)}
+              </button>
+            `).join('')}
+          </div>
+          <button type="button" class="btn btn--club-muted" id="deal-cancel">Отмена</button>
+        </div>
+      `;
+      this.actionArea.querySelectorAll('[data-deal-to]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          this._dealCompose = {
+            step: 'build',
+            toId: Number(btn.dataset.dealTo),
+            offerMoney: 0,
+            askMoney: 0,
+            offerCells: [],
+            askCells: [],
+          };
+          this.renderDealCompose(this.lastState || state);
+        });
+      });
+      document.getElementById('deal-cancel')?.addEventListener('click', async () => {
+        this._dealCompose = null;
+        await this.doAction({ type: 'cancelDealUi' });
+        if (this.lastState?.phase === PHASE.ROLL) this.renderRollActions(this.lastState);
+      });
+      return;
+    }
+
+    const partner = partners.find(p => p.id === draft.toId);
+    const theirs = theirsAll.filter(c => c.ownerId === draft.toId);
+    const offerSet = new Set(draft.offerCells || []);
+    const askSet = new Set(draft.askCells || []);
+
+    const toggleChip = (setName, id) => {
+      const set = new Set(this._dealCompose[setName] || []);
+      if (set.has(id)) set.delete(id);
+      else set.add(id);
+      this._dealCompose[setName] = [...set];
+      this.renderDealCompose(this.lastState || state);
+    };
+
+    this.actionArea.innerHTML = `
+      <div class="deal-panel deal-panel--compose">
+        <p class="deal-panel__title">Сделка с ${escapeHtml(partner?.name || 'игроком')}</p>
+        <p class="deal-panel__hint">Можно выбрать сумму, компанию или и то и другое</p>
+
+        <div class="deal-compose__block">
+          <div class="deal-compose__label">Вы отдадите</div>
+          <label class="deal-panel__label">Сумма
+            <input type="number" id="deal-offer-money" class="deal-panel__input"
+              min="0" max="${me?.money || 0}" step="10000" value="${draft.offerMoney || 0}" />
+          </label>
+          <div class="deal-compose__chips">
+            ${mine.length
+              ? mine.map(c => `
+                  <button type="button" class="deal-pick ${offerSet.has(c.cellId) ? 'is-on' : ''}"
+                    data-offer-cell="${c.cellId}">
+                    ${escapeHtml(c.name)}
+                  </button>`).join('')
+              : '<span class="deal-empty">Нет своих компаний</span>'}
+          </div>
+        </div>
+
+        <div class="deal-compose__block">
+          <div class="deal-compose__label">Вы получите</div>
+          <label class="deal-panel__label">Сумма
+            <input type="number" id="deal-ask-money" class="deal-panel__input"
+              min="0" max="${partner?.money || 0}" step="10000" value="${draft.askMoney || 0}" />
+          </label>
+          <div class="deal-compose__chips">
+            ${theirs.length
+              ? theirs.map(c => `
+                  <button type="button" class="deal-pick ${askSet.has(c.cellId) ? 'is-on' : ''}"
+                    data-ask-cell="${c.cellId}">
+                    ${escapeHtml(c.name)}
+                  </button>`).join('')
+              : '<span class="deal-empty">У соперника нет компаний</span>'}
+          </div>
+        </div>
+
+        <div class="deal-panel__btns">
+          <button type="button" class="btn btn--club" id="deal-send">Отправить</button>
+          <button type="button" class="btn btn--club-muted" id="deal-back">Назад</button>
+        </div>
+      </div>
+    `;
+
+    this.actionArea.querySelectorAll('[data-offer-cell]').forEach(btn => {
+      btn.addEventListener('click', () => toggleChip('offerCells', Number(btn.dataset.offerCell)));
+    });
+    this.actionArea.querySelectorAll('[data-ask-cell]').forEach(btn => {
+      btn.addEventListener('click', () => toggleChip('askCells', Number(btn.dataset.askCell)));
+    });
+    document.getElementById('deal-offer-money')?.addEventListener('change', (e) => {
+      this._dealCompose.offerMoney = Math.max(0, Math.floor(Number(e.target.value) || 0));
+    });
+    document.getElementById('deal-ask-money')?.addEventListener('change', (e) => {
+      this._dealCompose.askMoney = Math.max(0, Math.floor(Number(e.target.value) || 0));
+    });
+    document.getElementById('deal-send')?.addEventListener('click', () => {
+      const offerMoney = Math.max(0, Math.floor(Number(document.getElementById('deal-offer-money')?.value) || 0));
+      const askMoney = Math.max(0, Math.floor(Number(document.getElementById('deal-ask-money')?.value) || 0));
+      const offerCells = this._dealCompose.offerCells || [];
+      const askCells = this._dealCompose.askCells || [];
+      if (!offerMoney && !askMoney && !offerCells.length && !askCells.length) return;
+      const toId = this._dealCompose.toId;
+      this._dealCompose = null;
+      this.doAction({ type: 'proposeDeal', toId, offerMoney, askMoney, offerCells, askCells });
+    });
+    document.getElementById('deal-back')?.addEventListener('click', () => {
+      this._dealCompose = { step: 'partner', toId: null, offerMoney: 0, askMoney: 0, offerCells: [], askCells: [] };
+      this.renderDealCompose(this.lastState || state);
+    });
+  }
+
+  renderDealPending(state) {
+    const d = state.deal;
+    const from = state.players[d.fromId];
+    const to = state.players[d.toId];
+    const leftMs = Math.max(0, (d.endsAt || 0) - Date.now());
+    const iAmTo = state.canRespondDeal;
+    const iAmFrom = d.fromId === this.mySlot;
+
+    let offerMoney = Math.max(0, Number(d.offerMoney) || 0);
+    let askMoney = Math.max(0, Number(d.askMoney) || 0);
+    let offerCells = [...(d.offerCells || [])];
+    let askCells = [...(d.askCells || [])];
+    if (d.cellId != null && !askCells.length) {
+      askCells = [d.cellId];
+      if (!offerMoney && d.price != null) offerMoney = Number(d.price) || 0;
+    }
+
+    // Для получателя: «предлагает вам» = offerCells + offerMoney; «отдадите» = askCells + askMoney
+    const youGet = this.dealBundleHtml({ money: offerMoney, cells: offerCells });
+    const youGive = this.dealBundleHtml({ money: askMoney, cells: askCells });
+
+    if (iAmTo) {
+      this.actionArea.innerHTML = `
+        <div class="deal-view">
+          <p class="deal-view__head">${escapeHtml(from?.name || 'Игрок')} предлагает вам</p>
+          ${youGet}
+          <p class="deal-view__mid">Вы отдадите</p>
+          ${youGive}
+          <div class="deal-view__bar">
+            <button type="button" class="btn btn--club" id="deal-reject">Отказаться</button>
+            ${this.flipTimerHtml(leftMs)}
+            <button type="button" class="btn btn--club" id="deal-accept">Принять условия</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('deal-accept')?.addEventListener('click', () => this.doAction({ type: 'acceptDeal' }));
+      document.getElementById('deal-reject')?.addEventListener('click', () => this.doAction({ type: 'rejectDeal' }));
+      return;
+    }
+
+    if (iAmFrom) {
+      this.actionArea.innerHTML = `
+        <div class="deal-view">
+          <p class="deal-view__head">Ожидание ответа от ${escapeHtml(to?.name || 'игрока')}</p>
+          <p class="deal-view__mid">Вы отдадите</p>
+          ${this.dealBundleHtml({ money: offerMoney, cells: offerCells })}
+          <p class="deal-view__mid">Вы получите</p>
+          ${this.dealBundleHtml({ money: askMoney, cells: askCells })}
+          <div class="deal-view__bar deal-view__bar--single">
+            <button type="button" class="btn btn--club-muted" id="deal-cancel-pending">Отменить</button>
+            ${this.flipTimerHtml(leftMs)}
+          </div>
+        </div>
+      `;
+      document.getElementById('deal-cancel-pending')?.addEventListener('click', () => this.doAction({ type: 'rejectDeal' }));
+      return;
+    }
+
+    this.actionArea.innerHTML = `
+      <div class="deal-view">
+        <p class="deal-view__head">Сделка: ${escapeHtml(from?.name || '')} → ${escapeHtml(to?.name || '')}</p>
+        ${this.flipTimerHtml(leftMs)}
+      </div>
+    `;
   }
 
   /** Flip-clock MM:SS */
@@ -1028,6 +1404,8 @@ export class UI {
 
   renderRentActions(state) {
     const pa = state.pendingAction;
+    const isTax = pa.type === 'tax';
+    const isForce = pa.type === 'force';
     const cell = BOARD[pa.cellId];
     const payer = state.players[state.currentPlayerIndex];
     const canAct = state.isMyTurn;
@@ -1039,10 +1417,39 @@ export class UI {
       const c = BOARD[id];
       return ps && !ps.mortgaged && (ps.houses || 0) === 0 && c?.price;
     });
-    const showPick = canAct && this._rentMortgagePick;
+    const withShares = (payer?.properties || []).filter(id => {
+      const ps = state.propertyState[id];
+      const c = BOARD[id];
+      return ps && !ps.mortgaged && (ps.houses || 0) > 0 && c?.houseCost;
+    });
+    const shareable = withShares.filter(id => {
+      const c = BOARD[id];
+      const group = BOARD.filter(x => x.group === c.group && x.type === 'property');
+      const maxH = Math.max(...group.map(g => state.propertyState[g.id]?.houses || 0));
+      return (state.propertyState[id].houses || 0) >= maxH;
+    });
+    const hasShares = withShares.length > 0;
+    const showMortgagePick = canAct && this._rentMortgagePick;
+    const showSharesPick = canAct && this._rentSharesPick;
 
     let rightHtml;
-    if (showPick) {
+    if (showSharesPick) {
+      rightHtml = `
+        <div class="rent-panel__btns">
+          ${shareable.length
+            ? shareable.slice(0, 6).map(id => {
+                const ps = state.propertyState[id];
+                const cash = Math.floor((BOARD[id].houseCost || 0) / 2);
+                return `
+                  <button type="button" class="btn btn--club" data-sell-share="${id}">
+                    ${escapeHtml(BOARD[id].name)} (−1) +${formatMoney(cash)} · ${ps.houses} акц.
+                  </button>`;
+              }).join('')
+            : '<p class="rent-panel__empty">Нет акций</p>'}
+          <button type="button" class="btn btn--club-muted" id="btn-rent-back">Назад</button>
+        </div>
+      `;
+    } else if (showMortgagePick) {
       rightHtml = `
         <div class="rent-panel__btns">
           ${mortgageable.length
@@ -1061,23 +1468,64 @@ export class UI {
           <button type="button" class="btn btn--club" id="btn-pay-debt" ${canAct ? '' : 'disabled'}>
             Погасить долг
           </button>
-          <button type="button" class="btn btn--club" id="btn-mortgage-open" ${canAct && mortgageable.length ? '' : 'disabled'}>
-            Заложить компании
-          </button>
+          ${hasShares ? `
+            <button type="button" class="btn btn--club" id="btn-shares-open" ${canAct ? '' : 'disabled'}>
+              Продать акции
+            </button>
+          ` : ''}
+          ${mortgageable.length ? `
+            <button type="button" class="btn btn--club" id="btn-mortgage-open" ${canAct ? '' : 'disabled'}>
+              Заложить компании
+            </button>
+          ` : ''}
         </div>
       `;
     }
 
-    const hint = canPay
-      ? 'У вас достаточно средств для погашения долга. Но, если хотите, можете заложить некоторые ваши компании'
-      : 'Не хватает средств. Заложите компании или погасите долг (банкротство), когда будете готовы';
+    let hint;
+    if (canPay) {
+      if (hasShares && mortgageable.length) {
+        hint = 'У вас достаточно средств для погашения долга. Но, если хотите, можете продать акции некоторых ваших компаний или заложить компании';
+      } else if (hasShares) {
+        hint = 'У вас достаточно средств для погашения долга. Но, если хотите, можете продать акции некоторых ваших компаний';
+      } else if (mortgageable.length) {
+        hint = 'У вас достаточно средств для погашения долга. Но, если хотите, можете заложить некоторые ваши компании';
+      } else {
+        hint = 'У вас достаточно средств для погашения долга';
+      }
+    } else if (hasShares && mortgageable.length) {
+      hint = 'Не хватает средств. Чтобы погасить долг, заложите компании или продайте акции';
+    } else if (hasShares) {
+      hint = 'Не хватает средств. Чтобы погасить долг, продайте акции';
+    } else if (mortgageable.length) {
+      hint = 'Не хватает средств. Чтобы погасить долг, заложите компании';
+    } else {
+      hint = 'Не хватает средств. Погашение долга приведёт к банкротству';
+    }
+
+    let title;
+    let payLine;
+    let cardHtml = '';
+    if (isForce) {
+      title = `Вы попали на поле ${escapeHtml(pa.fieldName || 'Форс мажор')}`;
+      cardHtml = pa.text
+        ? `<p class="rent-panel__card">${escapeHtml(pa.text)}</p>`
+        : '';
+      payLine = `Убытки ${formatMoney(pa.amount)}`;
+    } else if (isTax) {
+      title = `Вы попали на поле ${escapeHtml(cell?.name || 'Налог')}`;
+      payLine = `Придётся заплатить налог в размере ${formatMoney(pa.amount)} (${pa.percent || 6}% от вашего капитала)`;
+    } else {
+      title = `Вы попали на поле ${escapeHtml(cell?.name || '')}${country ? ` (${escapeHtml(country)})` : ''}`;
+      payLine = `Придётся заплатить владельцу этой компании ${formatMoney(pa.amount)}`;
+    }
 
     this.actionArea.innerHTML = `
-      <div class="rent-panel">
+      <div class="rent-panel${isForce ? ' rent-panel--force' : ''}">
         <div class="rent-panel__info">
-          <p class="rent-panel__title">Вы попали на поле ${escapeHtml(cell?.name || '')}</p>
-          ${country ? `<p class="rent-panel__country">(${escapeHtml(country)})</p>` : ''}
-          <p class="rent-panel__pay">Придется заплатить владельцу этой компании ${formatMoney(pa.amount)}</p>
+          <p class="rent-panel__title">${title}</p>
+          ${cardHtml}
+          <p class="rent-panel__pay">${payLine}</p>
           <p class="rent-panel__hint">${hint}</p>
         </div>
         <div class="rent-panel__side">
@@ -1089,19 +1537,32 @@ export class UI {
 
     document.getElementById('btn-pay-debt')?.addEventListener('click', () => {
       this._rentMortgagePick = false;
+      this._rentSharesPick = false;
       this.doAction({ type: 'payDebt' });
+    });
+    document.getElementById('btn-shares-open')?.addEventListener('click', () => {
+      this._rentSharesPick = true;
+      this._rentMortgagePick = false;
+      this.renderRentActions(this.lastState || state);
     });
     document.getElementById('btn-mortgage-open')?.addEventListener('click', () => {
       this._rentMortgagePick = true;
+      this._rentSharesPick = false;
       this.renderRentActions(this.lastState || state);
     });
     document.getElementById('btn-rent-back')?.addEventListener('click', () => {
       this._rentMortgagePick = false;
+      this._rentSharesPick = false;
       this.renderRentActions(this.lastState || state);
     });
     this.actionArea.querySelectorAll('[data-mortgage]').forEach(btn => {
       btn.addEventListener('click', () => {
         this.doAction({ type: 'mortgage', cellId: Number(btn.dataset.mortgage) });
+      });
+    });
+    this.actionArea.querySelectorAll('[data-sell-share]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.doAction({ type: 'sellShare', cellId: Number(btn.dataset.sellShare) });
       });
     });
   }
