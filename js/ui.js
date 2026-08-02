@@ -270,16 +270,16 @@ export class UI {
       const ownerMark = `
         <div class="cell__owner" data-owner="${index}" hidden></div>
         <img class="cell__lock" data-lock="${index}" src="/assets/ownership/lock.png" alt="" hidden />`;
-      // Верх/низ: флаг у края → лого → цена
-      // Бока (как Ferrari): стопка лого+цена к центру, флаг к внешнему краю
+      // Верх/низ: флаг у внешнего края → лого → цена
+      // Бока: флаг к центру доски, лого+цена снаружи
       if (side === 'left' || side === 'right') {
         body = `
           ${ownerMark}
+          ${flagEl}
           <div class="cell__stack">
             ${logo}
             ${priceEl}
           </div>
-          ${flagEl}
           ${shares}`;
       } else {
         body = `${ownerMark}${flagEl}${logo}${priceEl}${shares}`;
@@ -295,6 +295,15 @@ export class UI {
     } else if (isCorner) {
       // Углы — только арт с board-frame, без надписей
       body = '';
+    } else if (cell.type === 'chance' || cell.type === 'forcemajeure') {
+      const title = cell.type === 'chance' ? 'ШАНС' : 'ФОРС';
+      const sub = cell.type === 'chance' ? '?' : 'МАЖОР';
+      body = `
+        <div class="cell__tax cell__special">
+          <span class="cell__tax-title">${title}</span>
+          <span class="cell__tax-pct">${sub}</span>
+        </div>
+      `;
     } else {
       body = `
         <span class="cell__name">${escapeHtml(cell.name)}</span>
@@ -747,7 +756,9 @@ export class UI {
       const mark = cellEl.querySelector(`[data-owner="${cellId}"]`);
       if (mark && side !== 'corner') {
         mark.hidden = false;
-        mark.style.backgroundImage = `url("${this.ownershipAsset(owner.id, side, mortgaged)}")`;
+        // Чистый CSS-закрас по цвету фишки (градиентные PNG давали кривой blob)
+        mark.style.backgroundImage = '';
+        mark.classList.toggle('cell__owner--mortgaged', mortgaged);
       }
 
       const lock = cellEl.querySelector(`[data-lock="${cellId}"]`);

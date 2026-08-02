@@ -341,44 +341,21 @@ button, input, select { font-family: inherit; }
   outline: none;
 }
 
-/* Маркер владения — только внутри клетки, к центру доски */
+/* Маркер владения — ровная заливка цветом фишки внутри клетки */
 .cell__owner {
   position: absolute;
+  inset: 3px;
   z-index: 1;
   pointer-events: none;
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
-  background-position: center;
-  opacity: 0.88;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--owner-color, #e11d48) 40%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--owner-color, #e11d48) 55%, transparent);
 }
 
-.cell__body--top .cell__owner {
-  left: 10%;
-  right: 10%;
-  top: 42%;
-  bottom: 4%;
-}
-.cell__body--bottom .cell__owner {
-  left: 10%;
-  right: 10%;
-  top: 4%;
-  bottom: 42%;
-}
-.cell__body--right .cell__owner {
-  top: 12%;
-  bottom: 12%;
-  left: 4%;
-  right: 42%;
-}
-.cell__body--left .cell__owner {
-  top: 12%;
-  bottom: 12%;
-  left: 42%;
-  right: 4%;
-}
-
+.cell__owner--mortgaged,
 .cell--mortgaged .cell__owner {
-  opacity: 0.9;
+  background: rgba(20, 14, 10, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 
 .cell__lock {
@@ -431,19 +408,20 @@ button, input, select { font-family: inherit; }
 .cell__body--bottom {
   flex-direction: column-reverse;
 }
+/* Бока: флаг у центра доски, стопка у внешнего края */
 .cell__body--right {
   flex-direction: row;
-  justify-content: flex-start; /* к центру доски */
+  justify-content: center;
   align-items: center;
-  padding: 4px 10px 4px 3px;
-  gap: 5px;
+  padding: 5px 6px;
+  gap: 6px;
 }
 .cell__body--left {
   flex-direction: row-reverse;
-  justify-content: flex-start; /* к центру доски */
+  justify-content: center;
   align-items: center;
-  padding: 4px 3px 4px 10px;
-  gap: 5px;
+  padding: 5px 6px;
+  gap: 6px;
 }
 .cell__body--corner {
   padding: 0;
@@ -597,6 +575,13 @@ button, input, select { font-family: inherit; }
   display: none;
 }
 
+.cell__special .cell__tax-title {
+  font-size: clamp(0.62rem, 1.35vw, 0.95rem);
+}
+.cell__special .cell__tax-pct {
+  font-size: clamp(0.78rem, 1.6vw, 1.15rem);
+}
+
 .cell__icon { font-size: clamp(0.85rem, 1.6vw, 1.15rem); line-height: 1; }
 .cell__icon--img { width: clamp(16px, 2.2vw, 24px); height: clamp(16px, 2.2vw, 24px); object-fit: contain; }
 
@@ -706,7 +691,6 @@ button, input, select { font-family: inherit; }
 .token--img,
 .token--board {
   background: transparent !important;
-  box-shadow: none !important;
   overflow: visible;
 }
 
@@ -715,16 +699,19 @@ button, input, select { font-family: inherit; }
   width: var(--token-size);
   height: var(--token-size);
   border-radius: 50%;
-  /* Тень как в Monopoly Club — мягкая, вниз-вправо */
+  /* Тень Club: вниз-вправо */
   filter:
-    drop-shadow(1px 2px 1px rgba(0, 0, 0, 0.35))
-    drop-shadow(2px 4px 4px rgba(0, 0, 0, 0.45));
+    drop-shadow(2px 3px 2px rgba(0, 0, 0, 0.45))
+    drop-shadow(4px 7px 6px rgba(0, 0, 0, 0.4));
 }
 
 .token--board img {
   border-radius: 50%;
   object-fit: contain;
   filter: none;
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .token__ring {
