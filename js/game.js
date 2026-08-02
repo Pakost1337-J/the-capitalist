@@ -1,6 +1,6 @@
 import {
   BOARD, BOARD_SIZE, CHANCE_CARDS, FORCE_MAJEURE_CARDS, START_MONEY, GO_SALARY, JAIL_BAIL, JAIL_POS,
-  MAX_HOUSES, PLAYER_SLOTS, AUCTION_STEP, AUCTION_MS, getCell, getGroupProperties,
+  MAX_HOUSES, PLAYER_SLOTS, AUCTION_STEP, AUCTION_MS, RENT_MS, getCell, getGroupProperties,
 } from './config.js';
 import { shuffle } from './utils.js';
 import {
@@ -63,6 +63,7 @@ export class GameEngine {
     this.winner = null;
     this.pendingAction = null;
     this.auction = null;
+    this.notice = null;
     this.housesBuilt = 0;
     this.maxHouses = 32;
 
@@ -93,8 +94,18 @@ export class GameEngine {
       winner: this.winner,
       pendingAction: this.pendingAction ? { ...this.pendingAction } : null,
       auction: this.auction ? { ...this.auction } : null,
+      notice: this.notice ? { ...this.notice } : null,
       propertyState: JSON.parse(JSON.stringify(this.propertyState)),
       housesBuilt: this.housesBuilt,
+    };
+  }
+
+  setOwnNotice(playerName, company) {
+    this.notice = {
+      type: 'own',
+      playerName,
+      company,
+      id: Date.now(),
     };
   }
 
@@ -251,7 +262,12 @@ export class GameEngine {
 
     if (ps.owner === null) {
       if (this.canAfford(p, cell.price)) {
-        this.pendingAction = { type: 'buy', cellId: cell.id, price: cell.price };
+        this.pendingAction = {
+          type: 'buy',
+          cellId: cell.id,
+          price: cell.price,
+          endsAt: Date.now() + RENT_MS,
+        };
         this.phase = PHASE.ACTION;
       } else {
         this.addLog(`${p.name} не хватает денег на «${cell.name}» — аукцион!`);
@@ -259,12 +275,43 @@ export class GameEngine {
       }
     } else if (ps.owner !== p.id && !ps.mortgaged) {
       const rent = this.calcRent(cell.id);
-      const owner = this.players[ps.owner];
-      this.payPlayer(p, owner, rent, cell.name);
-      this.afterAction();
+      this.pendingAction = {
+        type: 'rent',
+        cellId: cell.id,
+        amount: rent,
+        ownerId: ps.owner,
+        endsAt: Date.now() + RENT_MS,
+      };
+      this.phase = PHASE.ACTION;
+      this.addLog(`${p.name} должен заплатить $${rent.toLocaleString('ru-RU')} за «${cell.name}»`);
     } else {
       this.afterAction();
     }
+  }
+
+  /** Погасить аренду (кнопка или истечение таймера) */
+  payRentDebt() {
+    const pa = this.pendingAction;
+    if (this.phase !== PHASE.ACTION || pa?.type !== 'rent') return false;
+    const p = this.currentPlayer;
+    const owner = this.players[pa.ownerId];
+    const cell = getCell(pa.cellId);
+    const amount = pa.amount;
+    this.pendingAction = null;
+    this.payPlayer(p, owner, amount, cell?.name);
+    this.afterAction();
+    return true;
+  }
+
+  finishRentDebt() {
+    if (this.phase !== PHASE.ACTION || this.pendingAction?.type !== 'rent') return;
+    this.payRentDebt();
+  }
+
+  /** Таймер покупки истёк — объявить аукцион */
+  finishBuyOffer() {
+    if (this.phase !== PHASE.ACTION || this.pendingAction?.type !== 'buy') return;
+    this.passProperty();
   }
 
   startAuction(cellId) {
@@ -313,6 +360,7 @@ export class GameEngine {
         this.propertyState[cellId].owner = winner.id;
         this.addLog(logBuy(winner.name, cell.name));
         this.addLog(`Аукцион закрыт: $${currentBid.toLocaleString('ru-RU')}`);
+        this.setOwnNotice(winner.name, cell.name);
       } else {
         this.addLog(`Аукцион сорвался — «${cell.name}» без владельца`);
       }
@@ -449,6 +497,7 @@ export class GameEngine {
     p.properties.push(cellId);
     this.propertyState[cellId].owner = p.id;
     this.addLog(logBuy(p.name, cell.name));
+    this.setOwnNotice(p.name, cell.name);
     this.pendingAction = null;
     this.afterAction();
     return true;
@@ -628,6 +677,9 @@ export class GameEngine {
   }
 
   applyAction(action, playerId) {
+    // сбрасываем тост покупки на следующем действии (кроме ставок аукциона)
+    if (action.type !== 'auctionBid') this.notice = null;
+
     if (action.type === 'auctionBid') {
       if (!this.placeAuctionBid(playerId)) return { ok: false, error: 'Нельзя сделать ставку' };
       return { ok: true, auction: true };
@@ -672,8 +724,16 @@ export class GameEngine {
         if (!this.payJailBail()) return { ok: false, error: 'Нельзя заплатить залог' };
         return { ok: true };
 
+      case 'payDebt':
+        if (!this.payRentDebt()) return { ok: false, error: 'Нет долга к погашению' };
+        return { ok: true };
+
       case 'mortgage':
-        if (this.phase !== PHASE.END && this.phase !== PHASE.BUILD) {
+        if (
+          this.phase !== PHASE.END
+          && this.phase !== PHASE.BUILD
+          && !(this.phase === PHASE.ACTION && this.pendingAction?.type === 'rent')
+        ) {
           return { ok: false, error: 'Сейчас нельзя закладывать' };
         }
         if (!this.mortgageProperty(action.cellId)) return { ok: false, error: 'Нельзя заложить' };

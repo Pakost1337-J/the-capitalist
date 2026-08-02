@@ -8,6 +8,8 @@ export const MAX_PLAYERS = 5;
 export const MIN_PLAYERS = 1;
 export const AUCTION_STEP = 10_000;
 export const AUCTION_MS = 60_000;
+/** Таймер погашения аренды (чужое поле) */
+export const RENT_MS = 60_000;
 
 /** Позиции углов: board-frame = 38 клеток (как Monopoly Club) */
 export const JAIL_POS = 12;
@@ -71,6 +73,20 @@ export const COUNTRY_LABEL = {
   CH: 'Swiss',
   SE: 'Sweden',
   IT: 'Italy',
+};
+
+/** Русские названия стран для панелей покупки/долга */
+export const COUNTRY_LABEL_RU = {
+  GB: 'Великобритания',
+  CN: 'Китай',
+  FR: 'Франция',
+  DE: 'Германия',
+  US: 'Соединенные Штаты Америки',
+  JP: 'Япония',
+  KR: 'Южная Корея',
+  CH: 'Швейцария',
+  SE: 'Швеция',
+  IT: 'Италия',
 };
 
 /**

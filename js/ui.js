@@ -1,4 +1,7 @@
-import { BOARD, BOARD_SIZE, COUNTRY_FLAG_SRC, GROUP_COLORS, JAIL_BAIL, AUCTION_STEP, getGridPosition } from './config.js';
+import {
+  BOARD, BOARD_SIZE, COUNTRY_FLAG_SRC, COUNTRY_LABEL_RU, GROUP_COLORS,
+  JAIL_BAIL, AUCTION_STEP, getGridPosition,
+} from './config.js';
 import { formatMoney, formatPriceShort, sleep } from './utils.js';
 import { PHASE } from './game.js';
 import { iconHTML, resolveIconSrc } from './icons.js';
@@ -36,6 +39,9 @@ export class UI {
     this.hubTurn = null;
 
     this.choicePanel = document.getElementById('choice-panel');
+    this.ownToast = document.getElementById('own-toast');
+    this._dismissedNoticeId = null;
+    this._noticeTimer = null;
 
     document.getElementById('new-game')?.addEventListener('click', () => {
       this.showChoiceButtons({
@@ -357,8 +363,14 @@ export class UI {
       this.renderPlayers(state);
       this.renderHouses(state);
       this.renderLog(state);
-      this.syncAuctionUi(state);
-      if (state.phase === PHASE.AUCTION) this.renderActions(state);
+      this.syncTimedUi(state);
+      this.syncOwnNotice(state);
+      if (
+        state.phase === PHASE.AUCTION
+        || (state.phase === PHASE.ACTION && (state.pendingAction?.type === 'rent' || state.pendingAction?.type === 'buy'))
+      ) {
+        this.renderActions(state);
+      }
       return;
     }
 
@@ -370,7 +382,8 @@ export class UI {
     this.renderHouses(state);
     this.renderLog(state);
     this.highlightCurrentCell(state);
-    this.syncAuctionUi(state);
+    this.syncTimedUi(state);
+    this.syncOwnNotice(state);
 
     const diceChanged = this.diceChanged(prev, state);
     const movers = this.findMovers(prev, state);
@@ -655,6 +668,50 @@ export class UI {
     // Капитал / компании / наличные — только на карточках справа (как в Club)
   }
 
+  syncOwnNotice(state) {
+    const hub = document.querySelector('.hub');
+    const notice = state?.notice;
+    if (!this.ownToast) return;
+
+    if (!notice || notice.type !== 'own' || notice.id === this._dismissedNoticeId) {
+      if (!notice) this._dismissedNoticeId = null;
+      this.ownToast.hidden = true;
+      this.ownToast.innerHTML = '';
+      hub?.classList.remove('hub--own');
+      return;
+    }
+
+    if (this.ownToast.dataset.noticeId === String(notice.id)) {
+      hub?.classList.add('hub--own');
+      this.ownToast.hidden = false;
+      return;
+    }
+
+    this.ownToast.dataset.noticeId = String(notice.id);
+    this.ownToast.innerHTML = `
+      <div class="own-toast__ring" aria-hidden="true">
+        <svg class="own-toast__svg" viewBox="0 0 36 36">
+          <circle class="own-toast__track" cx="18" cy="18" r="15.5" />
+          <circle class="own-toast__progress" cx="18" cy="18" r="15.5" />
+        </svg>
+        <span class="own-toast__check">✓</span>
+      </div>
+      <p class="own-toast__title">Поздравляем, ${escapeHtml(notice.playerName)}!</p>
+      <p class="own-toast__text">Вы стали владельцем контрольного пакета (51%) акций компании ${escapeHtml(notice.company)}</p>
+    `;
+    this.ownToast.hidden = false;
+    hub?.classList.add('hub--own');
+
+    clearTimeout(this._noticeTimer);
+    this._noticeTimer = setTimeout(() => {
+      this._dismissedNoticeId = notice.id;
+      this.ownToast.hidden = true;
+      this.ownToast.innerHTML = '';
+      delete this.ownToast.dataset.noticeId;
+      hub?.classList.remove('hub--own');
+    }, 3800);
+  }
+
   renderPlayers(state) {
     this.playersPanel.innerHTML = state.players.map((p, i) => {
       const capital = this.calcCapital(p, state);
@@ -677,10 +734,7 @@ export class UI {
              style="--pc: ${p.color}">
           <div class="p-card__inner">
             <div class="p-card__head">
-              <svg class="p-card__mail" viewBox="0 0 24 24" aria-hidden="true">
-                <path fill="currentColor" d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
-              </svg>
-              <div class="p-card__name">${escapeHtml(p.name)}</div>
+              <div class="p-card__name">${escapeHtml(p.isBot && !/^Бот\s*-/.test(p.name) ? `Бот - ${p.name}` : p.name)}</div>
             </div>
             <div class="p-card__cash">${formatMoney(p.money)}</div>
             <div class="p-card__capital">Капитал: ${formatMoney(capital)}${jailNote}</div>
@@ -770,6 +824,16 @@ export class UI {
       return;
     }
 
+    if (state.phase === PHASE.ACTION && state.pendingAction?.type === 'rent') {
+      this.renderRentActions(state);
+      return;
+    }
+
+    if (state.phase === PHASE.ACTION && state.pendingAction?.type === 'buy') {
+      this.renderBuyActions(state);
+      return;
+    }
+
     if (!isMyTurn || state.phase === PHASE.MOVING) {
       this.actionArea.innerHTML = `<div class="wait-turn">Ход игрока <strong>${escapeHtml(p.name)}</strong></div>`;
       return;
@@ -802,21 +866,6 @@ export class UI {
         this.doAction({ type: 'roll' });
       });
       this.actionArea.appendChild(rollBtn);
-    }
-
-    if (state.phase === PHASE.ACTION && state.pendingAction?.type === 'buy') {
-      const cell = BOARD[state.pendingAction.cellId];
-      this.actionArea.innerHTML = `
-        <div class="buy-prompt">
-          <p>Купить <strong>${escapeHtml(cell.name)}</strong> за ${formatMoney(state.pendingAction.price)}?</p>
-          <div class="buy-prompt__btns">
-            <button class="btn btn--buy" id="btn-buy">Купить</button>
-            <button class="btn btn--pass" id="btn-pass">Аукцион</button>
-          </div>
-        </div>
-      `;
-      document.getElementById('btn-buy').addEventListener('click', () => this.doAction({ type: 'buy' }));
-      document.getElementById('btn-pass').addEventListener('click', () => this.doAction({ type: 'pass' }));
     }
 
     if (state.phase === PHASE.BUILD && state.pendingAction?.type === 'build') {
@@ -889,20 +938,164 @@ export class UI {
     if (!p?.bankrupt) this.highlightCell(p.position);
   }
 
-  syncAuctionUi(state) {
+  syncTimedUi(state) {
     const hub = document.querySelector('.hub');
     const isAuction = state.phase === PHASE.AUCTION && state.auction;
+    const isRent = state.phase === PHASE.ACTION && state.pendingAction?.type === 'rent';
+    const isBuy = state.phase === PHASE.ACTION && state.pendingAction?.type === 'buy';
     hub?.classList.toggle('hub--auction', !!isAuction);
-    if (!isAuction) {
+    hub?.classList.toggle('hub--rent', !!(isRent || isBuy));
+    if (!isRent) this._rentMortgagePick = false;
+    const timed = isAuction || isRent || isBuy;
+    if (!timed) {
       clearInterval(this._auctionTick);
       this._auctionTick = null;
       return;
     }
     if (!this._auctionTick) {
       this._auctionTick = setInterval(() => {
-        if (this.lastState?.phase === PHASE.AUCTION) this.renderActions(this.lastState);
-      }, 500);
+        const s = this.lastState;
+        if (!s) return;
+        const pa = s.pendingAction?.type;
+        if (s.phase === PHASE.AUCTION || (s.phase === PHASE.ACTION && (pa === 'rent' || pa === 'buy'))) {
+          this.renderActions(s);
+        }
+      }, 250);
     }
+  }
+
+  /** Flip-clock MM:SS */
+  flipTimerHtml(leftMs) {
+    const total = Math.max(0, Math.ceil(leftMs / 1000));
+    const mm = String(Math.floor(total / 60)).padStart(2, '0');
+    const ss = String(total % 60).padStart(2, '0');
+    const digits = [...mm, ':', ...ss];
+    return `
+      <div class="flip-timer" aria-label="${mm}:${ss}">
+        <div class="flip-timer__well">
+          ${digits.map(ch => (
+            ch === ':'
+              ? '<span class="flip-timer__colon" aria-hidden="true"></span>'
+              : `<span class="flip-timer__digit"><span>${ch}</span></span>`
+          )).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  renderBuyActions(state) {
+    const pa = state.pendingAction;
+    const cell = BOARD[pa.cellId];
+    const buyer = state.players[state.currentPlayerIndex];
+    const canAct = state.isMyTurn;
+    const leftMs = Math.max(0, (pa.endsAt || 0) - Date.now());
+    const country = COUNTRY_LABEL_RU[cell?.country] || cell?.country || '';
+
+    this.actionArea.innerHTML = `
+      <div class="rent-panel buy-panel">
+        <div class="rent-panel__info">
+          <p class="rent-panel__title">Вы попали на поле ${escapeHtml(cell?.name || '')}</p>
+          ${country ? `<p class="rent-panel__country">(${escapeHtml(country)})</p>` : ''}
+          <p class="rent-panel__pay">Стоимость поля: ${formatMoney(pa.price)}</p>
+          <p class="rent-panel__pay">У вас средств: ${formatMoney(buyer?.money || 0)}</p>
+          <p class="rent-panel__hint">Вы можете купить эту компанию или выставить ее на аукцион</p>
+        </div>
+        <div class="rent-panel__side">
+          <div class="rent-panel__btns">
+            <button type="button" class="btn btn--club" id="btn-buy" ${canAct ? '' : 'disabled'}>
+              Купить
+            </button>
+            <button type="button" class="btn btn--club" id="btn-pass" ${canAct ? '' : 'disabled'}>
+              Объявить аукцион
+            </button>
+          </div>
+          ${this.flipTimerHtml(leftMs)}
+        </div>
+      </div>
+    `;
+
+    document.getElementById('btn-buy')?.addEventListener('click', () => this.doAction({ type: 'buy' }));
+    document.getElementById('btn-pass')?.addEventListener('click', () => this.doAction({ type: 'pass' }));
+  }
+
+  renderRentActions(state) {
+    const pa = state.pendingAction;
+    const cell = BOARD[pa.cellId];
+    const payer = state.players[state.currentPlayerIndex];
+    const canAct = state.isMyTurn;
+    const leftMs = Math.max(0, (pa.endsAt || 0) - Date.now());
+    const country = COUNTRY_LABEL_RU[cell?.country] || cell?.country || '';
+    const canPay = payer && payer.money >= pa.amount;
+    const mortgageable = (payer?.properties || []).filter(id => {
+      const ps = state.propertyState[id];
+      const c = BOARD[id];
+      return ps && !ps.mortgaged && (ps.houses || 0) === 0 && c?.price;
+    });
+    const showPick = canAct && this._rentMortgagePick;
+
+    let rightHtml;
+    if (showPick) {
+      rightHtml = `
+        <div class="rent-panel__btns">
+          ${mortgageable.length
+            ? mortgageable.slice(0, 6).map(id => `
+                <button type="button" class="btn btn--club" data-mortgage="${id}">
+                  ${escapeHtml(BOARD[id].name)}
+                </button>
+              `).join('')
+            : '<p class="rent-panel__empty">Нечего закладывать</p>'}
+          <button type="button" class="btn btn--club-muted" id="btn-rent-back">Назад</button>
+        </div>
+      `;
+    } else {
+      rightHtml = `
+        <div class="rent-panel__btns">
+          <button type="button" class="btn btn--club" id="btn-pay-debt" ${canAct ? '' : 'disabled'}>
+            Погасить долг
+          </button>
+          <button type="button" class="btn btn--club" id="btn-mortgage-open" ${canAct && mortgageable.length ? '' : 'disabled'}>
+            Заложить компании
+          </button>
+        </div>
+      `;
+    }
+
+    const hint = canPay
+      ? 'У вас достаточно средств для погашения долга. Но, если хотите, можете заложить некоторые ваши компании'
+      : 'Не хватает средств. Заложите компании или погасите долг (банкротство), когда будете готовы';
+
+    this.actionArea.innerHTML = `
+      <div class="rent-panel">
+        <div class="rent-panel__info">
+          <p class="rent-panel__title">Вы попали на поле ${escapeHtml(cell?.name || '')}</p>
+          ${country ? `<p class="rent-panel__country">(${escapeHtml(country)})</p>` : ''}
+          <p class="rent-panel__pay">Придется заплатить владельцу этой компании ${formatMoney(pa.amount)}</p>
+          <p class="rent-panel__hint">${hint}</p>
+        </div>
+        <div class="rent-panel__side">
+          ${rightHtml}
+          ${this.flipTimerHtml(leftMs)}
+        </div>
+      </div>
+    `;
+
+    document.getElementById('btn-pay-debt')?.addEventListener('click', () => {
+      this._rentMortgagePick = false;
+      this.doAction({ type: 'payDebt' });
+    });
+    document.getElementById('btn-mortgage-open')?.addEventListener('click', () => {
+      this._rentMortgagePick = true;
+      this.renderRentActions(this.lastState || state);
+    });
+    document.getElementById('btn-rent-back')?.addEventListener('click', () => {
+      this._rentMortgagePick = false;
+      this.renderRentActions(this.lastState || state);
+    });
+    this.actionArea.querySelectorAll('[data-mortgage]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.doAction({ type: 'mortgage', cellId: Number(btn.dataset.mortgage) });
+      });
+    });
   }
 
   renderAuctionActions(state) {
@@ -911,14 +1104,13 @@ export class UI {
     const leader = a.highBidder != null ? state.players[a.highBidder] : null;
     const next = state.nextAuctionPrice ?? (a.highBidder == null ? a.startPrice : a.currentBid + (a.step || AUCTION_STEP));
     const leftMs = Math.max(0, (a.endsAt || 0) - Date.now());
-    const sec = Math.ceil(leftMs / 1000);
     const me = state.players.find(p => p.id === this.mySlot);
     const canBid = state.canAuctionBid && me && me.money >= next && a.highBidder !== this.mySlot;
 
     this.actionArea.innerHTML = `
       <div class="auction-panel">
         <div class="auction-panel__title">Аукцион: ${escapeHtml(cell?.name || '')}</div>
-        <div class="auction-panel__timer">${sec}с</div>
+        ${this.flipTimerHtml(leftMs)}
         <div class="auction-panel__meta">
           Старт: ${formatMoney(a.startPrice)} · шаг ${formatMoney(a.step || AUCTION_STEP)}
         </div>
@@ -928,7 +1120,7 @@ export class UI {
             : 'Ставок пока нет'}
         </div>
         <div class="auction-panel__next">След. ставка: <strong>${formatMoney(next)}</strong></div>
-        <button class="btn btn--buy" id="btn-auction-bid" ${canBid ? '' : 'disabled'}>
+        <button class="btn btn--club" id="btn-auction-bid" ${canBid ? '' : 'disabled'}>
           Поставить ${formatMoney(next)}
         </button>
       </div>

@@ -6,7 +6,7 @@ import { dirname, join } from 'path';
 import {
   createRoom, joinRoom, leaveRoom, getRoomBySocket,
   startGame, handleGameAction, getLobbyState, getGameState,
-  broadcastGame, startBotLoop, listPublicRooms, scheduleAuctionEnd,
+  broadcastGame, startBotLoop, listPublicRooms, scheduleAuctionEnd, scheduleRentEnd,
 } from './server/rooms.js';
 import { PHASE } from './js/game.js';
 import { getCustomPayload, saveCustom, resetCustom } from './server/customize.js';
@@ -135,6 +135,8 @@ io.on('connection', (socket) => {
     if (room.game.phase === PHASE.AUCTION) {
       scheduleAuctionEnd(room, io);
     }
+    // всегда: либо ставит таймер долга, либо снимает старый
+    scheduleRentEnd(room, io);
 
     broadcastGame(room, io);
     cb?.({ ok: true });

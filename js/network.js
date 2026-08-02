@@ -174,8 +174,8 @@ export class LobbyUI {
             </div>
           </div>
           ${room.canJoin
-            ? `<button class="btn btn--end room-card__join" data-join="${room.id}">Войти</button>`
-            : `<button class="btn btn--pass room-card__join" disabled>${room.status === 'playing' ? 'Идёт' : 'Полный'}</button>`
+            ? `<button class="btn btn--club room-card__join" data-join="${room.id}">Войти</button>`
+            : `<button class="btn btn--club-muted room-card__join" disabled>${room.status === 'playing' ? 'Идёт' : 'Полный'}</button>`
           }
         </div>
       `;

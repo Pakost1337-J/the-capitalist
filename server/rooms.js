@@ -107,7 +107,8 @@ export function startGame(id, socketId) {
     if (member) {
       playerConfigs.push({ name: member.name, socketId: member.socketId, isBot: false });
     } else {
-      playerConfigs.push({ name: botNames[botIdx++] || 'Гость', socketId: null, isBot: true });
+      const botName = botNames[botIdx++] || 'Гость';
+      playerConfigs.push({ name: `Бот - ${botName}`, socketId: null, isBot: true });
     }
   }
 
@@ -200,6 +201,30 @@ export function scheduleAuctionEnd(room, io) {
   }, delay);
 }
 
+/** Таймер панелей buy / rent (1 мин) */
+export function scheduleRentEnd(room, io) {
+  if (room._rentTimer) {
+    clearTimeout(room._rentTimer);
+    room._rentTimer = null;
+  }
+  const pa = room.game?.pendingAction;
+  if (!pa || room.game.phase !== 'action') return;
+  if (pa.type !== 'rent' && pa.type !== 'buy') return;
+
+  const delay = Math.max(200, (pa.endsAt || Date.now()) - Date.now());
+  const kind = pa.type;
+  room._rentTimer = setTimeout(() => {
+    room._rentTimer = null;
+    if (!room.game || room.game.phase !== 'action') return;
+    if (room.game.pendingAction?.type !== kind) return;
+    if (kind === 'rent') room.game.finishRentDebt();
+    else if (kind === 'buy') room.game.finishBuyOffer();
+    if (room.game.phase === 'auction') scheduleAuctionEnd(room, io);
+    broadcastGame(room, io);
+    startBotLoop(room, io);
+  }, delay);
+}
+
 export function broadcastGame(room, io) {
   for (const member of room.members) {
     io.to(member.socketId).emit('game-state', getGameState(room, member.socketId));
@@ -209,6 +234,7 @@ export function broadcastGame(room, io) {
 export function startBotLoop(room, io) {
   processBotChain(room.game, () => {
     if (room.game?.phase === 'auction') scheduleAuctionEnd(room, io);
+    scheduleRentEnd(room, io);
     broadcastGame(room, io);
   });
 }

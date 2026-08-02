@@ -18,6 +18,9 @@ export function runBotTurn(game, onDone) {
     } else if (game.phase === PHASE.AUCTION) {
       tryBotAuctionBid(game);
       onDone();
+    } else if (game.phase === PHASE.ACTION && game.pendingAction?.type === 'rent') {
+      settleBotRent(game);
+      finishBotTurn(game, onDone);
     } else if (game.phase === PHASE.END) {
       game.endTurn();
       onDone();
@@ -49,6 +52,9 @@ function handleAfterRoll(game, onDone) {
         }
         finishBotTurn(game, onDone);
       }, 900);
+    } else if (game.phase === PHASE.ACTION && game.pendingAction?.type === 'rent') {
+      settleBotRent(game);
+      setTimeout(() => finishBotTurn(game, onDone), 700);
     } else if (game.phase === PHASE.AUCTION) {
       tryBotAuctionBid(game);
       onDone();
@@ -92,7 +98,27 @@ function shouldBotBid(player, cell, price, game) {
   return player.money > price * 1.5 && Math.random() > 0.5;
 }
 
+function settleBotRent(game) {
+  const pa = game.pendingAction;
+  if (!pa || pa.type !== 'rent') return;
+  const player = game.currentPlayer;
+  let guard = 0;
+  while (player.money < pa.amount && guard < 12) {
+    const prop = player.properties.find(id => {
+      const ps = game.propertyState[id];
+      return ps && !ps.mortgaged && (ps.houses || 0) === 0;
+    });
+    if (prop == null) break;
+    game.mortgageProperty(prop);
+    guard += 1;
+  }
+  game.payRentDebt();
+}
+
 function finishBotTurn(game, onDone) {
+  if (game.phase === PHASE.ACTION && game.pendingAction?.type === 'rent') {
+    settleBotRent(game);
+  }
   if (game.phase === PHASE.END) {
     setTimeout(() => {
       game.endTurn();
