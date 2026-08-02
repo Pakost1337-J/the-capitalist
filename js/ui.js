@@ -737,9 +737,7 @@ export class UI {
       const mark = cellEl.querySelector(`[data-owner="${cellId}"]`);
       if (mark && side !== 'corner') {
         mark.hidden = false;
-        // Чистый CSS-закрас по цвету фишки (градиентные PNG давали кривой blob)
-        mark.style.backgroundImage = '';
-        mark.classList.toggle('cell__owner--mortgaged', mortgaged);
+        mark.style.backgroundImage = `url("${this.ownershipAsset(owner.id, side, mortgaged)}")`;
       }
 
       const lock = cellEl.querySelector(`[data-lock="${cellId}"]`);

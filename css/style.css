@@ -350,21 +350,15 @@ button, input, select { font-family: inherit; }
   outline: none;
 }
 
-/* Маркер владения — ровная заливка цветом фишки внутри клетки */
+/* Маркер владения — градиент 65×123 (бок 123×65), на всю клетку */
 .cell__owner {
   position: absolute;
-  inset: 3px;
+  inset: 0;
   z-index: 1;
   pointer-events: none;
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--owner-color, #e11d48) 40%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--owner-color, #e11d48) 55%, transparent);
-}
-
-.cell__owner--mortgaged,
-.cell--mortgaged .cell__owner {
-  background: rgba(20, 14, 10, 0.45);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
 }
 
 .cell__lock {
