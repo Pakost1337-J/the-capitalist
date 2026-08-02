@@ -5,13 +5,13 @@ const DEG = Math.PI / 180;
 const SIZE = 1;
 
 const TOP_EULER = {
-  // Какая грань смотрит вверх (+Y) при камере сверху
-  1: [90 * DEG, 0, 0],
+  // Which face points up (+Y) under top-down camera
+  1: [-90 * DEG, 0, 0],
   2: [0, 0, 0],
   3: [0, 0, 90 * DEG],
   4: [0, 0, -90 * DEG],
   5: [180 * DEG, 0, 0],
-  6: [-90 * DEG, 0, 0],
+  6: [90 * DEG, 0, 0],
 };
 
 const PIP_LAYOUT = {
@@ -119,7 +119,7 @@ function makeDieMesh() {
 
 function finalQuat(value, twistZ = 0) {
   const [x, y, z] = TOP_EULER[clampDie(value)] || TOP_EULER[1];
-  // Сначала кладём нужную грань вверх, затем крутим вокруг мирового +Y (не ломая грань)
+  // Put target face up, then twist around world +Y
   const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z, 'XYZ'));
   if (twistZ) {
     const twist = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), twistZ);

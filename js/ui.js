@@ -128,8 +128,8 @@ export class UI {
     const colCss = colTracks.map((px) => `${px}px`).join(' ');
     const rowCss = rowTracks.map((px) => `${px}px`).join(' ');
 
-    // Чёрное отверстие в board-frame.png (1024×698) — +1px, чтобы не было щелей
-    const HOLE = { l: 148, t: 149, r: 876, b: 550 };
+    // Центральная кожа в board-frame.png (после inset −2px / радиус 6)
+    const HOLE = { l: 149, t: 150, r: 874, b: 548 };
     const holeL = Math.round(HOLE.l * sx);
     const holeT = Math.round(HOLE.t * sy);
     const holeR = Math.round((IMG_W - HOLE.r) * sx);

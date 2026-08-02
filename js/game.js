@@ -1077,14 +1077,7 @@ export class GameEngine {
       return;
     }
 
-    // Акции покупаются перед броском; бот докупает в конце хода
-    if (p.isBot) {
-      const buildable = this.getBuildableProperties(p.id);
-      const cellId = buildable[0];
-      if (cellId != null && p.money >= getCell(cellId).houseCost + 150_000) {
-        this.buildHouse(cellId);
-      }
-    }
+    // Акции бот берёт перед броском (server/bot.js) — как игрок
     this.advanceAfterTurnActions();
   }
 

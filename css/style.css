@@ -368,13 +368,13 @@ button, input, select { font-family: inherit; }
   box-sizing: border-box;
 }
 
-/* Центр — UI поверх кожи, уже нарисованной в board-frame.png */
+/* Центр — UI поверх кожи; лёгкая тень «контейнера» на дерево */
 .board__center {
   position: absolute;
   left: var(--hole-l, 149px);
   top: var(--hole-t, 150px);
-  right: var(--hole-r, 149px);
-  bottom: var(--hole-b, 149px);
+  right: var(--hole-r, 150px);
+  bottom: var(--hole-b, 150px);
   width: auto;
   height: auto;
   margin: 0;
@@ -382,14 +382,16 @@ button, input, select { font-family: inherit; }
   grid-column: unset;
   background: transparent;
   border: none;
-  box-shadow: none;
+  box-shadow:
+    0 2px 6px rgba(20, 10, 6, 0.35),
+    0 1px 2px rgba(0, 0, 0, 0.22);
   display: flex;
   align-items: stretch;
   justify-content: stretch;
   overflow: hidden;
   min-width: 0;
   min-height: 0;
-  border-radius: 0;
+  border-radius: 6px;
   z-index: 0;
   pointer-events: none;
   box-sizing: border-box;
@@ -990,18 +992,19 @@ button, input, select { font-family: inherit; }
   transition: transform 0.55s cubic-bezier(0.4, 0.05, 0.2, 1), opacity 0.55s ease;
 }
 
-/* ── Hub: меню по центру кожи, чат поверх справа ── */
+/* ── Hub: кости/кнопки слева, чат справа ── */
 .hub {
   position: relative;
   flex: 1;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: stretch;
   min-width: 0;
   min-height: 0;
   width: 100%;
   height: 100%;
   padding: clamp(8px, 1.2vw, 14px);
+  gap: clamp(8px, 1.2vw, 14px);
   color: var(--ink-soft);
   overflow: hidden;
   font-family: var(--font);
@@ -1011,12 +1014,9 @@ button, input, select { font-family: inherit; }
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
-  width: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* Место справа под чат, но контент арены центрируется по всей ширине */
-  padding-right: 0;
 }
 
 .hub__arena {
@@ -1676,8 +1676,8 @@ button, input, select { font-family: inherit; }
 }
 
 .flip-timer__digit {
-  --flip-w: 1.35em;
-  --flip-h: 1.7em;
+  --flip-w: 1.4em;
+  --flip-h: 1.85em;
   position: relative;
   width: var(--flip-w);
   height: var(--flip-h);
@@ -1713,34 +1713,43 @@ button, input, select { font-family: inherit; }
   right: 0;
   height: 50%;
   overflow: hidden;
-  display: flex;
-  justify-content: center;
   z-index: 1;
   pointer-events: none;
 }
 
 .flip-timer__top {
   top: 0;
-  align-items: flex-start;
   background: linear-gradient(180deg, #3a3a3a 0%, #262626 100%);
   border-radius: 4px 4px 0 0;
 }
 
 .flip-timer__bottom {
   bottom: 0;
-  align-items: flex-end;
   background: linear-gradient(180deg, #1a1a1a 0%, #111 100%);
   border-radius: 0 0 4px 4px;
 }
 
+/* Цифра на всю высоту плитки; половинки клипят верх/низ без flex-end */
 .flip-timer__top > *,
 .flip-timer__bottom > *,
 .flip-timer__flap-front > *,
 .flip-timer__flap-back > * {
-  display: block;
+  position: absolute;
+  left: 0;
+  right: 0;
   height: var(--flip-h);
   line-height: var(--flip-h);
   text-align: center;
+}
+
+.flip-timer__top > *,
+.flip-timer__flap-front > * {
+  top: 0;
+}
+
+.flip-timer__bottom > *,
+.flip-timer__flap-back > * {
+  top: calc(var(--flip-h) / -2);
 }
 
 .flip-timer__digit::after {
@@ -1771,40 +1780,20 @@ button, input, select { font-family: inherit; }
 .flip-timer__flap-back {
   position: absolute;
   inset: 0;
-  display: flex;
-  justify-content: center;
   overflow: hidden;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
 
 .flip-timer__flap-front {
-  align-items: flex-start;
   background: linear-gradient(180deg, #404040 0%, #2a2a2a 100%);
   border-radius: 4px 4px 0 0;
 }
 
 .flip-timer__flap-back {
-  align-items: flex-end;
   background: linear-gradient(180deg, #222 0%, #141414 100%);
   border-radius: 0 0 4px 4px;
   transform: rotateX(180deg);
-}
-
-.flip-timer__flap-back > * {
-  transform: translateY(-50%);
-}
-
-.flip-timer__top > * {
-  transform: translateY(0);
-}
-
-.flip-timer__bottom > * {
-  transform: translateY(-50%);
-}
-
-.flip-timer__flap-front > * {
-  transform: translateY(0);
 }
 
 @keyframes flip-timer-leaf {
@@ -2013,24 +2002,22 @@ button, input, select { font-family: inherit; }
 }
 
 .hub__chat {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  flex: 0 0 clamp(180px, 28%, 260px);
+  min-width: 160px;
+  max-width: 280px;
+  align-self: stretch;
   z-index: 6;
-  width: clamp(168px, 28%, 260px);
   display: flex;
   flex-direction: column;
   min-height: 0;
   gap: 10px;
-  padding: clamp(10px, 1.4vw, 16px) clamp(10px, 1.2vw, 14px);
-  /* Как осветление по центру, но затемнение справа — без «окошка» */
+  padding: clamp(8px, 1.2vw, 12px);
+  /* Затемнение без жёсткой рамки */
   background:
-    radial-gradient(120% 90% at 100% 50%, rgba(20, 12, 8, 0.55) 0%, rgba(20, 12, 8, 0.28) 42%, transparent 72%);
+    radial-gradient(120% 90% at 80% 50%, rgba(20, 12, 8, 0.42) 0%, rgba(20, 12, 8, 0.18) 48%, transparent 78%);
   border: none;
   border-radius: 0;
   box-shadow: none;
-  pointer-events: auto;
 }
 
 .hub__chat-messages {
