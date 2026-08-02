@@ -134,6 +134,13 @@ export class UI {
     const colCss = colTracks.map((px) => `${px}px`).join(' ');
     const rowCss = rowTracks.map((px) => `${px}px`).join(' ');
 
+    // Чёрное отверстие в board-frame.png (1024×698) — +1px, чтобы не было щелей
+    const HOLE = { l: 148, t: 149, r: 876, b: 550 };
+    const holeL = Math.round(HOLE.l * sx);
+    const holeT = Math.round(HOLE.t * sy);
+    const holeR = Math.round((IMG_W - HOLE.r) * sx);
+    const holeB = Math.round((IMG_H - HOLE.b) * sy);
+
     const root = document.documentElement;
     const apply = (el) => {
       if (!el) return;
@@ -147,6 +154,10 @@ export class UI {
       el.style.setProperty('--cell-h', `${cellH}px`);
       el.style.setProperty('--logo-w', `${logoW}px`);
       el.style.setProperty('--logo-h', `${logoH}px`);
+      el.style.setProperty('--hole-l', `${holeL}px`);
+      el.style.setProperty('--hole-t', `${holeT}px`);
+      el.style.setProperty('--hole-r', `${holeR}px`);
+      el.style.setProperty('--hole-b', `${holeB}px`);
     };
     apply(root);
     apply(this.boardEl);
