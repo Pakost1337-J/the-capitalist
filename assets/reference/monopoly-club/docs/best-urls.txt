@@ -1,0 +1,29 @@
+# Best working asset URLs (Wayback id_ raw)
+
+Board:
+https://web.archive.org/web/20201216205919id_/https://monopoly-club.com/images/board.png
+https://web.archive.org/web/20201216205915id_/https://monopoly-club.com/images/board-center.png
+
+UI leather/wood:
+https://web.archive.org/web/20201216205922id_/https://monopoly-club.com/images/leather.png
+https://web.archive.org/web/20201216210813id_/https://monopoly-club.com/images/leather-circle.png?3
+https://web.archive.org/web/20201216205929id_/https://monopoly-club.com/images/table.png
+https://web.archive.org/web/20201216205936id_/https://monopoly-club.com/images/player_places/4x3/woodenShelf.png
+https://web.archive.org/web/20201216205925id_/https://monopoly-club.com/images/bg.jpg
+https://web.archive.org/web/20201216205932id_/https://monopoly-club.com/images/lights.png
+
+Logos:
+https://web.archive.org/web/20201216210300id_/https://monopoly-club.com/images/logo_300x300.png
+https://web.archive.org/web/20201216210229id_/https://monopoly-club.com/images/logo_red.png?3
+https://web.archive.org/web/20201216205748id_/https://monopoly-club.com/images/cover.jpg
+https://web.archive.org/web/20130428053139id_/http://monopoly-club.ru/images/monopoly_logo.png
+
+Chips:
+https://web.archive.org/web/20201216205943id_/https://monopoly-club.com/images/chips/chip_blue_norefl.png
+(and green/pink/red/yellow variants)
+
+CSS bundle:
+https://web.archive.org/web/20201216210025id_/https://monopoly-club.com/min/?a=1604575860&f=/fonts/ptnarrow/stylesheet.css,/fonts/font-awesome/css/font-awesome.min.css,/fonts/stamper/stylesheet.css,/fonts/icomoon/style.css,/libraries/swiper/swiper.css,/libraries/introtour/intro.css,/libraries/fancybox/jquery.fancybox.css,/css/animate.css,/libraries/select2/select2.css,/libraries/simplebar/simplebar.css,/css/diagram.css,/css/dashboard.css,/libraries/tooltipster/tooltipster.css,/libraries/datepicker/DateTimePicker.css,/libraries/toastr/toastr.css,/libraries/typeahead/typeahead.css,/libraries/morph/css/component.css,/css/main.css,/css/hall.css,/css/field_new.css
+
+Archived EN homepage (contains rules + board DOM + company descriptions):
+https://web.archive.org/web/20240111155657id_/http://en.monopoly-club.com/

@@ -1,0 +1,227 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HEAD>
+<TITLE>Monopoly Club - онлайн версия настольной игры "Монополия". Online игра "Монополия" - Играть</TITLE>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1251">
+<meta http-equiv="Last-Modified" content="Wed, 8 Jun 2011 11:00:00 GMT">
+<meta name="Description" content="Браузерная реализация знаменитой настольной игры МОНОПОЛИЯ. Играйте с друзьями или присоединяйтесь к новой компании в Monopoly Club!">
+<meta name='yandex-verification' content='64cc1e458be5d179' />
+<script language="javascript" src="scripts/flash/swfobject.js" type="text/javascript"></script>
+<script language="javascript" src="scripts/jquery.js" type="text/javascript"></script>
+<link rel="stylesheet" href="styles/hall.css" media="all" type="text/css">
+<link rel="image_src" href="/images/monopoly-club.jpg">
+<link rel="SHORTCUT ICON" href="/favicon.ico">
+<script type="text/javascript">
+function getClientWidth() {
+	return document.compatMode=='CSS1Compat' || !window.opera?document.documentElement.clientWidth:document.body.clientWidth;
+}
+function getClientHeight() {
+	return document.compatMode=='CSS1Compat' || !window.opera?document.documentElement.clientHeight:document.body.clientHeight;
+}
+function setTrueHeight() {
+	trueheight = Math.round(getClientWidth()*1.0703125); // здесь можно вставить любую функцию рассчитывающую высоту блока
+	document.getElementById("flashcontent").style.height = (trueheight) + "px";
+}
+function vkontakte(){
+	windowObjectReference = window.open('http://vkontakte.ru/share.php?url=http://monopoly-club.ru', 'vkontakte', 'width=626, height=436');
+}
+function facebook(){
+	windowObjectReference = window.open('http://www.facebook.com/sharer.php?u=http://monopoly-club.ru', 'facebook', 'width=626, height=436');
+}
+function odnoklassniki(){
+	windowObjectReference = window.open('http://www.odnoklassniki.ru/dk?st.cmd=addShare&amp;st.s=1&amp;st._surl=http://monopoly-club.ru', 'odnoklassniki', 'width=626, height=436');
+}
+function twitter(){
+	windowObjectReference = window.open('http://twitter.com/intent/tweet?original_referer=http://monopoly-club.ru/&source=tweetbutton&text=Monopoly Club - РѕРЅР»Р°Р№РЅ РІРµСЂСЃРёСЏ РЅР°СЃС‚РѕР»СЊРЅРѕР№ РёРіСЂС‹ РњРѕРЅРѕРїРѕР»РёСЏ&url=http://monopoly-club.ru/&via=MedvedevRussia', 'twitter', 'width=626, height=436');
+}
+function livejournal(){
+	windowObjectReference = window.open('http://www.livejournal.com/update.bml?event=http://monopoly-club.ru&subject=РёРіСЂР°РµРј РІ РњРѕРЅРѕРїРѕР»РёСЋ РѕРЅР»Р°Р№РЅ', 'livejournal', 'width=626, height=436');
+}
+
+</script>
+<script type="text/javascript">
+function scrollWindow(num){
+	window.scrollBy(0, num);
+}
+</script>
+<script language="javascript">
+function setCookie (name, value, expires, path, domain, secure) {
+      document.cookie = name + "=" + escape(value) +
+        ((expires) ? "; expires=" + expires : "") +
+        ((path) ? "; path=" + path : "") +
+        ((domain) ? "; domain=" + domain : "") +
+        ((secure) ? "; secure" : "");
+}
+</script>
+</HEAD>
+<body height="100%" valign="top" align="center" cellpadding="0" cellspacing="0" onResize="setTrueHeight();">
+<table width="100%" height="100%" align="center" cellpadding="0" cellspacing="0">
+<tr>
+<td width="100%" height="100%" align="center" id="flashID">
+                        <div id="flashcontent" style="width:100%; height:100%;">
+                        	<table width=100% valign=top>
+        <tr>
+        	<td width=100% valign=top align=center>
+                	<img src="/images/header.jpg" width=100% alt="" border=0></a>
+                </td>
+	</tr>
+        <tr>
+        	<td valign=top align=center>
+                	<table width=100% align=center cellpadding=0 cellspacing=0>
+                        	<tr>
+                                        <td align=center>
+                                        	<a href="http://monopoly-club.ru/" title="Играть в Монополию онлайн">Играть</a>
+                                        </td>
+                                        <td align=center>
+                                        	<a href="/watch/" title="Наблюдать за играми в Монополию">Наблюдать за играми</a>
+                                        </td>
+                                        <td align=center>
+                                        	<a href="/help/" title="Помощь / F.A.Q.">Помощь / F.A.Q.</a>
+                                        </td>
+                                        <td align=center>
+                                        	<a href="/rules/" title="Правила Monopoly Club">Правила Клуба</a>
+                                        </td>
+                                        <td align=center>
+                                        	<a href="/partnership/" title="Партнёрская программа Monopoly Club">Партнёрская программа</a>
+                                        </td>
+                                        <td align=center>
+                                        	<a href="/feedback/" title="Связаться с нами">Обратная связь</a>
+                                        </td>
+                                        <td align=center>
+                                        	<a href="/signup/" title="Быстрая регистрация в Monopoly Club">Регистрация</a>
+                                        </td>
+                                </tr>
+                        </table>
+                </td>
+	</tr>
+        <tr>
+        	<td align=left style="line-height:20px;padding:35px 50px 0 50px;COLOR:#252525;FONT-WEIGHT:bold;FONT-SIZE: 12px !important;FONT-FAMILY: Arial, Helvetica, Verdana, Tahoma;">
+                	<table>
+                        	<tr>
+                                	<td>
+						<h1>Играть</h1>
+			                	<noindex>Для полнофункциональной работы нашего сайта, необходим плагин Adobe Flash Player, версии не ниже 8<br>
+			                        Хотите <a href="http://get.adobe.com/ru/flashplayer/" target=_blank>установить Adobe Flash Player</a> бесплатно прямо сейчас?<br><br>
+			                	<a href="http://get.adobe.com/ru/flashplayer/" target=_blank title="установить Adobe Flash Player"><img src="/images/get_adobe_flash_player.png" width="158" height="39" alt="установить Adobe Flash Player" border=0></a>
+						</noindex>
+                                        </td>
+                                </tr>
+                        </table>
+                </td>
+        </tr>
+        <tr>
+<td class="text_about" valign="top" style="padding:50px;">
+<div class="text_about">
+        <table cellpadding="0" cellspacing="0" valign="top">
+                <tr>
+                	<td align="left" style="line-height:12px; font-size:14px; font-weight:bold; font-family:arial; color:#777777;">
+                            <h1>МОНОПОЛИЯ ОНЛАЙН</h1>
+                	</td>
+                </tr>
+                <tr>
+                        <td align=left style="line-height:20px;padding:25px 50px 0 50px;COLOR:#252525;FONT-SIZE: 12px !important;FONT-FAMILY: Arial, Helvetica, Verdana, Tahoma;">
+Придумал игру «Монополия» Чарльз Дэрроу, который предложил свою идею компании «Parker Brothers» в 1935г.
+Это была игра THE MONOPOLY. После чего началось стремительное завоевание «Монополией» всего мира.
+Эта интеллектуальная игра обучает торговле недвижимостью и обращению с накопленным капиталом.
+Настольная игра монополия продается более чем в 80 странах мира и переведена на 26 языков.
+Предоставленная Monopoly-Club игра монополия онлайн сделана на современный манер и во многом отличается от классической настольной,
+но не утратила смысла и принципа классической версии:<br><br>
+<b>«Магия "Монополии" заключается в возможности начисто разорить своего лучшего друга без
+причинения ему реального вреда».</b>
+<p align="right"><i>Эдвард П. Паркер (Edward P. Parker)</i></p>
+
+В наши дни существует несколько версий игры монополия: экономическая игра MONOPOLY, игра "Менеджер", игра "Капитал" и другие.<br>
+Монополия онлайн позволит вам играть, не отрываясь от работы, найти чем заняться в свободное время, общаться в хорошей компании.
+Monopoly-Club предлагает вам бесплатную версию игры монополия онлайн, созданную с использованием новейших флеш-технологий, что позволило
+сделать работу игры максимально стабильной, бесперебойной, скоростной, удобной и не «поедающей» трафик (расход трафика не более чем на ICQ).
+Мы не предлагаем вам скачать монополию – играть можно находясь на сайте.
+<br><br>
+<i>Коротко расскажем о правилах игры:</i><br>
+Вы передвигаетесь по игровому кругу, согласно выпавшим кубикам, по очереди со своими реальными соперниками.
+Попадая на игровое поле, вы покупаете его, либо выплачиваете гонорар владельцу если поле уже куплено.
+Важную роль играют переговоры и совершаемые между игроками сделки, условия которых практически не ограничены.
+Ваша задача завладеть «монополией» - группой компаний одного государства и приобретать дополнительные пакеты акций
+своих компаний, с каждым пакетом акций проход по вашему полю конкурентами будет приносить вам в несколько раз большую прибыль.
+Следуйте инструкциям электронного помощника, он вам расскажет необходимые детали.
+Каждый раз, играя в монополию онлайн, вы будете приобретать все больше и больше финансовых навыков, и всякий раз будете находить ее разной.
+Динамика игры и ее длительность непредсказуема - зависит от количества участников и от их характера.
+Некоторые, играя в монополию онлайн, быстро сдаются - как только почувствовали, что игра складывается не в их пользу,
+хотя в большинстве случаев это заблуждение.
+Другие борятся до конца, даже если на первый взгляд ситуация кажется безнадежной.
+Помните, что в монополии-онлайн как и в классической настольной, игровое преимущество может меняться до нескольких раз за партию.
+Теперь вы можете полностью погрузиться в атмосферу мирового бизнеса,
+стать успешным капиталистом и вести здоровую борьбу со своими соперниками до победного конца.
+
+                        </td>
+                </tr>
+        </table>
+</div>
+</td>
+</tr>
+</table>
+                        </div>
+                        <script type="text/javascript">
+                        var so = new SWFObject("swf/hall_classic.swf?v45","hall_classic","100%","100%","8","#b6b0ae");
+                        so.addParam("quality", "high");
+                        so.addParam("menu", "false");
+                        so.addParam("allowFullScreen", "true");
+                        so.addVariable("cl_height", Math.round(getClientHeight()));
+                        so.addVariable("nickname", "");
+        		   so.addVariable("myname", "");
+        		   so.addVariable("my_id", "");
+                        so.addVariable("games", "");
+                        so.addVariable("wins", "");
+                        so.addVariable("vips", "");
+                        so.addVariable("vipwins", "");
+                        so.addVariable("capital", "");
+                        so.addVariable("vipcapital", "");
+                        so.addVariable("creds", "");
+                        so.addVariable("bal", "");
+                        so.addVariable("rating", "");
+                        so.addVariable("vip", "");
+                        so.addVariable("warnings", "");
+                        so.addVariable("page", "");
+                        so.addVariable("assist_state", "");
+                        so.addVariable("p", "");
+                        so.addVariable("ingame", "");
+                        so.addVariable("my_status", "");
+                        so.addVariable("last_msg", "");
+                        so.addVariable("myColor", "");
+                        so.addVariable("sound", "");
+so.addVariable("name1", "La_na");so.addVariable("money1", "6880823721");so.addVariable("id1", "141778");so.addVariable("name2", "Len4ik");so.addVariable("money2", "6412950900");so.addVariable("id2", "1539");so.addVariable("name3", "OO1");so.addVariable("money3", "5539232543");so.addVariable("id3", "167");so.addVariable("name4", "Natalisa17");so.addVariable("money4", "4691379599");so.addVariable("id4", "14939");so.addVariable("name5", "Fedor-mukhamet");so.addVariable("money5", "4441652900");so.addVariable("id5", "22813");so.addVariable("w_name6", "Tresk");so.addVariable("w_money6", "101233000");so.addVariable("w_id6", "199089");so.addVariable("w_name7", "Niil");so.addVariable("w_money7", "88086000");so.addVariable("w_id7", "30997");so.addVariable("w_name8", "Torsida");so.addVariable("w_money8", "83346000");so.addVariable("w_id8", "11274");so.addVariable("w_name9", "Darya");so.addVariable("w_money9", "73105000");so.addVariable("w_id9", "117235");so.addVariable("w_name10", "V_obraze");so.addVariable("w_money10", "72011000");so.addVariable("w_id10", "168601");so.addVariable("chats", "19");so.addVariable("serv_hour", "9");so.addVariable("mess1", "мы вдвоём были");so.addVariable("author1", "Fedor-mukhamet");so.addVariable("colour1", "0000ff");so.addVariable("hour1", "9");so.addVariable("mins1", "36:41");so.addVariable("mess2", "с женой?");so.addVariable("author2", "Jonidepp");so.addVariable("colour2", "007711");so.addVariable("hour2", "9");so.addVariable("mins2", "36:57");so.addVariable("mess3", "русю ждали-не приехал");so.addVariable("author3", "Fedor-mukhamet");so.addVariable("colour3", "0000ff");so.addVariable("hour3", "9");so.addVariable("mins3", "37:02");so.addVariable("mess4", "конечно ))");so.addVariable("author4", "Fedor-mukhamet");so.addVariable("colour4", "0000ff");so.addVariable("hour4", "9");so.addVariable("mins4", "37:18");so.addVariable("mess5", "вот он редиска...работал что ли?=)");so.addVariable("author5", "Jonidepp");so.addVariable("colour5", "007711");so.addVariable("hour5", "9");so.addVariable("mins5", "37:26");so.addVariable("mess6", "он с ночи");so.addVariable("author6", "Fedor-mukhamet");so.addVariable("colour6", "0000ff");so.addVariable("hour6", "9");so.addVariable("mins6", "37:36");so.addVariable("mess7", "ну тогда понятно");so.addVariable("author7", "Jonidepp");so.addVariable("colour7", "007711");so.addVariable("hour7", "9");so.addVariable("mins7", "37:45");so.addVariable("mess8", "и в ночь");so.addVariable("author8", "Fedor-mukhamet");so.addVariable("colour8", "0000ff");so.addVariable("hour8", "9");so.addVariable("mins8", "37:48");so.addVariable("mess9", "график такой");so.addVariable("author9", "Fedor-mukhamet");so.addVariable("colour9", "0000ff");so.addVariable("hour9", "9");so.addVariable("mins9", "38:04");so.addVariable("mess10", "6 ночей");so.addVariable("author10", "Fedor-mukhamet");so.addVariable("colour10", "0000ff");so.addVariable("hour10", "9");so.addVariable("mins10", "38:12");so.addVariable("mess11", "безумный график=)");so.addVariable("author11", "Jonidepp");so.addVariable("colour11", "007711");so.addVariable("hour11", "9");so.addVariable("mins11", "38:14");so.addVariable("mess12", "))сам искал ");so.addVariable("author12", "Fedor-mukhamet");so.addVariable("colour12", "0000ff");so.addVariable("hour12", "9");so.addVariable("mins12", "38:25");so.addVariable("mess13", "вот же охота ему=)");so.addVariable("author13", "Jonidepp");so.addVariable("colour13", "007711");so.addVariable("hour13", "9");so.addVariable("mins13", "38:48");so.addVariable("mess14", "там работал 3 дня-плохо было ))");so.addVariable("author14", "Fedor-mukhamet");so.addVariable("colour14", "0000ff");so.addVariable("hour14", "9");so.addVariable("mins14", "38:51");so.addVariable("mess15", "наливай что ли");so.addVariable("author15", "Jonidepp");so.addVariable("colour15", "007711");so.addVariable("hour15", "9");so.addVariable("mins15", "39:49");so.addVariable("mess16", "народу маловато");so.addVariable("author16", "Fedor-mukhamet");so.addVariable("colour16", "0000ff");so.addVariable("hour16", "9");so.addVariable("mins16", "40:17");so.addVariable("mess17", "да наберем потихоньку");so.addVariable("author17", "Jonidepp");so.addVariable("colour17", "007711");so.addVariable("hour17", "9");so.addVariable("mins17", "41:13");so.addVariable("mess18", "Tory_ten, Tory_ten, Tory_ten, ");so.addVariable("author18", "Fedor-mukhamet");so.addVariable("colour18", "0000ff");so.addVariable("hour18", "9");so.addVariable("mins18", "42:52");so.addVariable("mess19", "Tory_ten, кудыы ))");so.addVariable("author19", "Fedor-mukhamet");so.addVariable("colour19", "0000ff");so.addVariable("hour19", "9");so.addVariable("mins19", "43:13");
+                        so.write("flashcontent");
+                        </script>
+</td>
+</tr>
+<tr>
+	<td valign=bottom style="display:none;">
+                	<table valign=bottom>
+                        	<tr>
+                                	<td style="display:none;">
+<!--LiveInternet counter--><script type="text/javascript"><!--
+document.write("<a href='http://www.liveinternet.ru/click' "+
+"target=_blank><img src='http://counter.yadro.ru/hit?t18.5;r"+
+escape(document.referrer)+((typeof(screen)=="undefined")?"":
+";s"+screen.width+"*"+screen.height+"*"+(screen.colorDepth?
+screen.colorDepth:screen.pixelDepth))+";u"+escape(document.URL)+
+";"+Math.random()+
+"' alt='' title='LiveInternet: показано число просмотров за 24"+
+" часа, посетителей за 24 часа и за сегодня' "+
+"border='0' width='88' height='31'><\/a>")
+//--></script><!--/LiveInternet-->
+
+<!-- Yandex.Metrika -->
+<script src="//mc.yandex.ru/metrika/watch.js" type="text/javascript"></script>
+<script type="text/javascript">
+try { var yaCounter630147 = new Ya.Metrika(630147); } catch(e){}
+</script>
+<noscript><img src="//mc.yandex.ru/watch/630147" style="position:absolute" alt="" /></noscript>
+<!-- /Yandex.Metrika -->
+                                        </td>
+                                </tr>
+                        </table>
+        </td>
+</tr>
+</table>
+</body>
+</html>
+

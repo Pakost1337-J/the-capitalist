@@ -1,0 +1,2 @@
+https://monopoly-club.com/js 20221026100938 text/html 301
+https://monopoly-club.com/js/jquery/jquery.min.js 20201216210018 application/javascript 200

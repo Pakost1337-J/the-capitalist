@@ -407,6 +407,14 @@ export class UI {
     return el;
   }
 
+  tokenImgHtml(p) {
+    const img = resolveIconSrc(p.tokenImage || '');
+    if (img) {
+      return `<div class="token token--img p-card__token" title="${escapeHtml(p.name)}" style="--token-color: ${p.color}"><img src="${img}" alt="" /></div>`;
+    }
+    return `<div class="token p-card__token" title="${escapeHtml(p.name)}" style="--token-color: ${p.color}"><span class="token__ring"></span><span class="token__core"></span></div>`;
+  }
+
   getCellPoint(index, stackIndex = 0, stackCount = 1) {
     const cell = this.cells[index];
     if (!cell || !this.boardEl) return { x: 0, y: 0 };
@@ -561,9 +569,7 @@ export class UI {
             <div class="p-card__name">${escapeHtml(p.name)}</div>
             <div class="p-card__badge">${p.isBot ? 'Бот' : (p.id === this.mySlot ? 'Вы' : 'Игрок')}${p.inJail ? ' · тюрьма' : ''}</div>
           </div>
-          <div class="token p-card__token" title="${escapeHtml(p.name)}" style="--token-color: ${p.color}">
-            <span class="token__ring"></span><span class="token__core"></span>
-          </div>
+          ${this.tokenImgHtml(p)}
           <div class="p-card__rows">
             <div><span>Баланс</span><strong class="money">${formatMoney(p.money)}</strong></div>
             <div><span>Капитал</span><strong>${formatMoney(capital)}</strong></div>

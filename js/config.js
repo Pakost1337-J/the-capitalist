@@ -17,11 +17,11 @@ export const BOARD_COLS = 13;
 export const BOARD_ROWS = 9;
 
 export const PLAYER_SLOTS = [
-  { id: 0, name: 'Красная', color: '#e11d48', colorSoft: '#fecdd3', token: 'pawn', tokenImage: '' },
-  { id: 1, name: 'Синяя', color: '#2563eb', colorSoft: '#bfdbfe', token: 'pawn', tokenImage: '' },
-  { id: 2, name: 'Жёлтая', color: '#ca8a04', colorSoft: '#fef08a', token: 'pawn', tokenImage: '' },
-  { id: 3, name: 'Зелёная', color: '#16a34a', colorSoft: '#bbf7d0', token: 'pawn', tokenImage: '' },
-  { id: 4, name: 'Розовая', color: '#db2777', colorSoft: '#fbcfe8', token: 'pawn', tokenImage: '' },
+  { id: 0, name: 'Красная', color: '#e11d48', colorSoft: '#fecdd3', token: 'pawn', tokenImage: '/assets/chips/chip_red_norefl.png' },
+  { id: 1, name: 'Синяя', color: '#2563eb', colorSoft: '#bfdbfe', token: 'pawn', tokenImage: '/assets/chips/chip_blue_norefl.png' },
+  { id: 2, name: 'Жёлтая', color: '#ca8a04', colorSoft: '#fef08a', token: 'pawn', tokenImage: '/assets/chips/chip_yellow_norefl.png' },
+  { id: 3, name: 'Зелёная', color: '#16a34a', colorSoft: '#bbf7d0', token: 'pawn', tokenImage: '/assets/chips/chip_green_norefl.png' },
+  { id: 4, name: 'Розовая', color: '#db2777', colorSoft: '#fbcfe8', token: 'pawn', tokenImage: '/assets/chips/chip_pink_norefl.png' },
 ];
 
 export const GROUP_COLORS = {
@@ -79,7 +79,7 @@ export const BOARD = [
   { id: 2, type: 'property', name: 'Alibaba', brand: 'Alibaba', country: 'CN', flag: '🇨🇳', group: 'cn', price: 200, houseCost: 100, rent: [16, 80, 220, 600, 800, 1000] },
   { id: 3, type: 'property', name: 'BP', brand: 'BP', country: 'GB', flag: '🇬🇧', group: 'gb', price: 60, houseCost: 50, rent: [4, 20, 60, 180, 320, 450] },
   { id: 4, type: 'property', name: 'BBC', brand: 'BBC', country: 'GB', flag: '🇬🇧', group: 'gb', price: 80, houseCost: 50, rent: [6, 30, 90, 270, 400, 550] },
-  { id: 5, type: 'chance', name: 'ФОРС МАЖОР', icon: '⚠', brand: 'FM', country: '', flag: '' },
+  { id: 5, type: 'forcemajeure', name: 'ФОРС МАЖОР', icon: '⚠', brand: 'FM', country: '', flag: '' },
   { id: 6, type: 'property', name: 'Samsung', brand: 'Samsung', country: 'KR', flag: '🇰🇷', group: 'kr', price: 150, houseCost: 100, rent: [12, 60, 180, 500, 700, 900] },
   { id: 7, type: 'chance', name: 'ШАНС', icon: '?', brand: '?', country: '', flag: '' },
   { id: 8, type: 'property', name: 'Danone', brand: 'Danone', country: 'FR', flag: '🇫🇷', group: 'fr', price: 100, houseCost: 50, rent: [8, 40, 100, 300, 450, 600] },
@@ -92,7 +92,7 @@ export const BOARD = [
   { id: 13, type: 'property', name: 'IKEA', brand: 'IKEA', country: 'SE', flag: '🇸🇪', group: 'se', price: 140, houseCost: 100, rent: [10, 50, 150, 450, 625, 750] },
   { id: 14, type: 'property', name: 'Volvo', brand: 'Volvo', country: 'SE', flag: '🇸🇪', group: 'se', price: 140, houseCost: 100, rent: [10, 50, 150, 450, 625, 750] },
   { id: 15, type: 'property', name: 'Armani', brand: 'Armani', country: 'IT', flag: '🇮🇹', group: 'it', price: 180, houseCost: 100, rent: [14, 70, 200, 550, 750, 950] },
-  { id: 16, type: 'tax', name: 'НАЛОГ 6%', amount: 200, icon: '%', brand: 'TAX', country: '', flag: '' },
+  { id: 16, type: 'tax', name: 'НАЛОГ 6%', taxPercent: 6, icon: '%', brand: 'TAX', country: '', flag: '' },
   { id: 17, type: 'property', name: 'Versace', brand: 'Versace', country: 'IT', flag: '🇮🇹', group: 'it', price: 180, houseCost: 100, rent: [14, 70, 200, 550, 750, 950] },
   { id: 18, type: 'property', name: 'Ferrari', brand: 'Ferrari', country: 'IT', flag: '🇮🇹', group: 'it', price: 200, houseCost: 100, rent: [16, 80, 220, 600, 800, 1000] },
   { id: 19, type: 'chance', name: 'ШАНС', icon: '?', brand: '?', country: '', flag: '' },
@@ -103,7 +103,7 @@ export const BOARD = [
   { id: 22, type: 'property', name: 'Huawei', brand: 'Huawei', country: 'CN', flag: '🇨🇳', group: 'cn', price: 200, houseCost: 100, rent: [16, 80, 220, 600, 800, 1000] },
   { id: 23, type: 'property', name: 'Canon', brand: 'Canon', country: 'JP', flag: '🇯🇵', group: 'jp', price: 220, houseCost: 150, rent: [18, 90, 250, 700, 875, 1050] },
   { id: 24, type: 'property', name: 'Toyota', brand: 'Toyota', country: 'JP', flag: '🇯🇵', group: 'jp', price: 240, houseCost: 150, rent: [20, 100, 300, 750, 925, 1100] },
-  { id: 25, type: 'chance', name: 'ФОРС МАЖОР', icon: '⚠', brand: 'FM', country: '', flag: '' },
+  { id: 25, type: 'forcemajeure', name: 'ФОРС МАЖОР', icon: '⚠', brand: 'FM', country: '', flag: '' },
   { id: 26, type: 'property', name: 'Hyundai', brand: 'Hyundai', country: 'KR', flag: '🇰🇷', group: 'kr', price: 150, houseCost: 100, rent: [12, 60, 180, 500, 700, 900] },
   { id: 27, type: 'chance', name: 'ШАНС', icon: '?', brand: '?', country: '', flag: '' },
   { id: 28, type: 'property', name: 'Siemens', brand: 'Siemens', country: 'DE', flag: '🇩🇪', group: 'de', price: 260, houseCost: 150, rent: [22, 110, 330, 800, 975, 1150] },
@@ -115,7 +115,7 @@ export const BOARD = [
   // Лево: Арест → Старт
   { id: 33, type: 'property', name: 'Nestlé', brand: 'Nestlé', country: 'CH', flag: '🇨🇭', group: 'ch', price: 320, houseCost: 200, rent: [28, 150, 450, 1000, 1200, 1400] },
   { id: 34, type: 'property', name: 'Rolex', brand: 'Rolex', country: 'CH', flag: '🇨🇭', group: 'ch', price: 320, houseCost: 200, rent: [28, 150, 450, 1000, 1200, 1400] },
-  { id: 35, type: 'tax', name: 'НАЛОГ 6%', amount: 200, icon: '%', brand: 'TAX', country: '', flag: '' },
+  { id: 35, type: 'tax', name: 'НАЛОГ 6%', taxPercent: 6, icon: '%', brand: 'TAX', country: '', flag: '' },
   { id: 36, type: 'property', name: "McDonald's", brand: "McDonald's", country: 'US', flag: '🇺🇸', group: 'us', price: 350, houseCost: 200, rent: [35, 175, 500, 1100, 1300, 1500] },
   { id: 37, type: 'property', name: 'Disney', brand: 'Disney', country: 'US', flag: '🇺🇸', group: 'us', price: 350, houseCost: 200, rent: [35, 175, 500, 1100, 1300, 1500] },
   { id: 38, type: 'property', name: 'Coca-Cola', brand: 'Coca-Cola', country: 'US', flag: '🇺🇸', group: 'us', price: 400, houseCost: 200, rent: [50, 200, 600, 1400, 1700, 2000] },
@@ -154,23 +154,31 @@ export function applyTheme(theme) {
   }
 }
 
+/** Шанс — бонусы (по правилам Monopoly Club) */
 export const CHANCE_CARDS = [
   { text: 'Банковская ошибка в вашу пользу. Получите $200 000', money: 200_000 },
-  { text: 'Оплатите штраф за превышение скорости $15 000', money: -15_000 },
-  { text: 'Вы выиграли конкурс. Получите $10 000', money: 10_000 },
+  { text: 'Вы выиграли конкурс. Получите $50 000', money: 50_000 },
   { text: 'Вы выиграли в лотерею. Получите $100 000', money: 100_000 },
-  { text: 'Заплатите медицинский сбор $50 000', money: -50_000 },
   { text: 'Получите $25 000 консультационный сбор', money: 25_000 },
   { text: 'Наследство $100 000', money: 100_000 },
   { text: 'День рождения! С каждого игрока $10 000', birthday: 10_000 },
-  { text: 'Отправляйтесь на Старт', goToStart: true },
-  { text: 'Отправляйтесь в Тюрьму', goToJail: true },
-  { text: 'Ремонт: заплатите $40 000 за каждый филиал', repairPerHouse: 40_000 },
+  { text: 'Отправляйтесь на Старт (+$200 000)', goToStart: true },
   { text: 'Продайте акции. Получите $150 000', money: 150_000 },
-  { text: 'Вернитесь на 3 клетки назад', moveBack: 3 },
   { text: 'Перейдите на Парковку', goTo: PARKING_POS },
-  { text: 'Получите $50 000', money: 50_000 },
-  { text: 'Заплатите налог $75 000', money: -75_000 },
+  { text: 'Дивиденды. Получите $75 000', money: 75_000 },
+];
+
+/** Форс-мажор — штрафы */
+export const FORCE_MAJEURE_CARDS = [
+  { text: 'Форс-мажор: штраф $50 000', money: -50_000 },
+  { text: 'Форс-мажор: штраф $100 000', money: -100_000 },
+  { text: 'Форс-мажор: штраф $150 000', money: -150_000 },
+  { text: 'Оплатите штраф за превышение $25 000', money: -25_000 },
+  { text: 'Медицинский сбор $75 000', money: -75_000 },
+  { text: 'Ремонт: $40 000 за каждый филиал', repairPerHouse: 40_000 },
+  { text: 'Отправляйтесь в Тюрьму', goToJail: true },
+  { text: 'Вернитесь на 3 клетки назад', moveBack: 3 },
+  { text: 'Налоговая проверка: заплатите $80 000', money: -80_000 },
 ];
 
 export function getCell(id) {

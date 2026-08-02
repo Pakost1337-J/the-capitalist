@@ -1,0 +1,1 @@
+﻿How to play Game rules and basic principles From 2 to 5 players inclusive can take part in one game. The winner is the last player who has not gone bankrupt. In case the last remaining two players failed to ruin each other within two hours, the winner is the player whose total capital is greater (total value of all assets and cash).

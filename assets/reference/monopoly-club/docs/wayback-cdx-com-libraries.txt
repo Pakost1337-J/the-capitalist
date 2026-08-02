@@ -1,0 +1,2 @@
+https://monopoly-club.com/libraries 20221026100959 text/html 301
+https://monopoly-club.com/libraries/simplebar/simplebar.js 20201216210022 application/javascript 200

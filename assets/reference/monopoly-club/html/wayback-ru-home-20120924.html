@@ -1,0 +1,255 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<HEAD>
+<TITLE>Monopoly Club - онлайн версия настольной игры "Монополия". Online игра "Монополия" - Играть</TITLE>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1251">
+<meta http-equiv="Last-Modified" content="Wed, 8 Jun 2011 11:00:00 GMT">
+<meta name="Description" content="Браузерная реализация знаменитой настольной игры МОНОПОЛИЯ. Играйте с друзьями или присоединяйтесь к новой компании в Monopoly Club!">
+<meta name='yandex-verification' content='64cc1e458be5d179' />
+<script language="javascript" src="scripts/flash/swfobject.js" type="text/javascript"></script>
+<script language="javascript" src="scripts/jquery.js" type="text/javascript"></script>
+<link rel="stylesheet" href="styles/hall.css" media="all" type="text/css">
+<link rel="image_src" href="/images/monopoly-club.jpg">
+<link rel="SHORTCUT ICON" href="/favicon.ico">
+<meta name="w1-verification" content="105206960048" />
+<script type="text/javascript">
+
+function getClientHeight() {
+	return document.compatMode=='CSS1Compat' || !window.opera?document.documentElement.clientHeight:document.body.clientHeight;
+}
+
+
+function getClientWidth() {
+	var cW = document.compatMode=='CSS1Compat' || !window.opera?document.documentElement.clientWidth:document.body.clientWidth;
+	if(cW > 1280){
+		cW = 1280;
+ 
+	}
+	return cW;
+}
+function setTrueHeight() {
+	trueheight = Math.round(getClientWidth()*1.0703125); // здесь можно вставить любую функцию рассчитывающую высоту блока
+	document.getElementById("flashcontent").style.height = (trueheight) + "px";
+	outScreenDiv();
+}
+function outScreenDiv(){
+	var cW = document.compatMode=='CSS1Compat' || !window.opera?document.documentElement.clientWidth:document.body.clientWidth;	
+	if(cW > 1280){
+		var cH = document.compatMode=='CSS1Compat' || !window.opera?document.documentElement.scrollHeight:document.body.scrollHeight;
+		document.getElementById("outScreen").style.height = cH+"px";
+		document.getElementById("outScreen").style.display = 'block';
+	}else{
+		document.getElementById("outScreen").style.display = 'none';
+	}
+}
+
+
+
+
+
+function vkontakte(){
+	windowObjectReference = window.open('http://vkontakte.ru/share.php?url=http://monopoly-club.ru', 'vkontakte', 'width=626, height=436');
+}
+function facebook(){
+	windowObjectReference = window.open('http://www.facebook.com/sharer.php?u=http://monopoly-club.ru', 'facebook', 'width=626, height=436');
+}
+function odnoklassniki(){
+	windowObjectReference = window.open('http://www.odnoklassniki.ru/dk?st.cmd=addShare&amp;st.s=1&amp;st._surl=http://monopoly-club.ru', 'odnoklassniki', 'width=626, height=436');
+}
+function twitter(){
+	windowObjectReference = window.open('http://twitter.com/intent/tweet?original_referer=http://monopoly-club.ru/&source=tweetbutton&text=Monopoly Club - РѕРЅР»Р°Р№РЅ РІРµСЂСЃРёСЏ РЅР°СЃС‚РѕР»СЊРЅРѕР№ РёРіСЂС‹ РњРѕРЅРѕРїРѕР»РёСЏ&url=http://monopoly-club.ru/&via=MedvedevRussia', 'twitter', 'width=626, height=436');
+}
+function livejournal(){
+	windowObjectReference = window.open('http://www.livejournal.com/update.bml?event=http://monopoly-club.ru&subject=РёРіСЂР°РµРј РІ РњРѕРЅРѕРїРѕР»РёСЋ РѕРЅР»Р°Р№РЅ', 'livejournal', 'width=626, height=436');
+}
+
+</script>
+<script type="text/javascript">
+function scrollWindow(num){
+	window.scrollBy(0, num);
+}
+</script>
+<script language="javascript">
+function setCookie (name, value, expires, path, domain, secure) {
+      document.cookie = name + "=" + escape(value) +
+        ((expires) ? "; expires=" + expires : "") +
+        ((path) ? "; path=" + path : "") +
+        ((domain) ? "; domain=" + domain : "") +
+        ((secure) ? "; secure" : "");
+}
+</script>
+</HEAD>
+<body height="100%" valign="top" align="center" cellpadding="0" cellspacing="0" onResize="setTrueHeight();" onLoad="outScreenDiv();">
+<table width="100%" height="100%" align="center" cellpadding="0" cellspacing="0">
+<tr>
+<td width="100%" height="100%" align="center" id="flashID">
+                        <div id="flashcontent" style="width:100%; height:100%;">
+                        	<table width=100% valign=top>
+        <tr>
+        	<td width=100% valign=top align=center>
+                	<img src="/images/header.jpg" width=100% alt="" border=0></a>
+                </td>
+	</tr>
+        <tr>
+        	<td valign=top align=center>
+                	<table width=100% align=center cellpadding=0 cellspacing=0>
+                        	<tr>
+                                        <td align=center>
+                                        	<a href="http://monopoly-club.ru/" title="Играть в Монополию онлайн">Играть</a>
+                                        </td>
+                                        <td align=center>
+                                        	<a href="/watch/" title="Наблюдать за играми в Монополию">Наблюдать за играми</a>
+                                        </td>
+                                        <td align=center>
+                                        	<a href="/help/" title="Помощь / F.A.Q.">Помощь / F.A.Q.</a>
+                                        </td>
+                                        <td align=center>
+                                        	<a href="/rules/" title="Правила Monopoly Club">Правила Клуба</a>
+                                        </td>
+                                        <td align=center>
+                                        	<a href="/partnership/" title="Партнёрская программа Monopoly Club">Партнёрская программа</a>
+                                        </td>
+                                        <td align=center>
+                                        	<a href="/feedback/" title="Связаться с нами">Обратная связь</a>
+                                        </td>
+                                        <td align=center>
+                                        	<a href="/signup/" title="Быстрая регистрация в Monopoly Club">Регистрация</a>
+                                        </td>
+                                </tr>
+                        </table>
+                </td>
+	</tr>
+        <tr>
+        	<td align=left style="line-height:20px;padding:35px 50px 0 50px;COLOR:#252525;FONT-WEIGHT:bold;FONT-SIZE: 12px !important;FONT-FAMILY: Arial, Helvetica, Verdana, Tahoma;">
+                	<table>
+                        	<tr>
+                                	<td>
+						<h1>Играть</h1>
+			                	<noindex>Для полнофункциональной работы нашего сайта, необходим плагин Adobe Flash Player, версии не ниже 8<br>
+			                        Хотите <a href="http://get.adobe.com/ru/flashplayer/" target=_blank>установить Adobe Flash Player</a> бесплатно прямо сейчас?<br><br>
+			                	<a href="http://get.adobe.com/ru/flashplayer/" target=_blank title="установить Adobe Flash Player"><img src="/images/get_adobe_flash_player.png" width="158" height="39" alt="установить Adobe Flash Player" border=0></a>
+						</noindex>
+                                        </td>
+                                </tr>
+                        </table>
+                </td>
+        </tr>
+        <tr>
+<td class="text_about" valign="top" style="padding:50px;">
+<div class="text_about">
+        <table cellpadding="0" cellspacing="0" valign="top">
+                <tr>
+                	<td align="left" style="line-height:12px; font-size:14px; font-weight:bold; font-family:arial; color:#777777;">
+                            <h1>МОНОПОЛИЯ ОНЛАЙН</h1>
+                	</td>
+                </tr>
+                <tr>
+                        <td align=left style="line-height:20px;padding:25px 50px 0 50px;COLOR:#252525;FONT-SIZE: 12px !important;FONT-FAMILY: Arial, Helvetica, Verdana, Tahoma;">
+Придумал игру «Монополия» Чарльз Дэрроу, который предложил свою идею компании «Parker Brothers» в 1935г.
+Это была игра THE MONOPOLY. После чего началось стремительное завоевание «Монополией» всего мира.
+Эта интеллектуальная игра обучает торговле недвижимостью и обращению с накопленным капиталом.
+Настольная игра монополия продается более чем в 80 странах мира и переведена на 26 языков.
+Предоставленная Monopoly-Club игра монополия онлайн сделана на современный манер и во многом отличается от классической настольной,
+но не утратила смысла и принципа классической версии:<br><br>
+<b>«Магия "Монополии" заключается в возможности начисто разорить своего лучшего друга без
+причинения ему реального вреда».</b>
+<p align="right"><i>Эдвард П. Паркер (Edward P. Parker)</i></p>
+
+В наши дни существует несколько версий игры монополия: экономическая игра MONOPOLY, игра "Менеджер", игра "Капитал" и другие.<br>
+Монополия онлайн позволит вам играть, не отрываясь от работы, найти чем заняться в свободное время, общаться в хорошей компании.
+Monopoly-Club предлагает вам бесплатную версию игры монополия онлайн, созданную с использованием новейших флеш-технологий, что позволило
+сделать работу игры максимально стабильной, бесперебойной, скоростной, удобной и не «поедающей» трафик (расход трафика не более чем на ICQ).
+Мы не предлагаем вам скачать монополию – играть можно находясь на сайте.
+<br><br>
+<i>Коротко расскажем о правилах игры:</i><br>
+Вы передвигаетесь по игровому кругу, согласно выпавшим кубикам, по очереди со своими реальными соперниками.
+Попадая на игровое поле, вы покупаете его, либо выплачиваете гонорар владельцу если поле уже куплено.
+Важную роль играют переговоры и совершаемые между игроками сделки, условия которых практически не ограничены.
+Ваша задача завладеть «монополией» - группой компаний одного государства и приобретать дополнительные пакеты акций
+своих компаний, с каждым пакетом акций проход по вашему полю конкурентами будет приносить вам в несколько раз большую прибыль.
+Следуйте инструкциям электронного помощника, он вам расскажет необходимые детали.
+Каждый раз, играя в монополию онлайн, вы будете приобретать все больше и больше финансовых навыков, и всякий раз будете находить ее разной.
+Динамика игры и ее длительность непредсказуема - зависит от количества участников и от их характера.
+Некоторые, играя в монополию онлайн, быстро сдаются - как только почувствовали, что игра складывается не в их пользу,
+хотя в большинстве случаев это заблуждение.
+Другие борятся до конца, даже если на первый взгляд ситуация кажется безнадежной.
+Помните, что в монополии-онлайн как и в классической настольной, игровое преимущество может меняться до нескольких раз за партию.
+Теперь вы можете полностью погрузиться в атмосферу мирового бизнеса,
+стать успешным капиталистом и вести здоровую борьбу со своими соперниками до победного конца.
+
+                        </td>
+                </tr>
+        </table>
+</div>
+</td>
+</tr>
+</table>
+                        </div>
+                        <script type="text/javascript">
+                        var so = new SWFObject("swf/hall_classic.swf?v160812","hall_classic","100%","100%","8","#b6b0ae");
+                        so.addParam("quality", "high");
+                        so.addParam("menu", "false");
+                        so.addParam("allowFullScreen", "true");
+                        so.addVariable("cl_height", Math.round(getClientHeight()));
+                        so.addVariable("nickname", "");
+        		   so.addVariable("myname", "");
+        		   so.addVariable("my_id", "");
+                        so.addVariable("games", "");
+                        so.addVariable("experience", "");
+                        so.addVariable("wins", "");
+                        so.addVariable("vips", "");
+                        so.addVariable("vipwins", "");
+                        so.addVariable("capital", "");
+                        so.addVariable("vipcapital", "");
+                        so.addVariable("creds", "");
+                        so.addVariable("bal", "");
+                        so.addVariable("rating", "");
+                        so.addVariable("vip", "");
+                        so.addVariable("warnings", "");
+                        so.addVariable("page", "");
+                        so.addVariable("assist_state", "");
+                        so.addVariable("p", "");
+                        so.addVariable("ingame", "no");
+                        so.addVariable("my_status", "");
+                        so.addVariable("last_msg", "");
+                        so.addVariable("myColor", "");
+                        so.addVariable("sound", "");
+so.addVariable("name1", "La_na");so.addVariable("money1", "8711149338");so.addVariable("id1", "141778");so.addVariable("name2", "Len4ik");so.addVariable("money2", "8481118900");so.addVariable("id2", "1539");so.addVariable("name3", "OO1");so.addVariable("money3", "6989698839");so.addVariable("id3", "167");so.addVariable("name4", "Natalisa17");so.addVariable("money4", "6208981499");so.addVariable("id4", "14939");so.addVariable("name5", "Lipetskplayer");so.addVariable("money5", "5839994141");so.addVariable("id5", "21902");so.addVariable("w_name6", "Mareychev.e");so.addVariable("w_money6", "25730000");so.addVariable("w_id6", "379599");so.addVariable("w_name7", "Ilya-999");so.addVariable("w_money7", "24808000");so.addVariable("w_id7", "815");so.addVariable("w_name8", "Zloi_bahek");so.addVariable("w_money8", "17198000");so.addVariable("w_id8", "380023");so.addVariable("w_name9", "Zebra");so.addVariable("w_money9", "16525000");so.addVariable("w_id9", "25264");so.addVariable("w_name10", "Disappointed");so.addVariable("w_money10", "15211000");so.addVariable("w_id10", "265668");so.addVariable("chats", "19");so.addVariable("serv_hour", "16");so.addVariable("mess1", "ну 1 чел за 2");so.addVariable("author1", "Lestat_27");so.addVariable("colour1", "ff0000");so.addVariable("hour1", "16");so.addVariable("mins1", "13:06");so.addVariable("mess2", " Lestat_27, идем");so.addVariable("author2", "Verter_23");so.addVariable("colour2", "0000ff");so.addVariable("hour2", "16");so.addVariable("mins2", "15:54");so.addVariable("mess3", "+1 за второй");so.addVariable("author3", "Ciklon");so.addVariable("colour3", "ff0000");so.addVariable("hour3", "16");so.addVariable("mins3", "16:21");so.addVariable("mess4", "2222222ССССТТТТТТОООООЛЛЛЛЛ");so.addVariable("author4", "Lestat_27");so.addVariable("colour4", "ff0000");so.addVariable("hour4", "16");so.addVariable("mins4", "16:25");so.addVariable("mess5", "вот блин неуловимый!!!!");so.addVariable("author5", "Malibu");so.addVariable("colour5", "0000ff");so.addVariable("hour5", "16");so.addVariable("mins5", "17:48");so.addVariable("mess6", " Malibu, try to catch me :D");so.addVariable("author6", "Jonidepp");so.addVariable("colour6", "950089");so.addVariable("hour6", "16");so.addVariable("mins6", "19:21");so.addVariable("mess7", " Jonidepp, ))))))играть пришел или по гостям шляться???");so.addVariable("author7", "Malibu");so.addVariable("colour7", "0000ff");so.addVariable("hour7", "16");so.addVariable("mins7", "20:24");so.addVariable("mess8", " Jonidepp, я если словлю мало не покажется!!!");so.addVariable("author8", "Malibu");so.addVariable("colour8", "0000ff");so.addVariable("hour8", "16");so.addVariable("mins8", "20:45");so.addVariable("mess9", " Jonidepp, хватит порхать поговори со мной!!!!");so.addVariable("author9", "Malibu");so.addVariable("colour9", "0000ff");so.addVariable("hour9", "16");so.addVariable("mins9", "23:05");so.addVariable("mess10", "ну ну=)поймаешь,как же=)))))))))");so.addVariable("author10", "Jonidepp");so.addVariable("colour10", "950089");so.addVariable("hour10", "16");so.addVariable("mins10", "24:12");so.addVariable("mess11", "мы и так разговариваем можно сказать =)");so.addVariable("author11", "Jonidepp");so.addVariable("colour11", "950089");so.addVariable("hour11", "16");so.addVariable("mins11", "24:22");so.addVariable("mess12", "сладкамалина?!");so.addVariable("author12", "Tarasov85");so.addVariable("colour12", "ff0000");so.addVariable("hour12", "16");so.addVariable("mins12", "24:35");so.addVariable("mess13", " Jonidepp, [15:17:13] Malibu:  Jonidepp, ))))))играть пришел или по гостям шляться???");so.addVariable("author13", "Malibu");so.addVariable("colour13", "0000ff");so.addVariable("hour13", "16");so.addVariable("mins13", "25:17");so.addVariable("mess14", " Jonidepp, захочу словлю!!!");so.addVariable("author14", "Malibu");so.addVariable("colour14", "0000ff");so.addVariable("hour14", "16");so.addVariable("mins14", "25:39");so.addVariable("mess15", "туточки?");so.addVariable("author15", "Tarasov85");so.addVariable("colour15", "ff0000");so.addVariable("hour15", "16");so.addVariable("mins15", "26:41");so.addVariable("mess16", "сладкая.");so.addVariable("author16", "Tarasov85");so.addVariable("colour16", "ff0000");so.addVariable("hour16", "16");so.addVariable("mins16", "26:47");so.addVariable("mess17", "тут))");so.addVariable("author17", "Sladkamalinca");so.addVariable("colour17", "ff0000");so.addVariable("hour17", "16");so.addVariable("mins17", "27:45");so.addVariable("mess18", " Sladkamalinca, 2");so.addVariable("author18", "Tarasov85");so.addVariable("colour18", "ff0000");so.addVariable("hour18", "16");so.addVariable("mins18", "28:05");so.addVariable("mess19", " Jonidepp, игноришь меня??? ну ну!!!!");so.addVariable("author19", "Malibu");so.addVariable("colour19", "0000ff");so.addVariable("hour19", "16");so.addVariable("mins19", "28:53");
+                        so.write("flashcontent");
+                        </script>
+</td>
+</tr>
+<tr>
+	<td valign=bottom style="display:none;">
+                	<table valign=bottom>
+                        	<tr>
+                                	<td style="display:none;">
+<!--LiveInternet counter--><script type="text/javascript"><!--
+document.write("<a href='http://www.liveinternet.ru/click' "+
+"target=_blank><img src='http://counter.yadro.ru/hit?t18.5;r"+
+escape(document.referrer)+((typeof(screen)=="undefined")?"":
+";s"+screen.width+"*"+screen.height+"*"+(screen.colorDepth?
+screen.colorDepth:screen.pixelDepth))+";u"+escape(document.URL)+
+";"+Math.random()+
+"' alt='' title='LiveInternet: показано число просмотров за 24"+
+" часа, посетителей за 24 часа и за сегодня' "+
+"border='0' width='88' height='31'><\/a>")
+//--></script><!--/LiveInternet-->
+
+<!-- Yandex.Metrika -->
+<script src="//mc.yandex.ru/metrika/watch.js" type="text/javascript"></script>
+<script type="text/javascript">
+try { var yaCounter630147 = new Ya.Metrika(630147); } catch(e){}
+</script>
+<noscript><img src="//mc.yandex.ru/watch/630147" style="position:absolute" alt="" /></noscript>
+<!-- /Yandex.Metrika -->
+                                        </td>
+                                </tr>
+                        </table>
+        </td>
+</tr>
+</table>
+<div id="outScreen" style="BACKGROUND: url(/images/outScreen.png) repeat-y; width:45px; display:none; position:absolute;margin-left:1280px;top:0;"></div>
+
+</body>
+</html>
+

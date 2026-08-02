@@ -1,5 +1,5 @@
 import {
-  BOARD, CHANCE_CARDS, START_MONEY, GO_SALARY, JAIL_BAIL, JAIL_POS,
+  BOARD, CHANCE_CARDS, FORCE_MAJEURE_CARDS, START_MONEY, GO_SALARY, JAIL_BAIL, JAIL_POS,
   MAX_HOUSES, PLAYER_SLOTS, getCell, getGroupProperties,
 } from './config.js';
 import { shuffle } from './utils.js';
@@ -51,6 +51,8 @@ export class GameEngine {
     this.doubles = false;
     this.chanceDeck = shuffle(CHANCE_CARDS.map((_, i) => i));
     this.chanceIndex = 0;
+    this.forceDeck = shuffle(FORCE_MAJEURE_CARDS.map((_, i) => i));
+    this.forceIndex = 0;
     this.log = [];
     this.winner = null;
     this.pendingAction = null;
@@ -218,8 +220,11 @@ export class GameEngine {
       case 'chance':
         this.drawChance();
         break;
+      case 'forcemajeure':
+        this.drawForceMajeure();
+        break;
       case 'tax':
-        this.payTax(cell.amount);
+        this.payTax(cell.taxPercent || 6);
         break;
       case 'gotojail':
         this.sendToJail();
@@ -254,11 +259,24 @@ export class GameEngine {
     }
   }
 
-  payTax(amount) {
+  calcCapital(player) {
+    let capital = player.money;
+    for (const id of player.properties || []) {
+      const cell = getCell(id);
+      const ps = this.propertyState[id];
+      capital += cell?.price || 0;
+      if (cell?.houseCost && ps) capital += (ps.houses || 0) * cell.houseCost;
+    }
+    return capital;
+  }
+
+  /** Налог 6% от всего капитала (правила Monopoly Club) */
+  payTax(percent = 6) {
     const p = this.currentPlayer;
+    const amount = Math.max(0, Math.round(this.calcCapital(p) * (percent / 100)));
     if (p.money >= amount) {
       p.money -= amount;
-      this.addLog(`${p.name} платит налог $${amount}`);
+      this.addLog(`${p.name} платит налог ${percent}%: $${amount}`);
       this.afterAction();
     } else {
       this.handleBankruptcy(p, null, amount);
@@ -279,6 +297,14 @@ export class GameEngine {
     this.chanceIndex++;
     const card = CHANCE_CARDS[cardIdx];
     this.addLog(`Шанс: ${card.text}`);
+    this.applyChanceCard(card);
+  }
+
+  drawForceMajeure() {
+    const cardIdx = this.forceDeck[this.forceIndex % this.forceDeck.length];
+    this.forceIndex++;
+    const card = FORCE_MAJEURE_CARDS[cardIdx];
+    this.addLog(`Форс-мажор: ${card.text}`);
     this.applyChanceCard(card);
   }
 
