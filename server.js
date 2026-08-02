@@ -2,13 +2,14 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
 import {
   createRoom, joinRoom, leaveRoom, getRoomBySocket,
   startGame, handleGameAction, getLobbyState, getGameState,
   broadcastGame, startBotLoop, listPublicRooms,
 } from './server/rooms.js';
 import { PHASE } from './js/game.js';
+import { getCustomPayload, saveCustom, resetCustom } from './server/customize.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -20,9 +21,35 @@ const io = new Server(httpServer, {
   transports: ['websocket', 'polling'],
 });
 
+app.use(express.json({ limit: '1mb' }));
 app.use(express.static(__dirname));
+app.use('/assets', express.static(join(__dirname, 'assets')));
 
 app.get('/health', (_, res) => res.json({ ok: true }));
+
+app.get('/api/theme', (_, res) => {
+  res.json(getCustomPayload());
+});
+
+app.post('/api/theme', (req, res) => {
+  try {
+    const saved = saveCustom(req.body || {});
+    io.emit('theme-update', saved);
+    res.json({ ok: true, theme: saved });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.post('/api/theme/reset', (_, res) => {
+  try {
+    const theme = resetCustom();
+    io.emit('theme-update', theme);
+    res.json({ ok: true, theme });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
 
 function getOnlineCount() {
   return io.engine.clientsCount || 0;

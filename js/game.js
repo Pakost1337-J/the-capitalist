@@ -20,6 +20,7 @@ function createPlayer(slot, name, socketId, isBot) {
     name,
     color: cfg.color,
     token: cfg.token,
+    tokenImage: cfg.tokenImage || '',
     socketId,
     isBot,
     money: START_MONEY,

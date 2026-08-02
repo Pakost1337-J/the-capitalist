@@ -1,6 +1,7 @@
 import { BOARD, GROUP_COLORS, getGridPosition } from './config.js';
 import { formatMoney } from './utils.js';
 import { PHASE } from './game.js';
+import { iconHTML, resolveIconSrc } from './icons.js';
 
 export class UI {
   constructor(engine, network) {
@@ -54,7 +55,7 @@ export class UI {
     return `
       ${colorBar}
       <div class="cell__body ${isVertical ? 'cell__body--vertical' : ''} ${isCorner ? 'cell__body--corner' : ''}">
-        ${cell.icon ? `<span class="cell__icon">${cell.icon}</span>` : ''}
+        ${cell.icon ? iconHTML(cell.icon, 'cell__icon') : ''}
         <span class="cell__name">${cell.name}</span>
         ${price}
       </div>
@@ -82,7 +83,7 @@ export class UI {
     this.playersPanel.innerHTML = state.players.map((p, i) => `
       <div class="player-card ${i === state.currentPlayerIndex ? 'player-card--active' : ''} ${p.bankrupt ? 'player-card--out' : ''} ${p.id === this.mySlot ? 'player-card--me' : ''}"
            style="--player-color: ${p.color}">
-        <div class="player-card__token">${p.token}</div>
+        <div class="player-card__token">${tokenDisplay(p)}</div>
         <div class="player-card__info">
           <div class="player-card__name">${p.name}${p.id === this.mySlot ? ' (вы)' : ''}${p.isBot ? ' 🤖' : ''}</div>
           <div class="player-card__money">${formatMoney(p.money)}</div>
@@ -110,8 +111,13 @@ export class UI {
         const token = document.createElement('div');
         token.className = 'token';
         token.style.background = p.color;
-        token.textContent = p.token;
         token.title = p.name;
+        const img = resolveIconSrc(p.tokenImage || p.token);
+        if (img) {
+          token.innerHTML = `<img src="${img}" alt="" />`;
+        } else {
+          token.textContent = p.token;
+        }
         token.style.transform = `translate(${(i % 2) * 14 - 7}px, ${Math.floor(i / 2) * 14 - 7}px)`;
         container.appendChild(token);
       });
@@ -267,4 +273,10 @@ export class UI {
       this.die2.classList.remove('die--rolling');
     }, 500);
   }
+}
+
+function tokenDisplay(p) {
+  const src = resolveIconSrc(p.tokenImage || '');
+  if (src) return `<img class="player-card__token-img" src="${src}" alt="" />`;
+  return p.token || '♟';
 }

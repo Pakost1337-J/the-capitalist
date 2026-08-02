@@ -231,6 +231,23 @@ body {
 }
 
 .cell__icon { font-size: 1.2rem; line-height: 1; }
+.cell__icon--img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  display: block;
+}
+.player-card__token-img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+.token img {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  display: block;
+}
 
 .cell__name {
   font-size: clamp(0.45rem, 1.2vw, 0.62rem);

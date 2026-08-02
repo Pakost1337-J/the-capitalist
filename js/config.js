@@ -1,3 +1,5 @@
+import { DEFAULT_CELL_ICONS } from './icons.js';
+
 export const START_MONEY = 1500;
 export const GO_SALARY = 200;
 export const JAIL_BAIL = 50;
@@ -6,11 +8,11 @@ export const MAX_PLAYERS = 5;
 export const MIN_PLAYERS = 1;
 
 export const PLAYER_SLOTS = [
-  { id: 0, color: '#ef4444', token: '🚗' },
-  { id: 1, color: '#3b82f6', token: '🚢' },
-  { id: 2, color: '#22c55e', token: '🎩' },
-  { id: 3, color: '#f59e0b', token: '🐕' },
-  { id: 4, color: '#a855f7', token: '🚀' },
+  { id: 0, color: '#ef4444', token: '🚗', tokenImage: '' },
+  { id: 1, color: '#3b82f6', token: '🚢', tokenImage: '' },
+  { id: 2, color: '#22c55e', token: '🎩', tokenImage: '' },
+  { id: 3, color: '#f59e0b', token: '🐕', tokenImage: '' },
+  { id: 4, color: '#a855f7', token: '🚀', tokenImage: '' },
 ];
 
 export const GROUP_COLORS = {
@@ -25,47 +27,71 @@ export const GROUP_COLORS = {
 };
 
 export const BOARD = [
-  { id: 0, type: 'go', name: 'СТАРТ', icon: '→', desc: 'Получите $200' },
-  { id: 1, type: 'property', name: 'Киоск', group: 'brown', price: 60, houseCost: 50, rent: [2, 10, 30, 90, 160, 250] },
-  { id: 2, type: 'chance', name: 'Шанс', icon: '?' },
-  { id: 3, type: 'property', name: 'Ларёк', group: 'brown', price: 60, houseCost: 50, rent: [2, 10, 30, 90, 160, 250] },
+  { id: 0, type: 'go', name: 'СТАРТ', icon: '🏁', desc: 'Получите $200' },
+  { id: 1, type: 'property', name: 'Киоск', icon: '🍋', group: 'brown', price: 60, houseCost: 50, rent: [2, 10, 30, 90, 160, 250] },
+  { id: 2, type: 'chance', name: 'Шанс', icon: '❓' },
+  { id: 3, type: 'property', name: 'Ларёк', icon: '🏪', group: 'brown', price: 60, houseCost: 50, rent: [2, 10, 30, 90, 160, 250] },
   { id: 4, type: 'tax', name: 'Налог', amount: 200, icon: '💸' },
-  { id: 5, type: 'railroad', name: 'Станция А', price: 200, rent: [25, 50, 100, 200] },
-  { id: 6, type: 'property', name: 'Такси', group: 'lightblue', price: 100, houseCost: 50, rent: [6, 30, 90, 270, 400, 550] },
-  { id: 7, type: 'chance', name: 'Шанс', icon: '?' },
-  { id: 8, type: 'property', name: 'Автобус', group: 'lightblue', price: 100, houseCost: 50, rent: [6, 30, 90, 270, 400, 550] },
-  { id: 9, type: 'property', name: 'Маршрутка', group: 'lightblue', price: 120, houseCost: 50, rent: [8, 40, 100, 300, 450, 600] },
+  { id: 5, type: 'railroad', name: 'Станция А', icon: '🚂', price: 200, rent: [25, 50, 100, 200] },
+  { id: 6, type: 'property', name: 'Такси', icon: '🚕', group: 'lightblue', price: 100, houseCost: 50, rent: [6, 30, 90, 270, 400, 550] },
+  { id: 7, type: 'chance', name: 'Шанс', icon: '❓' },
+  { id: 8, type: 'property', name: 'Автобус', icon: '🚌', group: 'lightblue', price: 100, houseCost: 50, rent: [6, 30, 90, 270, 400, 550] },
+  { id: 9, type: 'property', name: 'Маршрутка', icon: '🚐', group: 'lightblue', price: 120, houseCost: 50, rent: [8, 40, 100, 300, 450, 600] },
   { id: 10, type: 'jail', name: 'Тюрьма', icon: '🔒', desc: 'Просто в гостях' },
-  { id: 11, type: 'property', name: 'Кафе', group: 'pink', price: 140, houseCost: 100, rent: [10, 50, 150, 450, 625, 750] },
+  { id: 11, type: 'property', name: 'Кафе', icon: '☕', group: 'pink', price: 140, houseCost: 100, rent: [10, 50, 150, 450, 625, 750] },
   { id: 12, type: 'utility', name: 'Электросеть', price: 150, icon: '⚡' },
-  { id: 13, type: 'property', name: 'Ресторан', group: 'pink', price: 140, houseCost: 100, rent: [10, 50, 150, 450, 625, 750] },
-  { id: 14, type: 'property', name: 'Отель', group: 'pink', price: 160, houseCost: 100, rent: [12, 60, 180, 500, 700, 900] },
-  { id: 15, type: 'railroad', name: 'Станция Б', price: 200, rent: [25, 50, 100, 200] },
-  { id: 16, type: 'property', name: 'Магазин', group: 'orange', price: 180, houseCost: 100, rent: [14, 70, 200, 550, 750, 950] },
-  { id: 17, type: 'chance', name: 'Шанс', icon: '?' },
-  { id: 18, type: 'property', name: 'Супермаркет', group: 'orange', price: 180, houseCost: 100, rent: [14, 70, 200, 550, 750, 950] },
-  { id: 19, type: 'property', name: 'ТЦ', group: 'orange', price: 200, houseCost: 100, rent: [16, 80, 220, 600, 800, 1000] },
+  { id: 13, type: 'property', name: 'Ресторан', icon: '🍽️', group: 'pink', price: 140, houseCost: 100, rent: [10, 50, 150, 450, 625, 750] },
+  { id: 14, type: 'property', name: 'Отель', icon: '🏨', group: 'pink', price: 160, houseCost: 100, rent: [12, 60, 180, 500, 700, 900] },
+  { id: 15, type: 'railroad', name: 'Станция Б', icon: '🚂', price: 200, rent: [25, 50, 100, 200] },
+  { id: 16, type: 'property', name: 'Магазин', icon: '🛒', group: 'orange', price: 180, houseCost: 100, rent: [14, 70, 200, 550, 750, 950] },
+  { id: 17, type: 'chance', name: 'Шанс', icon: '❓' },
+  { id: 18, type: 'property', name: 'Супермаркет', icon: '🏬', group: 'orange', price: 180, houseCost: 100, rent: [14, 70, 200, 550, 750, 950] },
+  { id: 19, type: 'property', name: 'ТЦ', icon: '🏢', group: 'orange', price: 200, houseCost: 100, rent: [16, 80, 220, 600, 800, 1000] },
   { id: 20, type: 'parking', name: 'Бесплатная стоянка', icon: '🅿️' },
-  { id: 21, type: 'property', name: 'Фабрика', group: 'red', price: 220, houseCost: 150, rent: [18, 90, 250, 700, 875, 1050] },
-  { id: 22, type: 'chance', name: 'Шанс', icon: '?' },
-  { id: 23, type: 'property', name: 'Завод', group: 'red', price: 220, houseCost: 150, rent: [18, 90, 250, 700, 875, 1050] },
-  { id: 24, type: 'property', name: 'Комбинат', group: 'red', price: 240, houseCost: 150, rent: [20, 100, 300, 750, 925, 1100] },
-  { id: 25, type: 'railroad', name: 'Станция В', price: 200, rent: [25, 50, 100, 200] },
-  { id: 26, type: 'property', name: 'IT-офис', group: 'yellow', price: 260, houseCost: 150, rent: [22, 110, 330, 800, 975, 1150] },
-  { id: 27, type: 'property', name: 'Стартап', group: 'yellow', price: 260, houseCost: 150, rent: [22, 110, 330, 800, 975, 1150] },
+  { id: 21, type: 'property', name: 'Фабрика', icon: '🏭', group: 'red', price: 220, houseCost: 150, rent: [18, 90, 250, 700, 875, 1050] },
+  { id: 22, type: 'chance', name: 'Шанс', icon: '❓' },
+  { id: 23, type: 'property', name: 'Завод', icon: '⚙️', group: 'red', price: 220, houseCost: 150, rent: [18, 90, 250, 700, 875, 1050] },
+  { id: 24, type: 'property', name: 'Комбинат', icon: '🏗️', group: 'red', price: 240, houseCost: 150, rent: [20, 100, 300, 750, 925, 1100] },
+  { id: 25, type: 'railroad', name: 'Станция В', icon: '🚂', price: 200, rent: [25, 50, 100, 200] },
+  { id: 26, type: 'property', name: 'IT-офис', icon: '💻', group: 'yellow', price: 260, houseCost: 150, rent: [22, 110, 330, 800, 975, 1150] },
+  { id: 27, type: 'property', name: 'Стартап', icon: '🚀', group: 'yellow', price: 260, houseCost: 150, rent: [22, 110, 330, 800, 975, 1150] },
   { id: 28, type: 'utility', name: 'Водоканал', price: 150, icon: '💧' },
-  { id: 29, type: 'property', name: 'Корпорация', group: 'yellow', price: 280, houseCost: 150, rent: [24, 120, 360, 850, 1025, 1200] },
+  { id: 29, type: 'property', name: 'Корпорация', icon: '🏛️', group: 'yellow', price: 280, houseCost: 150, rent: [24, 120, 360, 850, 1025, 1200] },
   { id: 30, type: 'gotojail', name: 'Арест!', icon: '👮', desc: 'Идите в тюрьму' },
-  { id: 31, type: 'property', name: 'Банк', group: 'green', price: 300, houseCost: 200, rent: [26, 130, 390, 900, 1100, 1275] },
-  { id: 32, type: 'property', name: 'Биржа', group: 'green', price: 300, houseCost: 200, rent: [26, 130, 390, 900, 1100, 1275] },
-  { id: 33, type: 'chance', name: 'Шанс', icon: '?' },
-  { id: 34, type: 'property', name: 'Холдинг', group: 'green', price: 320, houseCost: 200, rent: [28, 150, 450, 1000, 1200, 1400] },
-  { id: 35, type: 'railroad', name: 'Станция Г', price: 200, rent: [25, 50, 100, 200] },
-  { id: 36, type: 'chance', name: 'Шанс', icon: '?' },
-  { id: 37, type: 'property', name: 'Нефть', group: 'darkblue', price: 350, houseCost: 200, rent: [35, 175, 500, 1100, 1300, 1500] },
+  { id: 31, type: 'property', name: 'Банк', icon: '🏦', group: 'green', price: 300, houseCost: 200, rent: [26, 130, 390, 900, 1100, 1275] },
+  { id: 32, type: 'property', name: 'Биржа', icon: '📈', group: 'green', price: 300, houseCost: 200, rent: [26, 130, 390, 900, 1100, 1275] },
+  { id: 33, type: 'chance', name: 'Шанс', icon: '❓' },
+  { id: 34, type: 'property', name: 'Холдинг', icon: '💼', group: 'green', price: 320, houseCost: 200, rent: [28, 150, 450, 1000, 1200, 1400] },
+  { id: 35, type: 'railroad', name: 'Станция Г', icon: '🚂', price: 200, rent: [25, 50, 100, 200] },
+  { id: 36, type: 'chance', name: 'Шанс', icon: '❓' },
+  { id: 37, type: 'property', name: 'Нефть', icon: '🛢️', group: 'darkblue', price: 350, houseCost: 200, rent: [35, 175, 500, 1100, 1300, 1500] },
   { id: 38, type: 'tax', name: 'Налог на роскошь', amount: 100, icon: '💎' },
-  { id: 39, type: 'property', name: 'Империя', group: 'darkblue', price: 400, houseCost: 200, rent: [50, 200, 600, 1400, 1700, 2000] },
+  { id: 39, type: 'property', name: 'Империя', icon: '👑', group: 'darkblue', price: 400, houseCost: 200, rent: [50, 200, 600, 1400, 1700, 2000] },
 ];
+
+// Гарантируем icon у каждой клетки
+for (const cell of BOARD) {
+  if (!cell.icon) cell.icon = DEFAULT_CELL_ICONS[cell.id] || '⬜';
+}
+
+/** Применить кастомные названия/иконки с сервера */
+export function applyTheme(theme) {
+  if (!theme?.board) return;
+  for (const ov of theme.board) {
+    const cell = BOARD.find(c => c.id === ov.id);
+    if (!cell) continue;
+    if (ov.name) cell.name = ov.name;
+    if (ov.icon) cell.icon = ov.icon;
+  }
+  if (Array.isArray(theme.players)) {
+    for (const ov of theme.players) {
+      const slot = PLAYER_SLOTS.find(p => p.id === ov.id);
+      if (!slot) continue;
+      if (ov.token) slot.token = ov.token;
+      if (ov.tokenImage !== undefined) slot.tokenImage = ov.tokenImage;
+    }
+  }
+}
 
 export const CHANCE_CARDS = [
   { text: 'Банковская ошибка в вашу пользу. Получите $200', money: 200 },

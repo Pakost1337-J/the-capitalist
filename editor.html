@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Редактор иконок — Капиталист</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #1a0f0a;
+      --card: #faf8f0;
+      --green: #1a472a;
+      --line: #e5e7eb;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Nunito, system-ui, sans-serif;
+      background: var(--bg);
+      color: #222;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    header {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+    }
+    h1 { color: var(--green); font-size: 1.4rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    button {
+      font-family: inherit;
+      font-weight: 800;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 16px;
+      cursor: pointer;
+    }
+    .btn-save { background: #22c55e; color: white; }
+    .btn-reset { background: #ef4444; color: white; }
+    .btn-back { background: #e5e7eb; color: #333; text-decoration: none; display: inline-block; }
+    .hint {
+      background: #fef3c7;
+      border-radius: 12px;
+      padding: 14px 18px;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .hint code { background: #fff; padding: 2px 6px; border-radius: 4px; }
+    .status { font-weight: 800; color: var(--green); min-height: 1.2em; }
+    .section {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .section h2 { margin-bottom: 12px; color: var(--green); font-size: 1.1rem; }
+    .grid { display: flex; flex-direction: column; gap: 8px; }
+    .row {
+      display: grid;
+      grid-template-columns: 48px 1fr 1fr 100px;
+      gap: 10px;
+      align-items: center;
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+    @media (max-width: 700px) {
+      .row { grid-template-columns: 40px 1fr; }
+      .row .preview { grid-column: 1; }
+      .row label { grid-column: 2; }
+    }
+    .preview {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      background: #f1f5f9;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .preview img { width: 100%; height: 100%; object-fit: contain; }
+    label { display: flex; flex-direction: column; gap: 4px; font-size: 0.7rem; font-weight: 800; color: #666; text-transform: uppercase; }
+    input {
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 0.95rem;
+      padding: 8px 10px;
+      border: 2px solid var(--line);
+      border-radius: 8px;
+    }
+    input:focus { outline: none; border-color: #8b5cf6; }
+    .id { font-size: 0.75rem; color: #999; font-weight: 800; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>🎨 Редактор названий и иконок</h1>
+        <p class="status" id="status"></p>
+      </div>
+      <div class="actions">
+        <a class="btn-back" href="/">← В игру</a>
+        <button class="btn-reset" id="btn-reset">Сбросить</button>
+        <button class="btn-save" id="btn-save">💾 Сохранить</button>
+      </div>
+    </header>
+
+    <div class="hint">
+      <strong>Иконка</strong> — эмодзи (<code>🍋</code>) или имя файла картинки (<code>kiosk.png</code>).<br>
+      Картинки кладите в папку <code>assets/icons/</code> на сервере / в проекте, затем укажите имя файла здесь.<br>
+      После сохранения изменения видят все игроки.
+    </div>
+
+    <section class="section">
+      <h2>♟ Фишки игроков</h2>
+      <div class="grid" id="players-grid"></div>
+    </section>
+
+    <section class="section">
+      <h2>🗺️ Клетки поля</h2>
+      <div class="grid" id="board-grid"></div>
+    </section>
+  </div>
+
+  <script type="module">
+    import { resolveIconSrc } from './js/icons.js';
+
+    let theme = { board: [], players: [] };
+
+    function previewHTML(icon) {
+      const src = resolveIconSrc(icon);
+      if (src) return `<img src="${src}" alt="" onerror="this.replaceWith(document.createTextNode('❓'))" />`;
+      return icon || '⬜';
+    }
+
+    function render() {
+      const playersEl = document.getElementById('players-grid');
+      playersEl.innerHTML = theme.players.map((p, i) => `
+        <div class="row" data-type="player" data-index="${i}">
+          <div class="preview" data-preview>${previewHTML(p.tokenImage || p.token)}</div>
+          <label>Эмодзи фишки
+            <input data-field="token" value="${escapeAttr(p.token || '')}" />
+          </label>
+          <label>Картинка (файл)
+            <input data-field="tokenImage" value="${escapeAttr(p.tokenImage || '')}" placeholder="player1.png" />
+          </label>
+          <div class="id">Слот ${p.id}</div>
+        </div>
+      `).join('');
+
+      const boardEl = document.getElementById('board-grid');
+      boardEl.innerHTML = theme.board.map((c, i) => `
+        <div class="row" data-type="board" data-index="${i}">
+          <div class="preview" data-preview>${previewHTML(c.icon)}</div>
+          <label>Название
+            <input data-field="name" value="${escapeAttr(c.name || '')}" />
+          </label>
+          <label>Иконка (эмодзи или файл)
+            <input data-field="icon" value="${escapeAttr(c.icon || '')}" placeholder="🍋 или cafe.png" />
+          </label>
+          <div class="id">#${c.id}</div>
+        </div>
+      `).join('');
+
+      document.querySelectorAll('.row input').forEach(input => {
+        input.addEventListener('input', onEdit);
+      });
+    }
+
+    function onEdit(e) {
+      const row = e.target.closest('.row');
+      const type = row.dataset.type;
+      const index = Number(row.dataset.index);
+      const field = e.target.dataset.field;
+      const value = e.target.value;
+
+      if (type === 'board') {
+        theme.board[index][field] = value;
+        const icon = theme.board[index].icon;
+        row.querySelector('[data-preview]').innerHTML = previewHTML(icon);
+      } else {
+        theme.players[index][field] = value;
+        const icon = theme.players[index].tokenImage || theme.players[index].token;
+        row.querySelector('[data-preview]').innerHTML = previewHTML(icon);
+      }
+    }
+
+    function escapeAttr(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+
+    async function load() {
+      const res = await fetch('/api/theme');
+      theme = await res.json();
+      // editor нужен только id, name, icon
+      theme.board = theme.board.map(c => ({ id: c.id, name: c.name, icon: c.icon || '' }));
+      theme.players = theme.players.map(p => ({
+        id: p.id,
+        token: p.token || '',
+        tokenImage: p.tokenImage || '',
+      }));
+      render();
+      setStatus('Загружено');
+    }
+
+    async function save() {
+      setStatus('Сохранение...');
+      const res = await fetch('/api/theme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(theme),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setStatus('✅ Сохранено! Обновите игру (F5)');
+      } else {
+        setStatus('❌ ' + (data.error || 'Ошибка'));
+      }
+    }
+
+    async function reset() {
+      if (!confirm('Сбросить все названия и иконки?')) return;
+      const res = await fetch('/api/theme/reset', { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        theme = data.theme;
+        theme.board = theme.board.map(c => ({ id: c.id, name: c.name, icon: c.icon || '' }));
+        theme.players = theme.players.map(p => ({
+          id: p.id, token: p.token || '', tokenImage: p.tokenImage || '',
+        }));
+        render();
+        setStatus('Сброшено (лучше перезапустить сервер для полных дефолтов)');
+      }
+    }
+
+    function setStatus(t) {
+      document.getElementById('status').textContent = t;
+    }
+
+    document.getElementById('btn-save').addEventListener('click', save);
+    document.getElementById('btn-reset').addEventListener('click', reset);
+    load();
+  </script>
+</body>
+</html>
