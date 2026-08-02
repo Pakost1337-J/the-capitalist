@@ -1,5 +1,6 @@
 /**
- * Per-cell layout editor (no ownership fills for now)
+ * Per-cell layout editor UI only.
+ * Cell transforms live in style.css (responsive) — not pixel hacks.
  */
 .cell__logo,
 .cell__country-slot,
@@ -109,96 +110,3 @@ body.layout-edit .cell__owner { display: none !important; }
   color: #fff;
   box-shadow: 0 6px 16px rgba(0,0,0,0.35);
 }
-
-/* Per-cell layout */
-.cell[data-id="1"] .cell__logo { transform: translate(1px, 3px) scale(2); }
-.cell[data-id="1"] .cell__country-slot { transform: translate(0px, -9px) scale(1.8); }
-.cell[data-id="1"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="2"] .cell__country-slot { transform: translate(0px, -9px) scale(1.8); }
-.cell[data-id="2"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="2"] .cell__logo { transform: translate(0px, 0px) scale(2.2); }
-.cell[data-id="3"] .cell__country-slot { transform: translate(0px, -9px) scale(1.8); }
-.cell[data-id="3"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="3"] .cell__logo { transform: translate(0px, 0px) scale(1.8); }
-.cell[data-id="4"] .cell__country-slot { transform: translate(0px, -9px) scale(1.8); }
-.cell[data-id="4"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="4"] .cell__logo { transform: translate(1px, -4px) scale(2.15); }
-.cell[data-id="5"] .cell__tax { transform: translate(0px, 0px) scale(1.15); }
-.cell[data-id="6"] .cell__country-slot { transform: translate(0px, -9px) scale(1.8); }
-.cell[data-id="6"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="6"] .cell__logo { transform: translate(0px, 0px) scale(2.1); }
-.cell[data-id="7"] .cell__tax { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="8"] .cell__country-slot { transform: translate(0px, -9px) scale(1.8); }
-.cell[data-id="8"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="8"] .cell__logo { transform: translate(0px, 0px) scale(2.2); }
-.cell[data-id="9"] .cell__country-slot { transform: translate(0px, -9px) scale(1.8); }
-.cell[data-id="9"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="9"] .cell__logo { transform: translate(0px, 0px) scale(2.1); }
-.cell[data-id="10"] .cell__country-slot { transform: translate(0px, -9px) scale(1.8); }
-.cell[data-id="10"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="10"] .cell__logo { transform: translate(0px, 3px) scale(2.15); }
-.cell[data-id="11"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="11"] .cell__country-slot { transform: translate(0px, -8px) scale(1.8); }
-.cell[data-id="11"] .cell__logo { transform: translate(1px, 4px) scale(2); }
-.cell[data-id="13"] .cell__logo { transform: translate(28px, -8px) scale(0.9); }
-.cell[data-id="13"] .cell__price { transform: translate(25px, -21px) scale(1.65); }
-.cell[data-id="13"] .cell__country-slot { transform: translate(-31px, 0px) scale(1.8); }
-.cell[data-id="14"] .cell__logo { transform: translate(25px, -5px) scale(0.6); }
-.cell[data-id="14"] .cell__price { transform: translate(25px, -21px) scale(1.65); }
-.cell[data-id="14"] .cell__country-slot { transform: translate(-31px, 0px) scale(1.8); }
-.cell[data-id="15"] .cell__country-slot { transform: translate(-31px, 0px) scale(1.8); }
-.cell[data-id="15"] .cell__price { transform: translate(25px, -21px) scale(1.65); }
-.cell[data-id="15"] .cell__logo { transform: translate(26px, -3px) scale(0.8); }
-.cell[data-id="16"] .cell__tax { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="17"] .cell__logo { transform: translate(27px, -3px) scale(0.75); }
-.cell[data-id="17"] .cell__country-slot { transform: translate(-31px, 0px) scale(1.8); }
-.cell[data-id="17"] .cell__price { transform: translate(25px, -21px) scale(1.65); }
-.cell[data-id="18"] .cell__country-slot { transform: translate(-31px, 0px) scale(1.8); }
-.cell[data-id="18"] .cell__logo { transform: translate(26px, -5px) scale(0.65); }
-.cell[data-id="18"] .cell__price { transform: translate(25px, -21px) scale(1.65); }
-.cell[data-id="20"] .cell__country-slot { transform: translate(0px, 9px) scale(1.8); }
-.cell[data-id="20"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="20"] .cell__logo { transform: translate(0px, 0px) scale(2.25); }
-.cell[data-id="21"] .cell__country-slot { transform: translate(0px, 9px) scale(1.8); }
-.cell[data-id="21"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="21"] .cell__logo { transform: translate(0px, 0px) scale(1.7); }
-.cell[data-id="22"] .cell__country-slot { transform: translate(0px, 9px) scale(1.8); }
-.cell[data-id="22"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="22"] .cell__logo { transform: translate(0px, 0px) scale(2.2); }
-.cell[data-id="23"] .cell__country-slot { transform: translate(0px, 9px) scale(1.8); }
-.cell[data-id="23"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="23"] .cell__logo { transform: translate(0px, 0px) scale(1.95); }
-.cell[data-id="24"] .cell__tax { transform: translate(0px, 0px) scale(1.15); }
-.cell[data-id="25"] .cell__country-slot { transform: translate(0px, 9px) scale(1.8); }
-.cell[data-id="25"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="25"] .cell__logo { transform: translate(0px, 0px) scale(2.15); }
-.cell[data-id="26"] .cell__tax { transform: translate(0px, 0px) scale(1.6); }
-.cell[data-id="27"] .cell__country-slot { transform: translate(0px, 9px) scale(1.8); }
-.cell[data-id="27"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="27"] .cell__logo { transform: translate(0px, 0px) scale(2.2); }
-.cell[data-id="28"] .cell__country-slot { transform: translate(0px, 9px) scale(1.8); }
-.cell[data-id="28"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="28"] .cell__logo { transform: translate(0px, 0px) scale(2.1); }
-.cell[data-id="29"] .cell__country-slot { transform: translate(0px, 9px) scale(1.8); }
-.cell[data-id="29"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="29"] .cell__logo { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="30"] .cell__country-slot { transform: translate(0px, 9px) scale(1.8); }
-.cell[data-id="30"] .cell__price { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="30"] .cell__logo { transform: translate(0px, 0px) scale(2); }
-.cell[data-id="32"] .cell__logo { transform: translate(-24px, -4px) scale(0.9); }
-.cell[data-id="32"] .cell__country-slot { transform: translate(32px, 0px) scale(1.8); }
-.cell[data-id="32"] .cell__price { transform: translate(-18px, -18px) scale(1.65); }
-.cell[data-id="33"] .cell__country-slot { transform: translate(32px, 0px) scale(1.8); }
-.cell[data-id="33"] .cell__logo { transform: translate(-24px, -6px) scale(0.75); }
-.cell[data-id="33"] .cell__price { transform: translate(-18px, -18px) scale(1.65); }
-.cell[data-id="34"] .cell__country-slot { transform: translate(32px, 0px) scale(1.8); }
-.cell[data-id="34"] .cell__logo { transform: translate(-24px, -6px) scale(0.65); }
-.cell[data-id="34"] .cell__price { transform: translate(-18px, -18px) scale(1.65); }
-.cell[data-id="35"] .cell__country-slot { transform: translate(32px, 0px) scale(1.8); }
-.cell[data-id="35"] .cell__tax { transform: translate(0px, 0px) scale(1.65); }
-.cell[data-id="36"] .cell__logo { transform: translate(-24px, 5px) scale(0.85); }
-.cell[data-id="36"] .cell__country-slot { transform: translate(32px, 0px) scale(1.8); }
-.cell[data-id="36"] .cell__price { transform: translate(-18px, -18px) scale(1.65); }
-.cell[data-id="37"] .cell__country-slot { transform: translate(32px, 0px) scale(1.8); }
-.cell[data-id="37"] .cell__logo { transform: translate(-24px, -12px) scale(0.9); }
-.cell[data-id="37"] .cell__price { transform: translate(-18px, -18px) scale(1.65); }

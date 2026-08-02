@@ -22,8 +22,8 @@
   --cell-w: 66px;
   --cell-h: 67px;
   --die-size: clamp(56px, 8.5vw, 80px);
-  --logo-w: 40px;
-  --logo-h: 28px;
+  --logo-w: 56px;
+  --logo-h: 36px;
   --font: 'PTNarrow', 'Segoe UI', system-ui, sans-serif;
   --font-stamp: 'Stamper', 'Times New Roman', serif;
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
@@ -537,9 +537,9 @@ button, input, select { font-family: inherit; }
 }
 
 .cell__flag-img {
-  width: clamp(24px, 3.2vw, 36px);
+  width: clamp(22px, 2.8vw, 32px);
   height: auto;
-  max-height: clamp(18px, 2.4vw, 26px);
+  max-height: clamp(16px, 2.2vw, 24px);
   object-fit: contain;
   border-radius: 0;
   display: block;
@@ -549,23 +549,24 @@ button, input, select { font-family: inherit; }
 .cell__logo {
   width: min(100%, var(--logo-w));
   height: var(--logo-h);
-  min-height: 14px;
+  min-height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
   border-radius: 0;
-  overflow: hidden;
-  flex: 0 1 auto;
+  overflow: visible;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
 .cell__body--left .cell__logo,
 .cell__body--right .cell__logo {
   width: 100%;
-  height: auto;
-  min-height: 12px;
+  max-width: 72%;
+  height: clamp(28px, 5.2vh, 48px);
+  min-height: 20px;
 }
 
 .cell__body--left .cell__logo-text,
@@ -613,10 +614,14 @@ button, input, select { font-family: inherit; }
   padding: 0 2px;
 }
 
-.cell--tax .cell__body {
+.cell--tax .cell__body,
+.cell--chance .cell__body,
+.cell--forcemajeure .cell__body {
   flex-direction: column !important;
   justify-content: center;
   align-items: center;
+  padding: 4px 3px;
+  overflow: hidden;
 }
 
 .cell__tax {
@@ -624,10 +629,13 @@ button, input, select { font-family: inherit; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 1px;
   width: 100%;
   height: 100%;
-  padding: 4px 2px;
+  max-width: 100%;
+  padding: 2px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .cell__tax-title,
@@ -637,15 +645,19 @@ button, input, select { font-family: inherit; }
   color: #1a120c;
   line-height: 1.05;
   text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cell__tax-title {
-  font-size: clamp(0.7rem, 1.5vw, 1.05rem);
-  letter-spacing: 0.04em;
+  font-size: clamp(0.55rem, 1.15vw, 0.82rem);
+  letter-spacing: 0.03em;
 }
 
 .cell__tax-pct {
-  font-size: clamp(0.85rem, 1.8vw, 1.25rem);
+  font-size: clamp(0.7rem, 1.4vw, 1rem);
 }
 
 .cell__tax-marks {
@@ -653,10 +665,17 @@ button, input, select { font-family: inherit; }
 }
 
 .cell__special .cell__tax-title {
-  font-size: clamp(0.62rem, 1.35vw, 0.95rem);
+  font-size: clamp(0.58rem, 1.2vw, 0.88rem);
+  white-space: normal;
+  line-height: 1.1;
 }
 .cell__special .cell__tax-pct {
-  font-size: clamp(0.78rem, 1.6vw, 1.15rem);
+  font-size: clamp(0.55rem, 1.1vw, 0.8rem);
+}
+
+.cell--chance .cell__special .cell__tax-title {
+  font-size: clamp(0.72rem, 1.45vw, 1.05rem);
+  letter-spacing: 0.06em;
 }
 
 .cell__icon { font-size: clamp(0.85rem, 1.6vw, 1.15rem); line-height: 1; }
@@ -681,6 +700,7 @@ button, input, select { font-family: inherit; }
   line-height: 1.05;
   flex-shrink: 0;
   letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .cell__shares {
@@ -1698,7 +1718,10 @@ button, input, select { font-family: inherit; }
   display: block;
   width: 100%;
   height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
+  object-position: center;
   pointer-events: none;
 }
 
