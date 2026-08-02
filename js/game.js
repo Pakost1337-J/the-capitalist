@@ -196,8 +196,8 @@ export class GameEngine {
     if (!p || p.bankrupt || p.id !== this.currentPlayer?.id) return false;
     const others = this.activePlayers.filter(o => o.id !== playerId);
     if (!others.length) return false;
-    return p.money > 0
-      || this.ownedTradeable(playerId).length > 0
+    // Без купленных компаний на поле менять нечего — кнопку сделки не показываем
+    return this.ownedTradeable(playerId).length > 0
       || this.dealableCompanies(playerId).length > 0;
   }
 
