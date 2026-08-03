@@ -33,12 +33,14 @@ export class UI {
 
     this.choicePanel = document.getElementById('choice-panel');
     this.ownToast = document.getElementById('own-toast');
+    this.companyInfo = document.getElementById('company-info');
     this._dismissedNoticeId = null;
     this._noticeTimer = null;
     this._dealCompose = null;
     this._shareBuy = false;
     this._rentMortgagePick = false;
     this._rentSharesPick = false;
+    this._companyInfoOpen = false;
 
     if (this.diceStage) {
       try {
@@ -52,6 +54,9 @@ export class UI {
     this.buildBoard();
     this._syncOrientation();
     this.fitLayout();
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this._companyInfoOpen) this.hideCompanyInfo();
+    });
 
     const onViewportChange = () => {
       clearTimeout(this._resizeTimer);
@@ -263,6 +268,23 @@ export class UI {
     this.tokenLayer = document.createElement('div');
     this.tokenLayer.className = 'board__tokens';
     this.boardEl.appendChild(this.tokenLayer);
+
+    this.boardEl.addEventListener('click', (e) => {
+      if (document.body.classList.contains('layout-edit')) return;
+      const logo = e.target.closest('.cell__logo--clickable[data-info]');
+      if (!logo) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.showCompanyInfo(Number(logo.dataset.info));
+    });
+    this.boardEl.addEventListener('keydown', (e) => {
+      if (document.body.classList.contains('layout-edit')) return;
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const logo = e.target.closest?.('.cell__logo--clickable[data-info]');
+      if (!logo) return;
+      e.preventDefault();
+      this.showCompanyInfo(Number(logo.dataset.info));
+    });
   }
 
   cellSide(index) {
@@ -294,10 +316,10 @@ export class UI {
         : (cell.flag ? `<span class="cell__flag">${cell.flag}</span>` : '');
       const logoSrc = BRAND_LOGO_SRC[company] || BRAND_LOGO_SRC[cell.brand] || '';
       const logo = logoSrc
-        ? `<div class="cell__logo" title="${escapeHtml(company)}">
+        ? `<div class="cell__logo cell__logo--clickable" data-info="${index}" role="button" tabindex="0" title="${escapeHtml(company)}">
              <img class="cell__logo-img" src="${logoSrc}" alt="${escapeHtml(company)}" />
            </div>`
-        : `<div class="cell__logo" title="${escapeHtml(company)}">
+        : `<div class="cell__logo cell__logo--clickable" data-info="${index}" role="button" tabindex="0" title="${escapeHtml(company)}">
              <span class="cell__logo-text">${escapeHtml(company)}</span>
            </div>`;
       const priceEl = priceVal
@@ -797,7 +819,6 @@ export class UI {
   }
 
   renderPlayers(state) {
-    const mailIcon = `<svg class="p-card__mail" viewBox="0 0 16 12" aria-hidden="true"><path fill="currentColor" d="M1.2 1h13.6c.44 0 .8.36.8.8v8.4c0 .44-.36.8-.8.8H1.2c-.44 0-.8-.36-.8-.8V1.8c0-.44.36-.8.8-.8zm.4 1.2v.35l6.4 4.05 6.4-4.05v-.35H1.6zm13.2 1.55L8.7 7.55a.8.8 0 0 1-.9 0L1.6 3.75V10h13.2V3.75z"/></svg>`;
 
     this.playersPanel.innerHTML = state.players.map((p, i) => {
       const capital = this.calcCapital(p, state);
@@ -834,7 +855,6 @@ export class UI {
              style="--pc: ${p.color}">
           <div class="p-card__inner">
             <div class="p-card__head">
-              ${mailIcon}
               <div class="p-card__name">${displayName}</div>
             </div>
             ${moneyBlock}
@@ -843,6 +863,148 @@ export class UI {
         </div>
       `;
     }).join('');
+  }
+
+  hideCompanyInfo() {
+    this._companyInfoOpen = false;
+    if (this.companyInfo) {
+      this.companyInfo.hidden = true;
+      this.companyInfo.innerHTML = '';
+    }
+    document.querySelector('.hub')?.classList.remove('hub--company-info');
+  }
+
+  showCompanyInfo(cellId) {
+    const cell = BOARD[cellId];
+    if (!cell || !this.companyInfo) return;
+    if (cell.type !== 'property' && cell.type !== 'utility' && cell.type !== 'railroad') return;
+
+    const state = this.lastState;
+    const country = COUNTRY_LABEL_RU[cell.country] || cell.country || '';
+    const company = cell.name || cell.brand || '';
+    const logoSrc = BRAND_LOGO_SRC[company] || BRAND_LOGO_SRC[cell.brand] || '';
+    const groupCells = cell.group ? getGroupProperties(cell.group) : [];
+    const logoHtml = logoSrc
+      ? `<img class="company-info__logo-img" src="${logoSrc}" alt="" />`
+      : `<span class="company-info__logo-text">${escapeHtml(company)}</span>`;
+
+    let rentRows = '';
+    let bonusHtml = '';
+    let shareCostHtml = '';
+
+    if (cell.type === 'utility' || cell.diceRent) {
+      const one = cell.rent?.[0] || 0;
+      const two = cell.rent?.[1] || one;
+      rentRows = `
+        <div class="company-info__row">
+          <img class="company-info__share-icon" src="${this.shareSpriteSrc('ko', 1)}" alt="" />
+          <span>1 компания страны</span>
+          <strong>${formatMoney(one)} × кости</strong>
+        </div>
+        <div class="company-info__row">
+          <img class="company-info__share-icon" src="${this.shareSpriteSrc('ko', 2)}" alt="" />
+          <span>2 компании страны</span>
+          <strong>${formatMoney(two)} × кости</strong>
+        </div>`;
+      bonusHtml = `<p class="company-info__bonus">Полная страна (обе компании): тариф ${formatMoney(two)} за очко костей.</p>`;
+      shareCostHtml = `<p class="company-info__meta">Акции не покупаются — аренда от суммы костей.</p>`;
+    } else if (cell.noShares || cell.group === 'cn') {
+      const labels = ['1 компания', '2 компании', '3 компании', '4 компании'];
+      rentRows = (cell.rent || []).slice(0, 4).map((r, i) => `
+        <div class="company-info__row">
+          <img class="company-info__share-icon" src="${this.shareSpriteSrc('chn', i + 1)}" alt="" />
+          <span>${labels[i] || `${i + 1}`}</span>
+          <strong>${formatMoney(r)}</strong>
+        </div>`).join('');
+      bonusHtml = `<p class="company-info__bonus">Полная страна (${groupCells.length} компании): аренда ${formatMoney(cell.rent?.[groupCells.length - 1] || cell.rent?.[cell.rent.length - 1] || 0)}.</p>`;
+      shareCostHtml = `<p class="company-info__meta">Акции не покупаются — аренда растёт с числом компаний страны.</p>`;
+    } else {
+      const base = cell.rent?.[0] || 0;
+      const mono = base * 2;
+      shareCostHtml = cell.houseCost != null
+        ? `<p class="company-info__meta">Цена 1 акции: <strong>${formatMoney(cell.houseCost)}</strong> · нужна полная страна</p>`
+        : '';
+      bonusHtml = `<p class="company-info__bonus">Полная страна без акций: аренда ×2 → <strong>${formatMoney(mono)}</strong></p>`;
+      rentRows = `
+        <div class="company-info__row company-info__row--base">
+          <span class="company-info__share-empty">0</span>
+          <span>Без акций</span>
+          <strong>${formatMoney(base)}</strong>
+        </div>
+        <div class="company-info__row company-info__row--base">
+          <span class="company-info__share-empty">★</span>
+          <span>Страна собрана</span>
+          <strong>${formatMoney(mono)}</strong>
+        </div>`
+        + [1, 2, 3, 4, 5].map((n) => {
+          const src = this.shareSpriteSrc('leaf', n, false);
+          const label = n === 5 ? '5 акций (контрольный)' : `${n} ${n === 1 ? 'акция' : n < 5 ? 'акции' : 'акций'}`;
+          return `
+            <div class="company-info__row">
+              <img class="company-info__share-icon" src="${src}" alt="" />
+              <span>${label}</span>
+              <strong>${formatMoney(cell.rent?.[n] || 0)}</strong>
+            </div>`;
+        }).join('');
+    }
+
+    let currentPay = '';
+    if (state?.propertyState?.[cellId]) {
+      const ps = state.propertyState[cellId];
+      if (ps.owner != null && !ps.mortgaged) {
+        const owner = state.players[ps.owner];
+        let amount = 0;
+        if (cell.type === 'utility' || cell.diceRent) {
+          const n = this.countOwnedInGroup(state, ps.owner, cell.group);
+          const perPip = cell.rent?.[n >= 2 ? 1 : 0] || 0;
+          currentPay = `<p class="company-info__current">Сейчас: ${escapeHtml(owner?.name || 'игрок')} · ${formatMoney(perPip)} × сумма костей</p>`;
+        } else if (cell.noShares || cell.group === 'cn') {
+          const n = this.countOwnedInGroup(state, ps.owner, cell.group);
+          const idx = Math.max(0, Math.min(n - 1, (cell.rent?.length || 1) - 1));
+          amount = cell.rent?.[idx] || 0;
+          currentPay = `<p class="company-info__current">Сейчас платят: <strong>${formatMoney(amount)}</strong> (${escapeHtml(owner?.name || 'игрок')})</p>`;
+        } else {
+          const houses = ps.houses || 0;
+          const hasMono = groupCells.length > 0 && groupCells.every(c => (
+            state.propertyState[c.id]?.owner === ps.owner
+            && !state.propertyState[c.id]?.mortgaged
+          ));
+          const baseRent = cell.rent?.[0] || 0;
+          amount = houses > 0 ? (cell.rent?.[houses] || 0) : (hasMono ? baseRent * 2 : baseRent);
+          currentPay = `<p class="company-info__current">Сейчас платят: <strong>${formatMoney(amount)}</strong> (${escapeHtml(owner?.name || 'игрок')})</p>`;
+        }
+      } else if (ps.mortgaged) {
+        currentPay = `<p class="company-info__current">В залоге — аренда не берётся</p>`;
+      }
+    }
+
+    this._companyInfoOpen = true;
+    document.querySelector('.hub')?.classList.add('hub--company-info');
+    this.companyInfo.hidden = false;
+    this.companyInfo.innerHTML = `
+      <div class="company-info__card">
+        <button type="button" class="company-info__close" id="company-info-close" aria-label="Закрыть">×</button>
+        <div class="company-info__head">
+          <div class="company-info__logo">${logoHtml}</div>
+          <div class="company-info__titles">
+            <p class="company-info__name">${escapeHtml(company)}</p>
+            ${country ? `<p class="company-info__country">${escapeHtml(country)}</p>` : ''}
+          </div>
+        </div>
+        ${cell.price != null ? `<p class="company-info__meta">Цена компании: <strong>${formatMoney(cell.price)}</strong></p>` : ''}
+        ${shareCostHtml}
+        ${bonusHtml}
+        <div class="company-info__list">
+          <p class="company-info__list-title">Оплата при наступании</p>
+          ${rentRows}
+        </div>
+        ${currentPay}
+      </div>
+    `;
+    document.getElementById('company-info-close')?.addEventListener('click', () => this.hideCompanyInfo());
+    this.companyInfo.onclick = (e) => {
+      if (e.target === this.companyInfo) this.hideCompanyInfo();
+    };
   }
 
   /** Спрайт акций / маркеров страны на клетке */

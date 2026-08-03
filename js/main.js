@@ -18,7 +18,7 @@ async function loadTheme() {
 function preventGamePagePan(e) {
   if (!document.body.classList.contains('is-playing')) return;
   const allow = e.target.closest?.(
-    'button, input, select, textarea, a, .hub__actions, .hub__chat-messages, .deal-panel__list, .choice-panel, .hub__choice'
+    'button, input, select, textarea, a, .hub__actions, .hub__chat-messages, .deal-panel__list, .choice-panel, .hub__choice, .company-info'
   );
   if (!allow) e.preventDefault();
 }
