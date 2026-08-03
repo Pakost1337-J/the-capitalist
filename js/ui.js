@@ -355,10 +355,10 @@ export class UI {
              <span class="cell__logo-text">${escapeHtml(company)}</span>
            </div>`;
       const priceEl = priceVal
-        ? `<span class="cell__price${isUtilityMult ? ' cell__price--mult' : ''}">
+        ? `<span class="cell__price${isUtilityMult ? ' cell__price--mult' : ''}"${isUtilityMult ? ` data-utility-price="${index}"` : ''}>
              <span class="cell__price-core">
                <span class="cell__price-val">${priceVal}</span>
-               ${isUtilityMult ? '<span class="cell__price-x" aria-hidden="true">×</span>' : ''}
+               ${isUtilityMult ? '<span class="cell__price-x" aria-hidden="true">×</span><span class="dice-pip" aria-hidden="true">⚂</span>' : ''}
              </span>
            </span>`
         : '';
@@ -1149,19 +1149,20 @@ export class UI {
     if (cell.type === 'utility' || cell.diceRent) {
       const one = cell.rent?.[0] || 0;
       const two = cell.rent?.[1] || one;
+      const diceMark = '<span class="dice-pip" aria-hidden="true">⚂</span>';
       rentRows = `
         <div class="company-info__row">
           <img class="company-info__share-icon" src="${this.shareSpriteSrc('ko', 1)}" alt="" />
           <span>1 комп.</span>
-          <strong>${formatPriceShort(one)}×</strong>
+          <strong>${formatPriceShort(one)}&nbsp;×&nbsp;${diceMark}</strong>
         </div>
         <div class="company-info__row">
           <img class="company-info__share-icon" src="${this.shareSpriteSrc('ko', 2)}" alt="" />
           <span>2 комп.</span>
-          <strong>${formatPriceShort(two)}×</strong>
+          <strong>${formatPriceShort(two)}&nbsp;×&nbsp;${diceMark}</strong>
         </div>`;
-      bonusHtml = `<p class="company-info__bonus">Страна: ${formatPriceShort(two)} за очко костей</p>`;
-      shareCostHtml = `<p class="company-info__meta">Без акций · аренда = кости × тариф</p>`;
+      bonusHtml = `<p class="company-info__bonus">Страна: ${formatPriceShort(two)} × кости (за очко)</p>`;
+      shareCostHtml = `<p class="company-info__meta">Без акций · аренда = сумма костей × тариф</p>`;
     } else if (cell.noShares || cell.group === 'cn') {
       const labels = ['1 комп.', '2 комп.', '3 комп.', '4 комп.'];
       rentRows = (cell.rent || []).slice(0, 4).map((r, i) => `
@@ -1211,7 +1212,7 @@ export class UI {
         if (cell.type === 'utility' || cell.diceRent) {
           const n = this.countOwnedInGroup(state, ps.owner, cell.group);
           const perPip = cell.rent?.[n >= 2 ? 1 : 0] || 0;
-          currentPay = `<p class="company-info__current">Сейчас: ${escapeHtml(owner?.name || 'игрок')} · ${formatPriceShort(perPip)}×кости</p>`;
+          currentPay = `<p class="company-info__current">Сейчас: ${escapeHtml(owner?.name || 'игрок')} · ${formatPriceShort(perPip)}&nbsp;×&nbsp;<span class="dice-pip" aria-hidden="true">⚂</span></p>`;
         } else if (cell.noShares || cell.group === 'cn') {
           const n = this.countOwnedInGroup(state, ps.owner, cell.group);
           const idx = Math.max(0, Math.min(n - 1, (cell.rent?.length || 1) - 1));
@@ -1287,6 +1288,24 @@ export class UI {
     container.innerHTML = `<img class="share-mark ${countClass || ''}" src="${src}" alt="" draggable="false" />`;
   }
 
+  /** Корея: на клетке текущий тариф за очко кости ($25K× / $50K×) */
+  updateUtilityPriceLabels(state) {
+    document.querySelectorAll('[data-utility-price]').forEach((el) => {
+      const cellId = Number(el.dataset.utilityPrice);
+      const cell = BOARD[cellId];
+      if (!cell?.rent?.length) return;
+      const valEl = el.querySelector('.cell__price-val');
+      if (!valEl) return;
+      const ps = state?.propertyState?.[cellId];
+      let tariff = cell.rent[0];
+      if (ps?.owner != null && !ps.mortgaged) {
+        const n = this.countOwnedInGroup(state, ps.owner, cell.group);
+        tariff = cell.rent[n >= 2 ? 1 : 0] || cell.rent[0];
+      }
+      valEl.textContent = formatPriceShort(tariff);
+    });
+  }
+
   renderHouses(state) {
     document.querySelectorAll('[data-houses]').forEach(el => { el.innerHTML = ''; });
     document.querySelectorAll('.cell').forEach(c => {
@@ -1347,6 +1366,8 @@ export class UI {
       const lock = cellEl.querySelector(`[data-lock="${cellId}"]`);
       if (lock && mortgaged) lock.hidden = false;
     }
+
+    this.updateUtilityPriceLabels(state);
   }
 
   async doAction(action) {

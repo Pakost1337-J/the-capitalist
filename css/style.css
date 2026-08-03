@@ -522,7 +522,7 @@ button, input, select { font-family: inherit; }
   background: transparent;
   border: none;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   color: var(--ink);
@@ -646,10 +646,17 @@ button, input, select { font-family: inherit; }
   min-width: 0;
   padding: 0;
   margin: 0;
-  overflow: hidden;
+  /* цена/× не должны обрезаться на узких клетках (телефон) */
+  overflow: visible;
   text-align: center;
   /* над закрасом (.cell__owner z-index: 0) */
   z-index: 2;
+}
+
+.cell--property .cell__body,
+.cell--utility .cell__body,
+.cell--railroad .cell__body {
+  overflow: visible;
 }
 
 .cell__body--corner {
@@ -747,19 +754,17 @@ button, input, select { font-family: inherit; }
 }
 .cell__body--top .cell__price {
   left: 50%;
-  bottom: 5%;
-  width: 92%;
+  bottom: 2%;
+  width: 98%;
   transform: translate(calc(-50% + var(--tw-x)), var(--tw-y)) scale(var(--tw-s));
-  font-size: max(8px, 15cqmin);
+  font-size: max(8px, 12cqmin);
 }
-
-/* ── BOTTOM: цена сверху, лого центр, флаг снизу ── */
 .cell__body--bottom .cell__price {
   left: 50%;
-  top: 5%;
-  width: 92%;
+  top: 2%;
+  width: 98%;
   transform: translate(calc(-50% + var(--tw-x)), var(--tw-y)) scale(var(--tw-s));
-  font-size: max(8px, 15cqmin);
+  font-size: max(8px, 12cqmin);
 }
 .cell__body--bottom .cell__logo {
   left: 50%;
@@ -792,11 +797,11 @@ button, input, select { font-family: inherit; }
   transform: translate(calc(-50% + var(--tw-x)), calc(-50% + var(--tw-y))) scale(var(--tw-s));
 }
 .cell__body--left .cell__price {
-  left: 60%;
-  top: 78%;
-  width: 52%;
+  left: 62%;
+  top: 80%;
+  width: 64%;
   transform: translate(calc(-50% + var(--tw-x)), calc(-50% + var(--tw-y))) scale(var(--tw-s));
-  font-size: max(8px, 14cqmin);
+  font-size: max(7px, 10cqmin);
 }
 
 /* ── RIGHT: зеркало left ── */
@@ -809,17 +814,17 @@ button, input, select { font-family: inherit; }
 }
 .cell__body--right .cell__logo {
   left: 40%;
-  top: 38%;
+  top: 36%;
   width: 48%;
-  height: 50%;
+  height: 46%;
   transform: translate(calc(-50% + var(--tw-x)), calc(-50% + var(--tw-y))) scale(var(--tw-s));
 }
 .cell__body--right .cell__price {
-  left: 40%;
-  top: 78%;
-  width: 52%;
+  left: 38%;
+  top: 80%;
+  width: 64%;
   transform: translate(calc(-50% + var(--tw-x)), calc(-50% + var(--tw-y))) scale(var(--tw-s));
-  font-size: max(8px, 14cqmin);
+  font-size: max(7px, 10cqmin);
 }
 
 .cell--tax,
@@ -924,32 +929,61 @@ button, input, select { font-family: inherit; }
   justify-content: center;
   align-items: center;
   font-family: var(--font);
-  font-weight: 500;
+  font-weight: 600;
   color: #2a1c14;
   line-height: 1.05;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.02em;
   white-space: nowrap;
+  overflow: visible;
+  max-width: none;
+  z-index: 5;
+  pointer-events: none;
 }
 
 .cell__price-core {
   position: relative;
-  display: inline-block;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  max-width: none;
+  gap: 0.04em;
 }
 
 .cell__price-val {
   display: inline-block;
+  overflow: visible;
 }
 
-/* × не входит в ширину центрируемого блока — сумма остаётся по центру */
+/* × в потоке рядом с суммой — не уезжает за край */
 .cell__price--mult .cell__price-x {
-  position: absolute;
-  left: 100%;
-  top: 50%;
-  transform: translateY(-50%);
-  margin-left: 0.12em;
-  font-weight: 600;
+  position: static;
+  transform: none;
+  margin: 0;
+  font-weight: 700;
   line-height: 1;
-  pointer-events: none;
+  flex-shrink: 0;
+}
+
+/* Корея: × кубики — один символ кости под 45° */
+.dice-pip {
+  display: inline-block;
+  transform: rotate(45deg);
+  transform-origin: center;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+  margin: 0 0.05em;
+}
+
+.cell__price--mult .dice-pip {
+  font-size: 0.95em;
+}
+
+.company-info__row strong .dice-pip,
+.company-info__current .dice-pip {
+  font-size: 1.05em;
+  margin: 0 0.1em;
 }
 
 /* Акции поверх клетки — не участвуют во flex, лого/цена не уезжают */
@@ -972,30 +1006,43 @@ button, input, select { font-family: inherit; }
 .cell__shares:empty {
   display: none;
 }
+/* Верх/низ: маркеры у флага, не поверх цены */
 .cell__body--top .cell__shares {
-  bottom: 1%;
+  top: 2%;
+  bottom: auto;
+  left: 6%;
+  right: auto;
+  transform: none;
+  max-width: 42%;
+  z-index: 3;
 }
 .cell__body--bottom .cell__shares {
-  top: 1%;
+  bottom: 2%;
+  top: auto;
+  left: 6%;
+  right: auto;
+  transform: none;
+  max-width: 42%;
+  z-index: 3;
 }
-/* Левая/правая полоса: акции сбоку у центра доски, не снизу */
+/* Левая/правая полоса: акции сбоку у центра доски, не поверх цены */
 .cell__body--left .cell__shares {
   left: auto;
-  right: 2%;
-  top: 50%;
+  right: 1%;
+  top: 42%;
   bottom: auto;
   transform: translateY(-50%);
-  max-width: 46%;
-  max-height: 88%;
+  max-width: 38%;
+  max-height: 52%;
 }
 .cell__body--right .cell__shares {
-  left: 2%;
+  left: 1%;
   right: auto;
-  top: 50%;
+  top: 42%;
   bottom: auto;
   transform: translateY(-50%);
-  max-width: 46%;
-  max-height: 88%;
+  max-width: 38%;
+  max-height: 52%;
 }
 
 .cell--pickable {
@@ -1030,14 +1077,19 @@ body.is-board-pick .cell--pickable {
 .cell__body--left .share-mark,
 .cell__body--right .share-mark {
   height: auto;
-  width: 42cqmin;
+  width: 32cqmin;
   max-width: 100%;
-  max-height: 86%;
+  max-height: 70%;
 }
 
 .cell__body--left .share-mark--gold,
 .cell__body--right .share-mark--gold {
-  width: 46cqmin;
+  width: 36cqmin;
+}
+
+.share-mark--ko,
+.share-mark--chn {
+  max-width: 100%;
 }
 
 /* Клетки без заливки — дерево/арт только с board-frame.png */
@@ -1438,6 +1490,8 @@ body.is-board-pick .cell--pickable {
 .company-info__current {
   padding-top: 3px;
   border-top: 1px dashed rgba(40, 24, 12, 0.25);
+  overflow: visible;
+  word-break: normal;
 }
 
 .company-info__list {
@@ -1476,6 +1530,8 @@ body.is-board-pick .cell--pickable {
 .company-info__row strong {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  overflow: visible;
+  flex-shrink: 0;
 }
 
 .company-info__share-icon {
