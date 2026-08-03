@@ -124,8 +124,9 @@ function tryBotAuctionRound(game) {
     if (!p.isBot) continue;
     if (!game.canPlayerAuctionBid?.(p.id)) continue;
     if (game.auction.highBidder === p.id) continue;
-    // Не хотят / не могут перебить — пропускают аукцион
-    if (p.money < ask || !shouldBotBid(game, p, cell, ask)) {
+    // Пропуск только если точно не будут бить (без второй случайности «чуть-чуть»)
+    const want = p.money >= ask && shouldBotBid(game, p, cell, ask);
+    if (!want) {
       game.leaveAuction(p.id);
       if (game.phase !== PHASE.AUCTION) return;
     }

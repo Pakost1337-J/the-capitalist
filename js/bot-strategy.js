@@ -131,17 +131,21 @@ export function maxAuctionBid(game, player, cell) {
   const score = interestScore(game, player.id, cell);
   const base = cell.price;
   const bare = ownedCompanyCount(player) === 0;
-  let mult = 0.65;
+  let mult = 0.9;
   if (score >= 90) mult = 1.45;
-  else if (score >= 75) mult = 1.2;
-  else if (score >= 60) mult = 1.05;
-  else if (score >= 40) mult = 0.85;
-  else if (bare) mult = 1.0;
-  else mult = 0.65;
+  else if (score >= 75) mult = 1.25;
+  else if (score >= 60) mult = 1.1;
+  else if (score >= 40) mult = 1.0;
+  else if (bare) mult = 1.05;
+  else mult = 0.95;
 
   let cap = Math.floor(base * mult);
-  const reserve = bare ? CASH_RESERVE * 0.45 : CASH_RESERVE;
+  const reserve = bare ? Math.min(CASH_RESERVE * 0.35, 120_000) : CASH_RESERVE * 0.7;
   cap = Math.min(cap, Math.max(0, player.money - reserve));
+  // Не ниже номинала, если хватает денег — иначе на старте аукциона никогда не ставят
+  if (player.money >= base + reserve * 0.5) {
+    cap = Math.max(cap, base);
+  }
   return cap;
 }
 
@@ -149,27 +153,21 @@ export function shouldBotBid(game, player, cell, nextPrice) {
   if (!player || !cell || nextPrice == null) return false;
   if (player.money < nextPrice) return false;
 
+  const list = cell.price || 0;
+  // До номинала — как обычная покупка
+  if (list > 0 && nextPrice <= list) {
+    return shouldBotBuy(game, player, cell, nextPrice);
+  }
+
   const score = interestScore(game, player.id, cell);
   const completes = wouldCompleteGroup(game, player.id, cell);
-  const bare = ownedCompanyCount(player) === 0;
-
-  if (feelsExpensive(player, nextPrice, bare ? 50 : score) && !completes) return false;
-
-  if (!canAffordWithReserve(player, nextPrice) && !completes && !bare) {
-    return false;
-  }
-
-  // No companies: 80% take auction lot if not expensive
-  if (bare) {
-    const cap = maxAuctionBid(game, player, cell);
-    if (nextPrice > cap) return false;
-    return Math.random() < 0.8;
-  }
+  if (feelsExpensive(player, nextPrice, score) && !completes) return false;
 
   const cap = maxAuctionBid(game, player, cell);
   if (nextPrice > cap) return false;
-  if (nextPrice > cap * 0.9) return Math.random() > 0.35;
-  return Math.random() > 0.15;
+  if (completes || score >= 70) return Math.random() < 0.85;
+  if (score >= 55) return Math.random() < 0.55;
+  return Math.random() < 0.25;
 }
 
 export function chooseBotShareCell(game, player) {
@@ -243,45 +241,49 @@ export function shouldAcceptDeal(game, bot, deal) {
     if (!offerMoney && deal.price != null) offerMoney = Number(deal.price) || 0;
   }
 
-  const netPay = Math.max(0, askMoney - offerMoney);
-  if (bot.money - netPay < CASH_RESERVE * 0.6 && netPay > 0) return false;
+  // Только деньги / без компаний — отказ
+  if (!offerCells.length && !askCells.length) return false;
 
+  const net = offerMoney - askMoney;
+  if (net >= 0) { offerMoney = net; askMoney = 0; }
+  else { askMoney = -net; offerMoney = 0; }
+
+  const netPay = askMoney; // бот платит
+  if (netPay > 0 && bot.money - netPay < CASH_RESERVE * 0.7) return false;
+
+  // Не отдаём клетки из почти монополии / монополии
   for (const id of askCells) {
     const cell = getCell(id);
     if (!cell?.group) continue;
     const mine = countOwnedInGroup(game, bot.id, cell.group);
     const { total } = groupStats(game, cell.group);
-    if (mine >= total - 1 && total > 1) return false;
     if (game.ownsGroup?.(bot.id, cell.group)) return false;
+    if (mine >= total - 1 && total > 1) return false;
   }
 
-  const cellValue = (id) => {
+  const valueForBot = (id, asReceiver) => {
     const cell = getCell(id);
     if (!cell) return 0;
     let v = cell.price || 0;
-    const score = interestScore(game, bot.id, cell);
-    if (wouldCompleteGroup(game, bot.id, cell)) v *= 1.55;
-    else if (score >= 65) v *= 1.25;
-    else if (blocksEnemyMonopoly(game, bot.id, cell)) v *= 1.2;
+    if (asReceiver) {
+      if (wouldCompleteGroup(game, bot.id, cell)) v *= 1.7;
+      else if (countOwnedInGroup(game, bot.id, cell.group) >= 1) v *= 1.25;
+      else if (blocksEnemyMonopoly(game, bot.id, cell)) v *= 1.15;
+      else v *= 0.95;
+    } else {
+      // то, что бот отдаёт — для него дороже
+      if (game.ownsGroup?.(bot.id, cell.group)) v *= 2.2;
+      else if (countOwnedInGroup(game, bot.id, cell.group) >= 2) v *= 1.6;
+      else v *= 1.15;
+    }
     return v;
   };
 
-  const giveValue = offerMoney + offerCells.reduce((s, id) => s + (getCell(id)?.price || 0), 0);
-  const takeValue = askMoney + askCells.reduce((s, id) => s + cellValue(id), 0);
-
-  let strategic = false;
-  for (const id of offerCells) {
-    const cell = getCell(id);
-    if (cell && (wouldCompleteGroup(game, bot.id, cell) || countOwnedInGroup(game, bot.id, cell.group) >= 1)) {
-      strategic = true;
-      break;
-    }
-  }
-
-  if (takeValue <= 0) return false;
-  const ratio = giveValue / takeValue;
-  if (strategic && ratio >= 0.7) return Math.random() > 0.2;
-  if (ratio >= 0.9) return Math.random() > 0.25;
-  if (ratio >= 0.8) return Math.random() > 0.55;
-  return false;
+  const receive = offerMoney + offerCells.reduce((s, id) => s + valueForBot(id, true), 0);
+  const give = askMoney + askCells.reduce((s, id) => s + valueForBot(id, false), 0);
+  if (give <= 0) return receive > 0;
+  // Бот принимает только если явно не в минусе
+  if (receive < give * 1.08) return false;
+  if (receive < give * 1.2) return Math.random() < 0.35;
+  return Math.random() < 0.85;
 }

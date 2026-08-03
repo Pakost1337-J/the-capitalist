@@ -187,9 +187,15 @@ export class UI {
 
   paintLogLines(gameLines) {
     if (!this.gameLog) return;
-    this.gameLog.innerHTML = gameLines.map(line =>
-      `<div class="log-line">${escapeHtml(line)}</div>`
-    ).join('');
+    this.gameLog.innerHTML = gameLines.map(line => {
+      const parts = String(line).split('\n').filter(Boolean);
+      if (parts.length > 1) {
+        return `<div class="log-line log-beat">${parts.map((p, i) =>
+          `<div class="${i === 0 ? 'log-beat-title' : 'log-beat-result'}">${escapeHtml(p)}</div>`
+        ).join('')}</div>`;
+      }
+      return `<div class="log-line">${escapeHtml(line)}</div>`;
+    }).join('');
     // Лента ходов+чата: новые снизу, скролл за ними
     requestAnimationFrame(() => {
       this.gameLog.scrollTop = this.gameLog.scrollHeight;
@@ -1254,7 +1260,6 @@ export class UI {
         ${logo
           ? `<img class="deal-chip__logo" src="${logo}" alt="${escapeHtml(cell.name)}" />`
           : `<span class="deal-chip__letter">${escapeHtml((cell.brand || cell.name || '?').slice(0, 1))}</span>`}
-        <span class="deal-chip__name">${escapeHtml(cell.name)}</span>
       </div>
     `;
   }
@@ -1341,41 +1346,44 @@ export class UI {
       this.renderDealCompose(this.lastState || state);
     };
 
+    const pickBtn = (c, on, dataAttr) => {
+      const logo = BRAND_LOGO_SRC[c.name] || BRAND_LOGO_SRC[c.brand] || '';
+      return `
+        <button type="button" class="deal-pick ${on ? 'is-on' : ''}" ${dataAttr}="${c.cellId}"
+          title="${escapeHtml(c.name)}">
+          ${logo
+            ? `<img class="deal-pick__logo" src="${logo}" alt="${escapeHtml(c.name)}" />`
+            : `<span class="deal-pick__letter">${escapeHtml((c.brand || c.name || '?').slice(0, 1))}</span>`}
+        </button>`;
+    };
+
     this.actionArea.innerHTML = `
       <div class="deal-panel deal-panel--compose">
         <p class="deal-panel__title">Сделка с ${escapeHtml(partner?.name || 'игроком')}</p>
-        <p class="deal-panel__hint">Деньги на деньги, компании или всё вместе. По деньгам спишется разница.</p>
+        <p class="deal-panel__hint">Компании обязательны. Деньги — доплата с одной стороны.</p>
 
         <div class="deal-compose__block">
           <div class="deal-compose__label">Вы отдадите</div>
-          <label class="deal-panel__label">Сумма
+          <label class="deal-panel__label">Доплата
             <input type="number" id="deal-offer-money" class="deal-panel__input"
               min="0" max="${me?.money || 0}" step="10000" value="${draft.offerMoney || 0}" />
           </label>
           <div class="deal-compose__chips">
             ${mine.length
-              ? mine.map(c => `
-                  <button type="button" class="deal-pick ${offerSet.has(c.cellId) ? 'is-on' : ''}"
-                    data-offer-cell="${c.cellId}">
-                    ${escapeHtml(c.name)}
-                  </button>`).join('')
+              ? mine.map(c => pickBtn(c, offerSet.has(c.cellId), 'data-offer-cell')).join('')
               : '<span class="deal-empty">Нет своих компаний</span>'}
           </div>
         </div>
 
         <div class="deal-compose__block">
           <div class="deal-compose__label">Вы получите</div>
-          <label class="deal-panel__label">Сумма
+          <label class="deal-panel__label">Доплата
             <input type="number" id="deal-ask-money" class="deal-panel__input"
               min="0" max="${partner?.money || 0}" step="10000" value="${draft.askMoney || 0}" />
           </label>
           <div class="deal-compose__chips">
             ${theirs.length
-              ? theirs.map(c => `
-                  <button type="button" class="deal-pick ${askSet.has(c.cellId) ? 'is-on' : ''}"
-                    data-ask-cell="${c.cellId}">
-                    ${escapeHtml(c.name)}
-                  </button>`).join('')
+              ? theirs.map(c => pickBtn(c, askSet.has(c.cellId), 'data-ask-cell')).join('')
               : '<span class="deal-empty">У соперника нет компаний</span>'}
           </div>
         </div>
@@ -1407,11 +1415,11 @@ export class UI {
       const askMoney = this._dealCompose.askMoney || 0;
       const offerCells = this._dealCompose.offerCells || [];
       const askCells = this._dealCompose.askCells || [];
-      if (!offerMoney && !askMoney && !offerCells.length && !askCells.length) return;
-      if (!offerCells.length && !askCells.length && offerMoney === askMoney) {
-        console.warn('Сделка: равные суммы без компаний не имеют смысла');
+      if (!offerCells.length && !askCells.length) {
+        console.warn('Сделка: нужны компании — обмен только деньгами нельзя');
         return;
       }
+      if (!offerMoney && !askMoney && !offerCells.length && !askCells.length) return;
       const toId = this._dealCompose.toId;
       const res = await this.doAction({ type: 'proposeDeal', toId, offerMoney, askMoney, offerCells, askCells });
       if (res?.ok) this._dealCompose = null;

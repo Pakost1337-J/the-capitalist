@@ -5,8 +5,9 @@ import {
 } from './config.js';
 import { shuffle } from './utils.js';
 import {
-  logBuy, logJail, logMoneyGain, logMoneyLoss, logPassStart,
+  logBuy, logMoneyLoss, logPassStart,
   logRent, logTax, logBuild,
+  logChanceDraw, logForceDraw, logParking, logJailVisit, logArrest,
 } from './flavor.js';
 
 export const PHASE = {
@@ -266,12 +267,19 @@ export class GameEngine {
     }
 
     if (!offerMoney && !askMoney && !offerCells.length && !askCells.length) return false;
-    // Пустой обмен равных сумм без компаний — бессмысленно
-    if (!offerCells.length && !askCells.length && offerMoney === askMoney) return false;
-    // Деньги можно с обеих сторон (обмен деньгами): платёжеспособность по нетто
+    // Без компаний нельзя — только «деньги на деньги» запрещены
+    if (!offerCells.length && !askCells.length) return false;
+    // Деньги только в одну сторону (нетто)
     const netCash = offerMoney - askMoney;
-    if (netCash > 0 && !this.canAfford(from, netCash)) return false;
-    if (netCash < 0 && !this.canAfford(to, -netCash)) return false;
+    if (netCash >= 0) {
+      offerMoney = netCash;
+      askMoney = 0;
+    } else {
+      askMoney = -netCash;
+      offerMoney = 0;
+    }
+    if (offerMoney > 0 && !this.canAfford(from, offerMoney)) return false;
+    if (askMoney > 0 && !this.canAfford(to, askMoney)) return false;
     if (!this._cellsOwnedBy(offerCells, fromId)) return false;
     if (!this._cellsOwnedBy(askCells, to.id)) return false;
 
@@ -310,18 +318,29 @@ export class GameEngine {
       return false;
     }
 
-    const offerMoney = Math.max(0, Math.floor(Number(d.offerMoney) || 0));
-    const askMoney = Math.max(0, Math.floor(Number(d.askMoney) || 0));
+    let offerMoney = Math.max(0, Math.floor(Number(d.offerMoney) || 0));
+    let askMoney = Math.max(0, Math.floor(Number(d.askMoney) || 0));
     const offerCells = this._normalizeDealCells(d.offerCells);
     const askCells = this._normalizeDealCells(d.askCells);
-
+    if (!offerCells.length && !askCells.length) {
+      this.addLog('Сделка сорвалась: нужны компании');
+      this.clearDeal(true);
+      return false;
+    }
     const netCash = offerMoney - askMoney;
-    if (netCash > 0 && !this.canAfford(from, netCash)) {
+    if (netCash >= 0) {
+      offerMoney = netCash;
+      askMoney = 0;
+    } else {
+      askMoney = -netCash;
+      offerMoney = 0;
+    }
+    if (offerMoney > 0 && !this.canAfford(from, offerMoney)) {
       this.addLog('Сделка сорвалась: не хватает денег');
       this.clearDeal(true);
       return false;
     }
-    if (netCash < 0 && !this.canAfford(to, -netCash)) {
+    if (askMoney > 0 && !this.canAfford(to, askMoney)) {
       this.addLog('Сделка сорвалась: не хватает денег');
       this.clearDeal(true);
       return false;
@@ -332,13 +351,12 @@ export class GameEngine {
       return false;
     }
 
-    // Нетто по деньгам (можно обменивать деньги на деньги)
-    if (netCash > 0) {
-      from.money -= netCash;
-      to.money += netCash;
-    } else if (netCash < 0) {
-      to.money -= -netCash;
-      from.money += -netCash;
+    if (offerMoney > 0) {
+      from.money -= offerMoney;
+      to.money += offerMoney;
+    } else if (askMoney > 0) {
+      to.money -= askMoney;
+      from.money += askMoney;
     }
     this._transferCells(from, to, offerCells);
     this._transferCells(to, from, askCells);
@@ -625,8 +643,14 @@ export class GameEngine {
 
     switch (cell.type) {
       case 'go':
+        this.afterAction();
+        break;
       case 'parking':
+        this.addLog(logParking(p.name));
+        this.afterAction();
+        break;
       case 'jail':
+        this.addLog(logJailVisit(p.name));
         this.afterAction();
         break;
       case 'property':
@@ -867,13 +891,13 @@ export class GameEngine {
     return capital;
   }
 
-  sendToJail() {
+  sendToJail({ silent } = {}) {
     const p = this.currentPlayer;
     p.position = JAIL_POS;
     p.inJail = true;
     p.jailTurns = 0;
     this.doubles = false;
-    this.addLog(logJail(p.name));
+    if (!silent) this.addLog(logArrest(p.name));
     this.phase = PHASE.END;
     this.endTurn();
   }
@@ -892,19 +916,31 @@ export class GameEngine {
     this.applyChanceCard(card, 'force');
   }
 
+  cardLog(kind, name, action, result) {
+    return kind === 'force'
+      ? logForceDraw(name, action, result)
+      : logChanceDraw(name, action, result);
+  }
+
+  moneyResult(amount) {
+    const sign = amount >= 0 ? '+' : '−';
+    return `${sign}$${Math.abs(amount).toLocaleString('ru-RU')}`;
+  }
+
   applyChanceCard(card, kind = 'chance') {
     const p = this.currentPlayer;
     const fieldName = kind === 'force' ? 'Форс мажор' : 'Шанс';
+    const action = card.text || 'Сюрприз';
 
     if (card.money) {
       if (card.money > 0) {
         p.money += card.money;
-        this.addLog(logMoneyGain(p.name, card.money));
+        this.addLog(this.cardLog(kind, p.name, action, this.moneyResult(card.money)));
         this.afterAction();
       } else {
         this.startCardDebt({
           amount: Math.abs(card.money),
-          text: card.text || '',
+          text: action,
           fieldName,
           kind,
         });
@@ -913,7 +949,8 @@ export class GameEngine {
     }
 
     if (card.birthday) {
-      this.addLog(`${p.name}: день рождения — все скидываются по $${card.birthday.toLocaleString('ru-RU')}`);
+      const result = `+$${card.birthday.toLocaleString('ru-RU')} с каждого`;
+      this.addLog(this.cardLog(kind, p.name, action, result));
       for (const other of this.activePlayers) {
         if (other.id !== p.id) {
           const amt = Math.min(card.birthday, other.money);
@@ -927,25 +964,27 @@ export class GameEngine {
     if (card.goToStart) {
       p.position = 0;
       p.money += GO_SALARY;
-      this.addLog(`${p.name} телепортируется на Старт (+$${GO_SALARY.toLocaleString('ru-RU')})`);
+      this.addLog(this.cardLog(kind, p.name, action, `Старт ${this.moneyResult(GO_SALARY)}`));
       this.afterAction();
       return;
     }
 
     if (card.goToJail) {
-      this.sendToJail();
+      this.addLog(this.cardLog(kind, p.name, action, 'в тюрьму'));
+      this.sendToJail({ silent: true });
       return;
     }
 
     if (card.goTo !== undefined) {
+      const cellName = getCell(card.goTo)?.name || 'поле';
+      this.addLog(this.cardLog(kind, p.name, action, `переход на «${cellName}»`));
       p.position = card.goTo;
-      this.addLog(`${p.name} переходит на «${getCell(card.goTo)?.name || 'поле'}»`);
       this.afterAction();
       return;
     }
 
     if (card.moveBack) {
-      this.addLog(`${p.name} отступает на ${card.moveBack} клетки`);
+      this.addLog(this.cardLog(kind, p.name, action, `−${card.moveBack} клетки`));
       p.position = (p.position - card.moveBack + BOARD_SIZE) % BOARD_SIZE;
       this.landOnCell();
       return;
@@ -957,27 +996,27 @@ export class GameEngine {
         total += (this.propertyState[pid].houses || 0) * card.repairPerHouse;
       }
       if (total <= 0) {
-        this.addLog(`${p.name}: ${card.text || 'ремонт'} — убытков нет`);
+        this.addLog(this.cardLog(kind, p.name, action, 'убытков нет'));
         this.afterAction();
         return;
       }
       this.startCardDebt({
         amount: total,
-        text: card.text || 'Ремонт филиалов',
+        text: action,
         fieldName,
         kind,
       });
       return;
     }
 
-    this.addLog(card.text || `${p.name}: сюрприз на поле`);
+    this.addLog(this.cardLog(kind, p.name, action, 'без эффекта'));
     this.afterAction();
   }
 
   /** Убыток с карты Шанс / Форс-мажор — панель долга */
   startCardDebt({ amount, text, fieldName, kind }) {
     const p = this.currentPlayer;
-    this.addLog(`${p.name}: ${text || 'убыток'} — $${amount.toLocaleString('ru-RU')}`);
+    this.addLog(this.cardLog(kind || 'force', p.name, text || 'Убыток', this.moneyResult(-amount)));
     if (this.tryInstantBankruptcy(p, null, amount, 'убыток')) return;
     this.pendingAction = {
       type: 'force',
@@ -999,7 +1038,6 @@ export class GameEngine {
     this.pendingAction = null;
     if (p.money >= amount) {
       p.money -= amount;
-      this.addLog(logMoneyLoss(p.name, amount));
       this.afterAction();
     } else {
       this.handleBankruptcy(p, null, amount);
