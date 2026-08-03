@@ -522,7 +522,7 @@ export class GameEngine {
 
   addLog(msg) {
     this.log.unshift(msg);
-    if (this.log.length > 50) this.log.pop();
+    if (this.log.length > 30) this.log.pop();
   }
 
   getPropertyOwner(cellId) {

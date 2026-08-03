@@ -1,6 +1,6 @@
 import {
   BOARD, BOARD_SIZE, BRAND_LOGO_SRC, COUNTRY_FLAG_SRC, COUNTRY_LABEL_RU, GROUP_COLORS,
-  JAIL_BAIL, AUCTION_STEP, GO_SALARY, getGridPosition, getGroupProperties, playerOwnTint,
+  JAIL_BAIL, AUCTION_STEP, GO_SALARY, NO_SHARE_GROUPS, getGridPosition, getGroupProperties, playerOwnTint,
 } from './config.js';
 import { formatMoney, formatPriceShort, sleep } from './utils.js';
 import { PHASE } from './game.js';
@@ -355,7 +355,7 @@ export class UI {
              <span class="cell__logo-text">${escapeHtml(company)}</span>
            </div>`;
       const priceEl = priceVal
-        ? `<span class="cell__price${isUtilityMult ? ' cell__price--mult' : ''}"${isUtilityMult ? ` data-utility-price="${index}"` : ''}>
+        ? `<span class="cell__price${isUtilityMult ? ' cell__price--mult' : ''}" data-cell-price="${index}"${isUtilityMult ? ` data-utility-price="${index}"` : ''}>
              <span class="cell__price-core">
                <span class="cell__price-val">${priceVal}</span>
                ${isUtilityMult ? '<span class="cell__price-x" aria-hidden="true">×</span><span class="dice-pip" aria-hidden="true">⚂</span>' : ''}
@@ -890,14 +890,14 @@ export class UI {
         moneyBlock = `<div class="p-card__cash p-card__cash--out">Банкрот</div>`;
       } else if (p.disconnected) {
         moneyBlock = `<div class="p-card__cash p-card__cash--out">Нет сети…</div>
-            <div class="p-card__capital">Капитал: ${formatMoney(capital)}${jailNote}</div>
+            <div class="p-card__capital">Кап.: ${formatPriceShort(capital)}${jailNote}</div>
             <div class="p-card__stats">
               <div>Компаний: ${companies}</div>
               <div>Страны: ${countries}</div>
             </div>`;
       } else {
-        moneyBlock = `<div class="p-card__cash">${formatMoney(p.money)}</div>
-            <div class="p-card__capital">Капитал: ${formatMoney(capital)}${jailNote}</div>
+        moneyBlock = `<div class="p-card__cash">${formatPriceShort(p.money)}</div>
+            <div class="p-card__capital">Кап.: ${formatPriceShort(capital)}${jailNote}</div>
             <div class="p-card__stats">
               <div>Компаний: ${companies}</div>
               <div>Страны: ${countries}</div>
@@ -1288,21 +1288,99 @@ export class UI {
     container.innerHTML = `<img class="share-mark ${countClass || ''}" src="${src}" alt="" draggable="false" />`;
   }
 
-  /** Корея: на клетке текущий тариф за очко кости ($25K× / $50K×) */
-  updateUtilityPriceLabels(state) {
-    document.querySelectorAll('[data-utility-price]').forEach((el) => {
-      const cellId = Number(el.dataset.utilityPrice);
+  /** Текущая аренда на клетке (как calcRent, без костей — для Кореи тариф × кости) */
+  displayCellRent(state, cellId) {
+    const cell = BOARD[cellId];
+    const ps = state?.propertyState?.[cellId];
+    if (!cell) return { text: '', mult: false };
+
+    // Свободно / в залоге — цена покупки; Корея — базовый тариф × кости
+    if (!ps || ps.owner == null || ps.mortgaged) {
+      if (cell.type === 'utility' && cell.rent?.[0] != null) {
+        return { text: formatPriceShort(cell.rent[0]), mult: true, tariff: cell.rent[0] };
+      }
+      return {
+        text: cell.price != null ? formatPriceShort(cell.price) : '',
+        mult: false,
+      };
+    }
+
+    if (cell.type === 'utility' || cell.diceRent) {
+      const n = this.countOwnedInGroup(state, ps.owner, cell.group);
+      const tariff = cell.rent?.[n >= 2 ? 1 : 0] || cell.rent?.[0] || 0;
+      return { text: formatPriceShort(tariff), mult: true, tariff };
+    }
+
+    if (cell.type === 'railroad') {
+      const count = BOARD.filter(c => (
+        c.type === 'railroad'
+        && state.propertyState[c.id]?.owner === ps.owner
+        && !state.propertyState[c.id]?.mortgaged
+      )).length;
+      const amount = cell.rent?.[Math.max(0, count - 1)] || cell.rent?.[0] || 0;
+      return { text: formatPriceShort(amount), mult: false };
+    }
+
+    if (cell.type === 'property') {
+      if (cell.noShares || NO_SHARE_GROUPS.has(cell.group)) {
+        const owned = this.countOwnedInGroup(state, ps.owner, cell.group);
+        const idx = Math.max(0, Math.min(owned - 1, (cell.rent?.length || 1) - 1));
+        return { text: formatPriceShort(cell.rent?.[idx] || cell.rent?.[0] || 0), mult: false };
+      }
+      const houses = ps.houses || 0;
+      if (houses > 0) {
+        return { text: formatPriceShort(cell.rent?.[houses] || 0), mult: false };
+      }
+      const group = getGroupProperties(cell.group);
+      const mono = group.length > 0 && group.every(c => (
+        state.propertyState[c.id]?.owner === ps.owner
+        && !state.propertyState[c.id]?.mortgaged
+      ));
+      const base = cell.rent?.[0] || 0;
+      return { text: formatPriceShort(mono ? base * 2 : base), mult: false };
+    }
+
+    return {
+      text: cell.price != null ? formatPriceShort(cell.price) : '',
+      mult: false,
+    };
+  }
+
+  /** После покупки — аренда (с акциями); свободно — цена покупки */
+  updateCellPriceLabels(state) {
+    document.querySelectorAll('[data-cell-price]').forEach((el) => {
+      const cellId = Number(el.dataset.cellPrice);
       const cell = BOARD[cellId];
-      if (!cell?.rent?.length) return;
+      if (!cell) return;
       const valEl = el.querySelector('.cell__price-val');
       if (!valEl) return;
-      const ps = state?.propertyState?.[cellId];
-      let tariff = cell.rent[0];
-      if (ps?.owner != null && !ps.mortgaged) {
-        const n = this.countOwnedInGroup(state, ps.owner, cell.group);
-        tariff = cell.rent[n >= 2 ? 1 : 0] || cell.rent[0];
+      const info = this.displayCellRent(state, cellId);
+      valEl.textContent = info.text;
+
+      const wantMult = !!info.mult;
+      el.classList.toggle('cell__price--mult', wantMult);
+      let xEl = el.querySelector('.cell__price-x');
+      let dieEl = el.querySelector('.dice-pip');
+      if (wantMult) {
+        const core = el.querySelector('.cell__price-core');
+        if (!xEl && core) {
+          xEl = document.createElement('span');
+          xEl.className = 'cell__price-x';
+          xEl.setAttribute('aria-hidden', 'true');
+          xEl.textContent = '×';
+          core.appendChild(xEl);
+        }
+        if (!dieEl && core) {
+          dieEl = document.createElement('span');
+          dieEl.className = 'dice-pip';
+          dieEl.setAttribute('aria-hidden', 'true');
+          dieEl.textContent = '⚂';
+          core.appendChild(dieEl);
+        }
+      } else {
+        xEl?.remove();
+        dieEl?.remove();
       }
-      valEl.textContent = formatPriceShort(tariff);
     });
   }
 
@@ -1367,7 +1445,7 @@ export class UI {
       if (lock && mortgaged) lock.hidden = false;
     }
 
-    this.updateUtilityPriceLabels(state);
+    this.updateCellPriceLabels(state);
   }
 
   async doAction(action) {
@@ -1499,8 +1577,8 @@ export class UI {
   }
 
   renderLog(state) {
-    // Игровой лог: старые сверху, новые снизу
-    const gameLines = [...(state.log || [])].slice(0, 36).reverse();
+    // Игровой лог: старые сверху, новые снизу (короче — меньше шума)
+    const gameLines = [...(state.log || [])].slice(0, 18).reverse();
     this.paintLogLines(gameLines);
   }
 
@@ -1796,8 +1874,8 @@ export class UI {
     this.actionArea.innerHTML = `
       <div class="deal-panel">
         <p class="deal-panel__title">Купить акции</p>
-        <p class="deal-panel__hint">До 2 акций за ход на разные страны · нажмите компанию на поле · ${bought}/2 · ${formatMoney(me?.money || 0)}</p>
-        <p class="deal-panel__hint">${options.length ? 'Подсвечены доступные поля' : (bought >= 2 ? 'Лимит акций на этот ход' : 'Нечего покупать')}</p>
+        <p class="deal-panel__hint">Нажмите на компанию на поле · до 2 акций за ход на разные страны · ${bought}/2 · ${formatPriceShort(me?.money || 0)}</p>
+        <p class="deal-panel__hint">${options.length ? 'Доступные поля — тёмная тень' : (bought >= 2 ? 'Лимит акций на этот ход' : 'Нечего покупать')}</p>
         <div class="deal-panel__btns">
           <button type="button" class="btn btn--club" id="btn-sell-share-board">Снять акцию</button>
           <button type="button" class="btn btn--club-muted" id="btn-shares-done">Готово</button>

@@ -21,6 +21,60 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function botSay(game, bot, text) {
+  if (!game || !bot || !text) return;
+  // Не чаще одного комментария за ~1.2с — меньше спама
+  const now = Date.now();
+  if (now - (game._lastBotChatAt || 0) < 1200) return;
+  game._lastBotChatAt = now;
+  game.addLog(`${bot.name}: ${text}`);
+}
+
+const BOT_THOUGHTS = {
+  roll: [
+    'Кидаю кости…',
+    'Поехали!',
+    'Что там судьба подкинет…',
+    'Ход за мной.',
+  ],
+  buy: [
+    (n) => `Беру «${n}» — пригодится.`,
+    (n) => `«${n}» в портфель.`,
+    (n) => `Покупаю «${n}».`,
+  ],
+  pass: [
+    (n) => `«${n}» дорого — пас.`,
+    (n) => `Не сейчас «${n}».`,
+    (n) => `Пусть уходит на аукцион.`,
+  ],
+  rent: [
+    'Оплачу и пойду дальше.',
+    'Долг погашаю.',
+    'Придётся заплатить…',
+  ],
+  share: [
+    (n) => `Акция на «${n}».`,
+    (n) => `Усиливаю «${n}».`,
+  ],
+  auction: [
+    (n) => `Ставлю за «${n}».`,
+    (n) => `Перебиваю за «${n}».`,
+  ],
+  jail: [
+    'Выхожу из тюрьмы.',
+    'Плачу залог — свобода дороже.',
+  ],
+  think: [
+    'Считаю варианты…',
+    'Смотрю на поле.',
+    'Думаю над ходом.',
+  ],
+};
+
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 async function pulse(broadcast) {
   if (typeof broadcast === 'function') broadcast();
   await wait(STEP_MS);
@@ -78,9 +132,11 @@ export function runBotTurn(game, onDone, broadcast = () => {}) {
 
       // Порядок: бросок → клетка → покупка/аренда → акция (после хода)
       if (player.inJail && player.money >= 50_000 && Math.random() > 0.55) {
+        botSay(game, player, pick(BOT_THOUGHTS.jail));
         game.payJailBail();
         await pulse(broadcast);
       }
+      if (Math.random() < 0.55) botSay(game, player, pick(BOT_THOUGHTS.roll));
       game.rollDice();
       if (typeof broadcast === 'function') broadcast();
       await waitForMoveAnim(game, broadcast);
@@ -123,14 +179,18 @@ async function handleAfterRoll(game, broadcast) {
 
     // Не хватает денег — пробуем заложить, потом купить, иначе аукцион
     if (player.money < price) {
+      botSay(game, player, 'Денег мало — заложу что-нибудь…');
       game.autoRaiseCash?.(player, price);
       await pulse(broadcast);
     }
     if (player.money >= price && shouldBotBuy(game, player, cell, price)) {
+      botSay(game, player, pick(BOT_THOUGHTS.buy)(cell?.name || 'компанию'));
       game.buyProperty();
     } else if (player.money >= price && Math.random() < 0.35) {
+      botSay(game, player, pick(BOT_THOUGHTS.buy)(cell?.name || 'компанию'));
       game.buyProperty();
     } else {
+      botSay(game, player, pick(BOT_THOUGHTS.pass)(cell?.name || 'это'));
       game.passProperty();
     }
     await pulse(broadcast);
@@ -147,6 +207,8 @@ async function handleAfterRoll(game, broadcast) {
     game.phase === PHASE.ACTION
     && ['rent', 'tax', 'force'].includes(game.pendingAction?.type)
   ) {
+    const player = game.currentPlayer;
+    if (Math.random() < 0.7) botSay(game, player, pick(BOT_THOUGHTS.rent));
     settleBotRent(game);
     await pulse(broadcast);
     await finishBotTurn(game, broadcast);
@@ -201,6 +263,7 @@ function tryBotAuctionRound(game) {
     }
     for (const p of contenders) {
       if (game.placeAuctionBid(p.id)) {
+        botSay(game, p, pick(BOT_THOUGHTS.auction)(cell?.name || 'лот'));
         placed = true;
         break;
       }
@@ -229,7 +292,10 @@ export function tryBotBuyShare(game) {
   if (player.inJail) return false;
   const cellId = chooseBotShareCell(game, player);
   if (cellId == null) return false;
-  return game.buildHouse(cellId);
+  const cell = getCell(cellId);
+  const ok = game.buildHouse(cellId);
+  if (ok) botSay(game, player, pick(BOT_THOUGHTS.share)(cell?.name || 'компанию'));
+  return ok;
 }
 
 function settleBotRent(game) {

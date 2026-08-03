@@ -228,7 +228,7 @@ io.on('connection', (socket) => {
     if (!room) return;
     const member = findMemberBySocket(room, socket.id);
     const spectator = findSpectatorBySocket(room, socket.id);
-    const clean = String(text || '').trim().slice(0, 120);
+    const clean = String(text || '').trim().slice(0, 60);
     if (!clean) return;
     const name = member?.name || spectator?.name || 'Игрок';
     if (room.game) {
