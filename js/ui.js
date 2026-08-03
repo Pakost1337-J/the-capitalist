@@ -159,9 +159,8 @@ export class UI {
     const cornerBot = rowTracks[rowTracks.length - 1];
     const cellW = colTracks[1];
     const cellH = rowTracks[1];
-    // Лого от mid-клетки; не сжимать ниже читаемого на телефоне
-    const logoW = Math.max(20, Math.round(cellW * 0.88));
-    const logoH = Math.max(18, Math.round(Math.min(cellW * 0.7, cellH * 0.42)));
+    const logoW = Math.max(18, cellW - 6);
+    const logoH = Math.max(14, Math.round(Math.min(cellW, cellH) * 0.38));
     const boardRadius = Math.max(8, Math.round(16 * uiScale));
     const colCss = colTracks.map((px) => `${px}px`).join(' ');
     const rowCss = rowTracks.map((px) => `${px}px`).join(' ');

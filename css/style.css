@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --bg: #6e5238;
   --field-brown: #6e5238;
   /* как у карточек игроков (.p-card) */
@@ -604,7 +604,7 @@ button, input, select { font-family: inherit; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 3px;
+  padding: 5px 3px;
   text-align: center;
   gap: 2px;
   min-height: 0;
@@ -614,35 +614,27 @@ button, input, select { font-family: inherit; }
   z-index: 2;
 }
 
-/* Верх/низ: флаг у внешнего края → лого → цена */
+/* Верх/низ: флаг у внешнего края */
 .cell__body--top {
   flex-direction: column;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 2px 5px;
-  gap: 2px;
 }
 .cell__body--bottom {
   flex-direction: column-reverse;
-  justify-content: space-between;
-  align-items: center;
-  padding: 5px 2px 4px;
-  gap: 2px;
 }
-/* Бока: флаг у внешнего края, лого+цена к центру */
+/* Бока: флаг у левого/правого внешнего края доски */
 .cell__body--right {
   flex-direction: row; /* stack | flag → флаг справа */
   justify-content: space-between;
   align-items: center;
-  padding: 3px 4px 3px 5px;
-  gap: 3px;
+  padding: 4px 4px 4px 6px;
+  gap: 4px;
 }
 .cell__body--left {
   flex-direction: row-reverse; /* flag | stack → флаг слева */
   justify-content: space-between;
   align-items: center;
-  padding: 3px 5px 3px 4px;
-  gap: 3px;
+  padding: 4px 6px 4px 4px;
+  gap: 4px;
 }
 .cell__body--corner {
   padding: 0;
@@ -667,7 +659,7 @@ button, input, select { font-family: inherit; }
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
+  flex-shrink: 0;
   padding: 0;
   background: none;
   border: none;
@@ -676,14 +668,14 @@ button, input, select { font-family: inherit; }
 }
 
 .cell__flag {
-  font-size: calc(var(--logo-h) * 0.85);
+  font-size: clamp(0.95rem, 1.8vw, 1.25rem);
   line-height: 1;
 }
 
 .cell__flag-img {
-  width: calc(var(--logo-w) * 0.55);
+  width: clamp(22px, 2.8vw, 32px);
   height: auto;
-  max-height: calc(var(--logo-h) * 0.72);
+  max-height: clamp(16px, 2.2vw, 24px);
   object-fit: contain;
   border-radius: 0;
   display: block;
@@ -693,52 +685,46 @@ button, input, select { font-family: inherit; }
 .cell__logo {
   width: min(100%, var(--logo-w));
   height: var(--logo-h);
-  min-height: var(--logo-h);
-  max-height: var(--logo-h);
+  min-height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
   border-radius: 0;
-  overflow: hidden;
-  flex: 0 0 auto;
+  overflow: visible;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
 .cell__body--left .cell__logo,
 .cell__body--right .cell__logo {
-  width: min(100%, calc(var(--cell-h) * 1.15));
-  height: calc(var(--cell-h) * 0.48);
-  min-height: calc(var(--cell-h) * 0.48);
-  max-height: calc(var(--cell-h) * 0.48);
+  width: 100%;
+  max-width: 72%;
+  height: clamp(28px, 5.2vh, 48px);
+  min-height: 20px;
 }
 
 .cell__body--left .cell__logo-text,
 .cell__body--right .cell__logo-text {
-  font-size: calc(var(--cell-h) * 0.18);
+  font-size: clamp(0.5rem, 1.1vw, 0.72rem);
 }
 
 .cell__body--left .cell__price,
 .cell__body--right .cell__price {
-  font-size: calc(var(--cell-h) * 0.18);
-  width: auto;
-  max-width: 100%;
+  font-size: clamp(0.52rem, 1.15vw, 0.75rem);
 }
 
-.cell__body--left .cell__flag-img,
-.cell__body--right .cell__flag-img {
-  width: calc(var(--cell-h) * 0.4);
-  max-height: calc(var(--cell-h) * 0.34);
+.cell__body--left .cell__country-slot,
+.cell__body--right .cell__country-slot {
+  flex: 0 0 auto;
+  align-self: center;
 }
 
 .cell__body--left .cell__stack,
 .cell__body--right .cell__stack {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
-  max-height: 100%;
-  gap: 2px;
-  justify-content: center;
 }
 
 
@@ -835,19 +821,11 @@ button, input, select { font-family: inherit; }
   letter-spacing: 0.01em;
 }
 
-/* Боковые клетки — чуть компактнее */
-.cell__body--left .cell__tax-title,
-.cell__body--right .cell__tax-title,
+/* Боковые клетки — чуть компактнее, чтобы «ШАНС» не обрезался */
 .cell__body--left .cell__special .cell__tax-title,
 .cell__body--right .cell__special .cell__tax-title {
-  font-size: calc(var(--cell-h) * 0.16);
-  letter-spacing: 0.03em;
-}
-.cell__body--left .cell__tax-pct,
-.cell__body--right .cell__tax-pct,
-.cell__body--left .cell__special .cell__tax-pct,
-.cell__body--right .cell__special .cell__tax-pct {
-  font-size: calc(var(--cell-h) * 0.17);
+  font-size: clamp(0.48rem, 0.95vw, 0.72rem);
+  letter-spacing: 0.04em;
 }
 
 .cell__icon { font-size: clamp(0.85rem, 1.6vw, 1.15rem); line-height: 1; }
@@ -869,15 +847,14 @@ button, input, select { font-family: inherit; }
   justify-content: center;
   align-items: center;
   font-family: var(--font);
-  font-size: calc(var(--logo-h) * 0.42);
+  font-size: clamp(0.58rem, 1.25vw, 0.82rem);
   font-weight: 500;
   color: #2a1c14;
   line-height: 1.05;
-  flex: 0 0 auto;
+  flex-shrink: 0;
   letter-spacing: 0.02em;
   white-space: nowrap;
   width: 100%;
-  max-width: 100%;
 }
 
 .cell__price-core {
@@ -935,7 +912,7 @@ button, input, select { font-family: inherit; }
 .share-mark {
   display: block;
   width: auto;
-  height: max(11px, calc(var(--cell-w) * 0.3));
+  height: clamp(10px, 1.35vw, 16px);
   max-width: 92%;
   object-fit: contain;
   image-rendering: auto;
