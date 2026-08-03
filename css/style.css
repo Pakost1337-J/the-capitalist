@@ -2273,10 +2273,10 @@ button, input, select { font-family: inherit; }
 
 .p-card {
   flex: 1 1 0;
-  min-height: calc(102px * var(--ui-scale));
+  min-height: 0;
   position: relative;
   border-radius: 10px;
-  padding: calc(4px * var(--ui-scale));
+  padding: calc(3px * var(--ui-scale));
   background: linear-gradient(160deg, #8a6a48, #6e5238 45%, #5a422e);
   box-shadow:
     0 5px 14px rgba(0, 0, 0, 0.4),
@@ -2289,9 +2289,9 @@ button, input, select { font-family: inherit; }
 .p-card__inner {
   position: relative;
   height: 100%;
-  min-height: calc(92px * var(--ui-scale));
+  min-height: 0;
   border-radius: 5px;
-  padding: calc(10px * var(--ui-scale)) calc(12px * var(--ui-scale)) calc(12px * var(--ui-scale));
+  padding: calc(7px * var(--ui-scale)) calc(8px * var(--ui-scale)) calc(7px * var(--ui-scale));
   /* Верхний блик — «свечение» ячейки */
   background:
     radial-gradient(120% 80% at 50% -8%, rgba(255, 236, 190, 0.48), transparent 52%),
@@ -2303,6 +2303,9 @@ button, input, select { font-family: inherit; }
   border: 1px dashed rgba(55, 35, 18, 0.4);
   color: #2a2118;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
 }
 
 .p-card--active {
@@ -2342,15 +2345,16 @@ button, input, select { font-family: inherit; }
 .p-card__head {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding-right: 44px;
+  gap: 4px;
+  padding-right: calc(40px * var(--ui-scale));
   min-width: 0;
+  flex-shrink: 0;
 }
 
 .p-card__mail {
   flex: 0 0 auto;
-  width: 14px;
-  height: 11px;
+  width: calc(12px * var(--ui-scale));
+  height: calc(9px * var(--ui-scale));
   color: #3a2a1c;
   opacity: 0.85;
 }
@@ -2362,7 +2366,7 @@ button, input, select { font-family: inherit; }
 .p-card__name {
   font-family: 'PTNarrow', sans-serif;
   font-weight: 500;
-  font-size: var(--fs-lg);
+  font-size: calc(13px * var(--ui-scale));
   line-height: 1.1;
   color: #2a2118;
   overflow: hidden;
@@ -2373,42 +2377,51 @@ button, input, select { font-family: inherit; }
 }
 
 .p-card__cash {
-  margin-top: 5px;
+  margin-top: calc(2px * var(--ui-scale));
   font-family: 'PTNarrow', sans-serif;
   font-weight: 400;
-  font-size: var(--fs-xl);
+  font-size: calc(15px * var(--ui-scale));
   line-height: 1.05;
   color: #1f1812;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.015em;
+  flex-shrink: 0;
 }
 
 .p-card__cash--out {
   font-weight: 500;
-  font-size: var(--fs-lg);
+  font-size: calc(14px * var(--ui-scale));
   color: #4a3a2c;
 }
 
 .p-card__capital {
-  margin-top: 3px;
-  padding-right: 52px;
+  margin-top: calc(2px * var(--ui-scale));
+  padding-right: calc(42px * var(--ui-scale));
   font-family: 'PTNarrow', sans-serif;
   font-weight: 400;
-  font-size: var(--fs-sm);
+  font-size: calc(10.5px * var(--ui-scale));
+  line-height: 1.15;
   color: #3a2a1a;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
 }
 
 .p-card__stats {
-  margin-top: 6px;
-  padding-right: 52px;
+  margin-top: calc(3px * var(--ui-scale));
+  padding-right: calc(42px * var(--ui-scale));
   font-family: 'PTNarrow', sans-serif;
   font-weight: 400;
-  font-size: var(--fs-sm);
-  line-height: 1.25;
+  font-size: calc(10.5px * var(--ui-scale));
+  line-height: 1.2;
   color: #3a2a1a;
   font-variant-numeric: tabular-nums;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .p-card--out .p-card__name,
@@ -2424,10 +2437,10 @@ button, input, select { font-family: inherit; }
 
 .p-card__chip {
   position: absolute;
-  right: 6px;
-  bottom: 4px;
-  width: calc(50px * var(--ui-scale));
-  height: calc(50px * var(--ui-scale));
+  right: calc(4px * var(--ui-scale));
+  bottom: calc(3px * var(--ui-scale));
+  width: calc(38px * var(--ui-scale));
+  height: calc(38px * var(--ui-scale));
   object-fit: contain;
   /* тень уже в PNG */
   filter: none;

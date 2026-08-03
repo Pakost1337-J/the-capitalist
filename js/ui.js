@@ -811,7 +811,7 @@ export class UI {
     this.playersPanel.innerHTML = state.players.map((p, i) => {
       const capital = this.calcCapital(p, state);
       const isTurn = i === state.currentPlayerIndex && !p.bankrupt;
-      const jailNote = p.inJail && !p.bankrupt ? ' · тюрьма' : '';
+      const jailNote = p.inJail && !p.bankrupt ? ' · тюр.' : '';
       const companies = (p.properties || []).length;
       // Страны — только полностью собранные группы
       const groups = new Set(
