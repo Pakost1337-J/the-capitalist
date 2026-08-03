@@ -497,6 +497,7 @@ button, input, select { font-family: inherit; }
   z-index: 2;
   min-width: 0;
   min-height: 0;
+  container-type: size;
 }
 
 /* Подсветка хода — без синего квадрата */
@@ -601,65 +602,22 @@ button, input, select { font-family: inherit; }
 
 .cell__body {
   flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 3px;
-  text-align: center;
-  gap: 2px;
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
   min-height: 0;
   min-width: 0;
-  position: relative;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  text-align: center;
   /* над закрасом (.cell__owner z-index: 0) */
   z-index: 2;
 }
 
-/* Верх/низ: флаг у внешнего края */
-.cell__body--top {
-  flex-direction: column;
-}
-.cell__body--bottom {
-  flex-direction: column-reverse;
-}
-/* Бока: кластер по центру клетки — не прилипает к металлической рамке */
-.cell__body--right,
-.cell__body--left {
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-  padding: 2px max(10px, calc(var(--corner) * 0.09));
-  gap: 0;
-  overflow: hidden;
-}
 .cell__body--corner {
   padding: 0;
-}
-
-/* Кластер: флаг с внешней стороны, лого+цена рядом */
-.cell__side-cluster {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: max(4px, calc(var(--cell-h) * 0.1));
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-.cell__body--left .cell__side-cluster {
-  flex-direction: row-reverse; /* флаг слева */
-}
-.cell__body--right .cell__side-cluster {
-  flex-direction: row; /* флаг справа */
-}
-
-.cell__stack {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
-  min-width: 0;
-  flex: 0 1 auto;
 }
 
 /* Углы уже нарисованы на board-frame — подпись не нужна */
@@ -667,102 +625,58 @@ button, input, select { font-family: inherit; }
   display: none;
 }
 
+.cell__country-slot,
+.cell__logo,
+.cell__price,
+.cell__tax {
+  position: absolute;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  /* опциональные твики из layout-tweak (--tw-*) */
+  --tw-x: 0%;
+  --tw-y: 0%;
+  --tw-s: 1;
+}
+
 .cell__country-slot {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  padding: 0;
   background: none;
   border: none;
   border-radius: 0;
   box-shadow: none;
+  overflow: hidden;
 }
 
 .cell__flag {
-  font-size: clamp(0.95rem, 1.8vw, 1.25rem);
+  font-size: 70cqmin;
   line-height: 1;
 }
 
 .cell__flag-img {
-  width: clamp(22px, 2.8vw, 32px);
-  height: auto;
-  max-height: clamp(16px, 2.2vw, 24px);
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   border-radius: 0;
   display: block;
-  flex-shrink: 0;
 }
 
 .cell__logo {
-  width: min(100%, var(--logo-w));
-  height: var(--logo-h);
-  min-height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
   border-radius: 0;
-  overflow: visible;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.cell__body--left .cell__logo,
-.cell__body--right .cell__logo {
-  width: auto;
-  max-width: min(var(--logo-w), calc(var(--corner) * 0.42));
-  height: calc(var(--cell-h) * 0.4);
-  min-height: 0;
-  max-height: calc(var(--cell-h) * 0.42);
-  flex: 0 0 auto;
   overflow: hidden;
 }
-
-.cell__body--left .cell__logo-text,
-.cell__body--right .cell__logo-text {
-  font-size: max(8px, calc(var(--cell-h) * 0.16));
-}
-
-.cell__body--left .cell__price,
-.cell__body--right .cell__price {
-  font-size: max(8px, calc(var(--cell-h) * 0.16));
-  flex: 0 0 auto;
-  width: auto;
-}
-
-.cell__body--left .cell__country-slot,
-.cell__body--right .cell__country-slot {
-  flex: 0 0 auto;
-  align-self: center;
-  width: max(12px, calc(var(--cell-h) * 0.34));
-}
-
-.cell__body--left .cell__flag-img,
-.cell__body--right .cell__flag-img {
-  width: max(12px, calc(var(--cell-h) * 0.32));
-  max-width: 100%;
-  height: auto;
-  max-height: max(10px, calc(var(--cell-h) * 0.28));
-}
-
-.cell__body--left .cell__stack,
-.cell__body--right .cell__stack {
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: calc(var(--corner) * 0.48);
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
-  overflow: hidden;
-}
-
 
 .cell__logo-text,
 .cell__company {
   font-family: var(--font-stamp), var(--font);
-  font-size: clamp(0.52rem, 1.15vw, 0.78rem);
+  font-size: 22cqmin;
   font-weight: 400;
   color: #2a1c14;
   line-height: 1.05;
@@ -771,24 +685,111 @@ button, input, select { font-family: inherit; }
   text-overflow: ellipsis;
   white-space: nowrap;
   text-transform: uppercase;
-  padding: 0 2px;
+  padding: 0;
+}
+
+/* ── TOP: флаг сверху, лого центр, цена снизу ── */
+.cell__body--top .cell__country-slot {
+  left: 50%;
+  top: 5%;
+  width: 72%;
+  height: 16%;
+  transform: translate(calc(-50% + var(--tw-x)), var(--tw-y)) scale(var(--tw-s));
+}
+.cell__body--top .cell__logo {
+  left: 50%;
+  top: 48%;
+  width: 84%;
+  height: 34%;
+  transform: translate(calc(-50% + var(--tw-x)), calc(-50% + var(--tw-y))) scale(var(--tw-s));
+}
+.cell__body--top .cell__price {
+  left: 50%;
+  bottom: 5%;
+  width: 92%;
+  transform: translate(calc(-50% + var(--tw-x)), var(--tw-y)) scale(var(--tw-s));
+  font-size: max(8px, 15cqmin);
+}
+
+/* ── BOTTOM: цена сверху, лого центр, флаг снизу ── */
+.cell__body--bottom .cell__price {
+  left: 50%;
+  top: 5%;
+  width: 92%;
+  transform: translate(calc(-50% + var(--tw-x)), var(--tw-y)) scale(var(--tw-s));
+  font-size: max(8px, 15cqmin);
+}
+.cell__body--bottom .cell__logo {
+  left: 50%;
+  top: 48%;
+  width: 84%;
+  height: 34%;
+  transform: translate(calc(-50% + var(--tw-x)), calc(-50% + var(--tw-y))) scale(var(--tw-s));
+}
+.cell__body--bottom .cell__country-slot {
+  left: 50%;
+  bottom: 5%;
+  width: 72%;
+  height: 16%;
+  transform: translate(calc(-50% + var(--tw-x)), var(--tw-y)) scale(var(--tw-s));
+}
+
+/* ── LEFT: флаг у внешнего края, лого+цена правее ── */
+.cell__body--left .cell__country-slot {
+  left: 7%;
+  top: 50%;
+  width: 20%;
+  height: 42%;
+  transform: translate(var(--tw-x), calc(-50% + var(--tw-y))) scale(var(--tw-s));
+}
+.cell__body--left .cell__logo {
+  left: 60%;
+  top: 38%;
+  width: 48%;
+  height: 50%;
+  transform: translate(calc(-50% + var(--tw-x)), calc(-50% + var(--tw-y))) scale(var(--tw-s));
+}
+.cell__body--left .cell__price {
+  left: 60%;
+  top: 78%;
+  width: 52%;
+  transform: translate(calc(-50% + var(--tw-x)), calc(-50% + var(--tw-y))) scale(var(--tw-s));
+  font-size: max(8px, 14cqmin);
+}
+
+/* ── RIGHT: зеркало left ── */
+.cell__body--right .cell__country-slot {
+  right: 7%;
+  top: 50%;
+  width: 20%;
+  height: 42%;
+  transform: translate(var(--tw-x), calc(-50% + var(--tw-y))) scale(var(--tw-s));
+}
+.cell__body--right .cell__logo {
+  left: 40%;
+  top: 38%;
+  width: 48%;
+  height: 50%;
+  transform: translate(calc(-50% + var(--tw-x)), calc(-50% + var(--tw-y))) scale(var(--tw-s));
+}
+.cell__body--right .cell__price {
+  left: 40%;
+  top: 78%;
+  width: 52%;
+  transform: translate(calc(-50% + var(--tw-x)), calc(-50% + var(--tw-y))) scale(var(--tw-s));
+  font-size: max(8px, 14cqmin);
 }
 
 .cell--tax,
 .cell--chance,
 .cell--forcemajeure {
-  overflow: visible;
+  overflow: hidden;
 }
 
 .cell--tax .cell__body,
 .cell--chance .cell__body,
 .cell--forcemajeure .cell__body {
-  flex-direction: column !important;
-  justify-content: center;
-  align-items: center;
-  padding: 2px 1px;
-  overflow: visible;
-  min-width: 0;
+  overflow: hidden;
 }
 
 .cell__tax {
@@ -797,12 +798,12 @@ button, input, select { font-family: inherit; }
   align-items: center;
   justify-content: center;
   gap: 0;
-  width: 100%;
-  height: 100%;
-  max-width: 100%;
-  padding: 0;
-  box-sizing: border-box;
-  overflow: visible;
+  left: 50%;
+  top: 50%;
+  width: 88%;
+  height: 70%;
+  transform: translate(calc(-50% + var(--tw-x)), calc(-50% + var(--tw-y))) scale(var(--tw-s));
+  overflow: hidden;
 }
 
 .cell__tax-title,
@@ -818,12 +819,12 @@ button, input, select { font-family: inherit; }
 }
 
 .cell__tax-title {
-  font-size: clamp(0.42rem, 0.85vw, 0.68rem);
+  font-size: 18cqmin;
   letter-spacing: 0.01em;
 }
 
 .cell__tax-pct {
-  font-size: clamp(0.48rem, 0.95vw, 0.78rem);
+  font-size: 20cqmin;
 }
 
 .cell__tax-marks {
@@ -831,43 +832,46 @@ button, input, select { font-family: inherit; }
 }
 
 .cell__special .cell__tax-title {
-  font-size: clamp(0.5rem, 1.05vw, 0.78rem);
+  font-size: 22cqmin;
   white-space: nowrap;
   line-height: 1;
   letter-spacing: 0.03em;
 }
 .cell__special .cell__tax-pct {
-  font-size: clamp(0.42rem, 0.85vw, 0.64rem);
+  font-size: 18cqmin;
   letter-spacing: 0.02em;
 }
 
 .cell--chance .cell__special .cell__tax-title {
-  font-size: clamp(0.55rem, 1.2vw, 0.9rem);
+  font-size: 26cqmin;
   letter-spacing: 0.06em;
 }
 
 .cell--forcemajeure .cell__special .cell__tax-title,
 .cell--forcemajeure .cell__special .cell__tax-pct {
-  font-size: clamp(0.4rem, 0.8vw, 0.62rem);
+  font-size: 16cqmin;
   letter-spacing: 0.01em;
 }
 
-/* Боковые клетки — чуть компактнее, чтобы «ШАНС» не обрезался */
 .cell__body--left .cell__special .cell__tax-title,
 .cell__body--right .cell__special .cell__tax-title {
-  font-size: clamp(0.48rem, 0.95vw, 0.72rem);
+  font-size: 16cqmin;
   letter-spacing: 0.04em;
 }
 
-.cell__icon { font-size: clamp(0.85rem, 1.6vw, 1.15rem); line-height: 1; }
-.cell__icon--img { width: clamp(16px, 2.2vw, 24px); height: clamp(16px, 2.2vw, 24px); object-fit: contain; }
+.cell__icon { font-size: 28cqmin; line-height: 1; }
+.cell__icon--img { width: 30cqmin; height: 30cqmin; object-fit: contain; }
 
 .cell__name {
-  font-size: clamp(0.5rem, 1.1vw, 0.7rem);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 16cqmin;
   font-weight: 800;
   color: #3d2a20;
   line-height: 1.1;
-  max-width: 100%;
+  max-width: 90%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -878,14 +882,11 @@ button, input, select { font-family: inherit; }
   justify-content: center;
   align-items: center;
   font-family: var(--font);
-  font-size: clamp(0.58rem, 1.25vw, 0.82rem);
   font-weight: 500;
   color: #2a1c14;
   line-height: 1.05;
-  flex-shrink: 0;
   letter-spacing: 0.02em;
   white-space: nowrap;
-  width: 100%;
 }
 
 .cell__price-core {
@@ -930,20 +931,24 @@ button, input, select { font-family: inherit; }
   display: none;
 }
 .cell__body--top .cell__shares {
-  bottom: 2px;
+  bottom: 1%;
 }
 .cell__body--bottom .cell__shares {
-  top: 2px;
+  top: 1%;
 }
 .cell__body--left .cell__shares,
 .cell__body--right .cell__shares {
-  bottom: 2px;
+  bottom: 2%;
+  left: 60%;
+}
+.cell__body--right .cell__shares {
+  left: 40%;
 }
 
 .share-mark {
   display: block;
   width: auto;
-  height: clamp(10px, 1.35vw, 16px);
+  height: 14cqmin;
   max-width: 92%;
   object-fit: contain;
   image-rendering: auto;
@@ -951,23 +956,23 @@ button, input, select { font-family: inherit; }
 }
 
 .share-mark--gold {
-  height: clamp(12px, 1.6vw, 18px);
+  height: 16cqmin;
 }
 
 .share-mark--chn,
 .share-mark--ko {
-  height: clamp(11px, 1.45vw, 17px);
+  height: 15cqmin;
 }
 
 .cell__body--left .share-mark,
 .cell__body--right .share-mark {
-  height: clamp(9px, 1.2vw, 14px);
+  height: 12cqmin;
   max-width: 100%;
 }
 
 .cell__body--left .share-mark--gold,
 .cell__body--right .share-mark--gold {
-  height: clamp(11px, 1.4vw, 16px);
+  height: 14cqmin;
 }
 
 /* Клетки без заливки — дерево/арт только с board-frame.png */

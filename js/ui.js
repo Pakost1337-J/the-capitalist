@@ -310,18 +310,8 @@ export class UI {
         : '';
       const flagEl = `<div class="cell__country-slot">${flagHtml}</div>`;
       const shares = `<div class="cell__shares" data-houses="${index}" aria-label="Акции"></div>`;
-      // Верх/низ: флаг у внешнего края → лого → цена
-      // Бока: компактный кластер (флаг + лого/цена) по центру клетки
-      if (side === 'left' || side === 'right') {
-        body = `
-          <div class="cell__side-cluster">
-            <div class="cell__stack">${logo}${priceEl}</div>
-            ${flagEl}
-          </div>
-          ${shares}`;
-      } else {
-        body = `${flagEl}${logo}${priceEl}${shares}`;
-      }
+      // Абсолютная раскладка внутри клетки (позиции в % — не съезжают при scale)
+      body = `${flagEl}${logo}${priceEl}${shares}`;
     } else if (cell.type === 'tax') {
       const pct = cell.taxPercent != null ? `${cell.taxPercent}%` : '6%';
       body = `
