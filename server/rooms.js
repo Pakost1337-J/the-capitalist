@@ -170,16 +170,19 @@ export function getGameState(room, socketId) {
   const isAuction = state.phase === 'auction';
   const deal = state.deal;
   const isDealParty = !!(deal && member && (deal.toId === member.slot || deal.fromId === member.slot));
+  // Строго: чей сейчас ход (не «может ли жать кнопки на аукционе»)
+  const isMyTurn = !!(
+    member
+    && me
+    && !me.bankrupt
+    && state.players[state.currentPlayerIndex]?.id === member.slot
+  );
   return {
     ...state,
     roomId: room.id,
     roomName: room.name,
     mySlot: member?.slot ?? null,
-    isMyTurn: member && (
-      isAuction
-        ? !!(me && !me.bankrupt)
-        : state.players[state.currentPlayerIndex]?.id === member.slot
-    ),
+    isMyTurn,
     canRespondDeal: !!(deal && member && deal.toId === member.slot),
     isDealParty,
     canAuctionBid: !!(isAuction && me && !me.bankrupt && room.game.canPlayerAuctionBid?.(member.slot)),
@@ -207,6 +210,28 @@ export function scheduleAuctionEnd(room, io) {
     room._auctionTimer = null;
     if (!room.game || room.game.phase !== 'auction') return;
     room.game.finishAuction();
+    broadcastGame(room, io);
+    startBotLoop(room, io);
+  }, delay);
+}
+
+/** После анимации кубиков/хода — commitMove (эффект клетки) */
+export function scheduleMoveCommit(room, io) {
+  if (room._moveTimer) {
+    clearTimeout(room._moveTimer);
+    room._moveTimer = null;
+  }
+  const game = room.game;
+  if (!game || game.phase !== 'moving' || game.moveAnimEndsAt == null) return;
+
+  const delay = Math.max(50, game.moveAnimEndsAt - Date.now());
+  room._moveTimer = setTimeout(() => {
+    room._moveTimer = null;
+    if (!room.game || room.game.phase !== 'moving') return;
+    room.game.commitMove();
+    if (room.game.phase === 'auction') scheduleAuctionEnd(room, io);
+    scheduleRentEnd(room, io);
+    scheduleTurnTimers(room, io);
     broadcastGame(room, io);
     startBotLoop(room, io);
   }, delay);
@@ -271,6 +296,7 @@ export function scheduleTurnTimers(room, io) {
       if (!room.game || room.game.phase !== 'roll' || room.game.deal) return;
       const acted = room.game.finishTurnTimeout();
       if (acted) {
+        scheduleMoveCommit(room, io);
         scheduleRentEnd(room, io);
         if (room.game.phase === 'auction') scheduleAuctionEnd(room, io);
       }
@@ -290,6 +316,7 @@ export function broadcastGame(room, io) {
 export function startBotLoop(room, io) {
   processBotChain(room.game, () => {
     if (room.game?.phase === 'auction') scheduleAuctionEnd(room, io);
+    scheduleMoveCommit(room, io);
     scheduleRentEnd(room, io);
     scheduleTurnTimers(room, io);
     broadcastGame(room, io);

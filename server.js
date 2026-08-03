@@ -7,6 +7,7 @@ import {
   createRoom, joinRoom, leaveRoom, getRoomBySocket,
   startGame, handleGameAction, getLobbyState, getGameState,
   broadcastGame, startBotLoop, listPublicRooms, scheduleAuctionEnd, scheduleRentEnd, scheduleTurnTimers,
+  scheduleMoveCommit,
 } from './server/rooms.js';
 import { PHASE } from './js/game.js';
 import { getCustomPayload, saveCustom, resetCustom } from './server/customize.js';
@@ -137,6 +138,7 @@ io.on('connection', (socket) => {
     if (room.game.phase === PHASE.AUCTION) {
       scheduleAuctionEnd(room, io);
     }
+    scheduleMoveCommit(room, io);
     // всегда: либо ставит таймер долга, либо снимает старый
     scheduleRentEnd(room, io);
     scheduleTurnTimers(room, io);

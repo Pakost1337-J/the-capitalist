@@ -4,6 +4,7 @@ import {
   getCell, getGroupProperties,
 } from './config.js';
 import { shuffle } from './utils.js';
+import { moveAnimMs } from './anim-timing.js';
 import {
   logBuy, logMoneyLoss, logPassStart,
   logRent, logTax, logBuild,
@@ -63,6 +64,9 @@ export class GameEngine {
     this.dice = [1, 1];
     this.doubles = false;
     this.rollSeq = 0;
+    /** Пока идёт анимация броска/хода — landOnCell отложен */
+    this.moveAnimEndsAt = null;
+    this._pendingJailStay = false;
     /** Предыдущий бросок этого хода был дублем — подряд второй дубль запрещён */
     this._lastRollDoubles = false;
     this.chanceDeck = shuffle(CHANCE_CARDS.map((_, i) => i));
@@ -84,6 +88,8 @@ export class GameEngine {
     /** За один ход — не больше одной акции (одной страны) */
     this.sharesBoughtThisTurn = 0;
     this.maxSharesPerTurn = 1;
+    /** Last time any bot offered a deal to a human */
+    this.lastBotDealToHumanAt = 0;
 
     this.propertyState = {};
     for (const cell of BOARD) {
@@ -111,6 +117,7 @@ export class GameEngine {
       dice: [...this.dice],
       doubles: this.doubles,
       rollSeq: this.rollSeq,
+      moveAnimEndsAt: this.moveAnimEndsAt,
       log: [...this.log],
       winner: this.winner,
       pendingAction: this.pendingAction ? { ...this.pendingAction } : null,
@@ -612,8 +619,10 @@ export class GameEngine {
           this.movePlayer(this.dice[0] + this.dice[1]);
         } else {
           this.addLog(`${p.name} остаётся в тюрьме (${p.jailTurns}/3)`);
-          this.phase = PHASE.END;
-          this.endTurn();
+          // Ждём конец анимации кубиков, затем завершаем ход
+          this._pendingJailStay = true;
+          this.phase = PHASE.MOVING;
+          this.moveAnimEndsAt = Date.now() + moveAnimMs(0, { moved: false });
         }
       }
     } else {
@@ -633,8 +642,25 @@ export class GameEngine {
       this.addLog(logPassStart(p.name, GO_SALARY));
     }
 
+    // Позиция уже новая (для анимации фишки), эффект клетки — после анимации
+    this._pendingJailStay = false;
     this.phase = PHASE.MOVING;
+    this.moveAnimEndsAt = Date.now() + moveAnimMs(steps, { moved: true });
+  }
+
+  /** Вызвать после полного проигрыша анимации кубиков/хода */
+  commitMove() {
+    if (this.phase !== PHASE.MOVING) return false;
+    this.moveAnimEndsAt = null;
+    if (this._pendingJailStay) {
+      this._pendingJailStay = false;
+      const p = this.currentPlayer;
+      this.phase = PHASE.END;
+      if (p && !p.isBot) this.endTurn();
+      return true;
+    }
     this.landOnCell();
+    return true;
   }
 
   landOnCell() {
@@ -784,6 +810,7 @@ export class GameEngine {
       optedOut: [],
     };
     this.addLog(`Аукцион: «${cell.name}» от ${cell.price.toLocaleString('ru-RU')}$, шаг $${AUCTION_STEP.toLocaleString('ru-RU')}, 1 мин`);
+    this.autoOptOutBrokeBidders();
     return true;
   }
 
@@ -794,10 +821,12 @@ export class GameEngine {
     // Кто выставил на аукцион — только смотрит
     if (this.auction.startedBy === playerId) return false;
     if ((this.auction.optedOut || []).includes(playerId)) return false;
+    // Нет денег на следующую ставку — не участвует
+    if (p.money < this.nextAuctionPrice()) return false;
     return true;
   }
 
-  leaveAuction(playerId) {
+  leaveAuction(playerId, { reason } = {}) {
     if (this.phase !== PHASE.AUCTION || !this.auction) return false;
     if (this.auction.startedBy === playerId) return false;
     // Лидер ставки не выходит — аукцион закроется по его ставке, когда остальные пропустят
@@ -810,9 +839,28 @@ export class GameEngine {
       return true;
     }
     this.auction.optedOut.push(playerId);
-    this.addLog(`${p.name} пропускает аукцион`);
+    if (reason === 'broke') {
+      this.addLog(`${p.name} пропускает аукцион — не хватает денег`);
+    } else {
+      this.addLog(`${p.name} пропускает аукцион`);
+    }
     this.maybeFinishAuctionEarly();
     return true;
+  }
+
+  /** Автопропуск тех, у кого нет денег на следующую ставку */
+  autoOptOutBrokeBidders() {
+    if (this.phase !== PHASE.AUCTION || !this.auction) return;
+    const next = this.nextAuctionPrice();
+    const a = this.auction;
+    for (const p of this.activePlayers) {
+      if (p.id === a.startedBy) continue;
+      if (p.id === a.highBidder) continue;
+      if ((a.optedOut || []).includes(p.id)) continue;
+      if (p.money >= next) continue;
+      this.leaveAuction(p.id, { reason: 'broke' });
+      if (this.phase !== PHASE.AUCTION) return;
+    }
   }
 
   /** Все, кто мог перебить, вышли — закрываем по последней ставке (или без покупателя) */
@@ -820,10 +868,12 @@ export class GameEngine {
     if (this.phase !== PHASE.AUCTION || !this.auction) return false;
     const a = this.auction;
     const opted = new Set(a.optedOut || []);
+    const next = this.nextAuctionPrice();
     const rivals = this.activePlayers.filter(p => (
       p.id !== a.startedBy
       && p.id !== a.highBidder
       && !opted.has(p.id)
+      && p.money >= next
     ));
     if (rivals.length > 0) return false;
     this.finishAuction();
@@ -840,8 +890,8 @@ export class GameEngine {
     this.auction.currentBid = next;
     this.auction.highBidder = playerId;
     this.addLog(`${p.name} ставит $${next.toLocaleString('ru-RU')} за «${getCell(this.auction.cellId).name}»`);
-    // После ставки остальные могут сразу пропустить — проверяем досрочно
-    this.maybeFinishAuctionEarly();
+    // После ставки выбывают те, кому не хватает на перебитие
+    this.autoOptOutBrokeBidders();
     return true;
   }
 
@@ -899,7 +949,8 @@ export class GameEngine {
     this.doubles = false;
     if (!silent) this.addLog(logArrest(p.name));
     this.phase = PHASE.END;
-    this.endTurn();
+    // Боты завершают ход сами (паузы / акции) в server/bot.js
+    if (!p.isBot) this.endTurn();
   }
 
   drawChance() {
@@ -1134,7 +1185,7 @@ export class GameEngine {
       return;
     }
 
-    // Акции бот берёт перед броском (server/bot.js) — как игрок
+    // Акции бот берёт после результата клетки (server/bot.js), не перед броском
     this.advanceAfterTurnActions();
   }
 
@@ -1155,7 +1206,8 @@ export class GameEngine {
       return;
     }
     this.phase = PHASE.END;
-    this.endTurn();
+    // Игрок — сразу следующий ход; бот — пауза/акция, затем endTurn в bot.js
+    if (!p.isBot) this.endTurn();
   }
 
   finishBuild() {
@@ -1313,6 +1365,19 @@ export class GameEngine {
     if (action.type === 'rejectDeal') {
       if (!this.rejectDeal(playerId)) return { ok: false, error: 'Нельзя отклонить сделку' };
       return { ok: true };
+    }
+
+    // Анимацию кубиков видят все — commit может подтвердить любой клиент
+    if (action.type === 'animDone') {
+      if (this.phase !== PHASE.MOVING) return { ok: true, ignored: true };
+      if (action.rollSeq != null && action.rollSeq !== this.rollSeq) {
+        return { ok: true, ignored: true };
+      }
+      if (this.moveAnimEndsAt && Date.now() < this.moveAnimEndsAt - 80) {
+        return { ok: true, ignored: true };
+      }
+      this.commitMove();
+      return { ok: true, committed: true };
     }
 
     if (this.currentPlayer.id !== playerId) return { ok: false, error: 'Не ваш ход' };

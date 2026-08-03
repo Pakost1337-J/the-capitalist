@@ -497,6 +497,7 @@ export class UI {
         this.layoutTokenStacks(job.state);
       }
     } finally {
+      const doneSeq = this._animRollSeq;
       this.animating = false;
       this._animRollSeq = null;
       hub?.classList.remove('hub--throwing');
@@ -504,6 +505,10 @@ export class UI {
       this._shareBuy = savedShare;
       this._rentMortgagePick = savedMortgage;
       this._rentSharesPick = savedSharesPick;
+      // Сообщаем серверу: анимация доиграна — можно commitMove
+      if (doneSeq != null && this.network?.sendAction) {
+        this.network.sendAction({ type: 'animDone', rollSeq: doneSeq }).catch(() => {});
+      }
       const next = this.pendingState;
       this.pendingState = null;
       if (next) {
@@ -760,10 +765,12 @@ export class UI {
   }
 
   renderPlayers(state) {
+    const mailIcon = `<svg class="p-card__mail" viewBox="0 0 16 12" aria-hidden="true"><path fill="currentColor" d="M1.2 1h13.6c.44 0 .8.36.8.8v8.4c0 .44-.36.8-.8.8H1.2c-.44 0-.8-.36-.8-.8V1.8c0-.44.36-.8.8-.8zm.4 1.2v.35l6.4 4.05 6.4-4.05v-.35H1.6zm13.2 1.55L8.7 7.55a.8.8 0 0 1-.9 0L1.6 3.75V10h13.2V3.75z"/></svg>`;
+
     this.playersPanel.innerHTML = state.players.map((p, i) => {
       const capital = this.calcCapital(p, state);
-      const isTurn = i === state.currentPlayerIndex;
-      const jailNote = p.inJail ? ' · тюрьма' : '';
+      const isTurn = i === state.currentPlayerIndex && !p.bankrupt;
+      const jailNote = p.inJail && !p.bankrupt ? ' · тюрьма' : '';
       const companies = (p.properties || []).length;
       // Страны — только полностью собранные группы
       const groups = new Set(
@@ -779,19 +786,26 @@ export class UI {
         ));
         if (complete) countries += 1;
       }
+      const displayName = escapeHtml(
+        p.isBot && !/^Бот\s*-/.test(p.name) ? `Бот - ${p.name}` : p.name,
+      );
+      const moneyBlock = p.bankrupt
+        ? `<div class="p-card__cash p-card__cash--out">Банкрот</div>`
+        : `<div class="p-card__cash">${formatMoney(p.money)}</div>
+            <div class="p-card__capital">Капитал: ${formatMoney(capital)}${jailNote}</div>
+            <div class="p-card__stats">
+              <div>Компаний: ${companies}</div>
+              <div>Страны: ${countries}</div>
+            </div>`;
       return `
         <div class="p-card ${isTurn ? 'p-card--active' : ''} ${p.bankrupt ? 'p-card--out' : ''} ${p.id === this.mySlot ? 'p-card--me' : ''}"
              style="--pc: ${p.color}">
           <div class="p-card__inner">
             <div class="p-card__head">
-              <div class="p-card__name">${escapeHtml(p.isBot && !/^Бот\s*-/.test(p.name) ? `Бот - ${p.name}` : p.name)}</div>
+              ${mailIcon}
+              <div class="p-card__name">${displayName}</div>
             </div>
-            <div class="p-card__cash">${formatMoney(p.money)}</div>
-            <div class="p-card__capital">Капитал: ${formatMoney(capital)}${jailNote}</div>
-            <div class="p-card__stats">
-              <div>Компаний: ${companies}</div>
-              <div>Страны: ${countries}</div>
-            </div>
+            ${moneyBlock}
             ${this.tokenImgHtml(p)}
           </div>
         </div>
@@ -892,9 +906,16 @@ export class UI {
     return res;
   }
 
+  /** Только слот текущего хода видит меню покупки/долга/акций */
+  isCurrentActor(state) {
+    return state?.mySlot != null
+      && state.mySlot === state.currentPlayerIndex
+      && !state.players?.[state.mySlot]?.bankrupt;
+  }
+
   renderActions(state) {
     const p = state.players[state.currentPlayerIndex];
-    const isMyTurn = state.isMyTurn;
+    const isActor = this.isCurrentActor(state);
     this.actionArea.innerHTML = '';
 
     if (state.phase === PHASE.GAME_OVER) {
@@ -907,15 +928,31 @@ export class UI {
       return;
     }
 
+    // Сделка — только участникам (от кого / кому)
     if (state.deal) {
       this._dealCompose = null;
-      this.renderDealPending(state);
+      if (state.isDealParty) {
+        this.renderDealPending(state);
+      } else {
+        this.actionArea.innerHTML = `<div class="wait-turn">Идёт сделка…</div>`;
+      }
       return;
     }
 
+    // Аукцион видят все участники комнаты (свои кнопки — по правам)
     if (state.phase === PHASE.AUCTION && state.auction) {
       this._dealCompose = null;
       this.renderAuctionActions(state);
+      return;
+    }
+
+    // Покупка / долг / акции — строго только текущему игроку
+    if (!isActor || state.phase === PHASE.MOVING) {
+      this._dealCompose = null;
+      this._shareBuy = false;
+      this._rentMortgagePick = false;
+      this._rentSharesPick = false;
+      this.actionArea.innerHTML = `<div class="wait-turn">Ход игрока <strong>${escapeHtml(p?.name || '')}</strong></div>`;
       return;
     }
 
@@ -931,11 +968,6 @@ export class UI {
     if (state.phase === PHASE.ACTION && state.pendingAction?.type === 'buy') {
       this._dealCompose = null;
       this.renderBuyActions(state);
-      return;
-    }
-
-    if (!isMyTurn || state.phase === PHASE.MOVING) {
-      this.actionArea.innerHTML = `<div class="wait-turn">Ход игрока <strong>${escapeHtml(p.name)}</strong></div>`;
       return;
     }
 
@@ -984,6 +1016,9 @@ export class UI {
 
   /** Локальные меню, которые нельзя сбрасывать таймером/синком */
   isActionFormOpen(state = this.lastState) {
+    if (!this.isCurrentActor(state)) {
+      return !!(state?.isDealParty && state?.deal);
+    }
     return !!(
       this._dealCompose
       || this._shareBuy
@@ -1007,14 +1042,18 @@ export class UI {
     const hub = document.querySelector('.hub');
     const throwing = !!this.animating;
     const isAuction = !throwing && state.phase === PHASE.AUCTION && state.auction;
-    const isRent = !throwing && state.phase === PHASE.ACTION && (
+    const actor = this.isCurrentActor(state);
+    // Меню покупки/долга/акций — только у того, чей ход
+    const isRent = !throwing && actor && state.phase === PHASE.ACTION && (
       ['rent', 'tax', 'force'].includes(state.pendingAction?.type)
     );
-    const isBuy = !throwing && state.phase === PHASE.ACTION && state.pendingAction?.type === 'buy';
-    const isRollTimed = !throwing && state.phase === PHASE.ROLL && state.isMyTurn && !state.deal;
-    const isDeal = !throwing && !!state.deal;
+    const isBuy = !throwing && actor && state.phase === PHASE.ACTION && state.pendingAction?.type === 'buy';
+    const isRollTimed = !throwing && actor && state.phase === PHASE.ROLL && !state.deal;
+    const isDeal = !throwing && !!state.deal && !!state.isDealParty;
+    const myShareMenu = !!(actor && (this._shareBuy || state.shareUiOpen));
+    const myDealMenu = !!(actor && (this._dealCompose || state.dealUiOpen));
     const menuOpen = !throwing && !!(
-      isRent || isBuy || isDeal || this._dealCompose || this._shareBuy || state.dealUiOpen || state.shareUiOpen
+      isRent || isBuy || isDeal || myDealMenu || myShareMenu
     );
     // Кнопки хода (бросок/сделка/акции) — без костей, иначе меню обрезается
     const rollMenu = !!(isRollTimed && !menuOpen);
@@ -1028,8 +1067,8 @@ export class UI {
       this._rentSharesPick = false;
     }
 
-    // Меню сделки/акций: синхронизируем только с фазой, не затираем локальный клик
-    if (state.phase !== PHASE.ROLL || state.deal) {
+    // Меню сделки/акций: только у текущего игрока; чужим флаги не поднимаем
+    if (state.phase !== PHASE.ROLL || state.deal || !actor) {
       this._dealCompose = null;
       this._shareBuy = false;
     } else {
@@ -1520,10 +1559,15 @@ export class UI {
   }
 
   renderBuyActions(state) {
+    // Защита: чужим клиентам это меню не рисуем
+    if (!this.isCurrentActor(state)) {
+      const p = state.players[state.currentPlayerIndex];
+      this.actionArea.innerHTML = `<div class="wait-turn">Ход игрока <strong>${escapeHtml(p?.name || '')}</strong></div>`;
+      return;
+    }
     const pa = state.pendingAction;
     const cell = BOARD[pa.cellId];
     const buyer = state.players[state.currentPlayerIndex];
-    const canAct = state.isMyTurn;
     const leftMs = this.turnLeftMs(state);
     const country = COUNTRY_LABEL_RU[cell?.country] || cell?.country || '';
 
@@ -1538,10 +1582,10 @@ export class UI {
         </div>
         <div class="rent-panel__side">
           <div class="rent-panel__btns">
-            <button type="button" class="btn btn--club" id="btn-buy" ${canAct ? '' : 'disabled'}>
+            <button type="button" class="btn btn--club" id="btn-buy">
               Купить
             </button>
-            <button type="button" class="btn btn--club" id="btn-pass" ${canAct ? '' : 'disabled'}>
+            <button type="button" class="btn btn--club" id="btn-pass">
               Объявить аукцион
             </button>
           </div>
@@ -1555,12 +1599,17 @@ export class UI {
   }
 
   renderRentActions(state) {
+    if (!this.isCurrentActor(state)) {
+      const cur = state.players[state.currentPlayerIndex];
+      this.actionArea.innerHTML = `<div class="wait-turn">Ход игрока <strong>${escapeHtml(cur?.name || '')}</strong></div>`;
+      return;
+    }
     const pa = state.pendingAction;
     const isTax = pa.type === 'tax';
     const isForce = pa.type === 'force';
     const cell = BOARD[pa.cellId];
     const payer = state.players[state.currentPlayerIndex];
-    const canAct = state.isMyTurn;
+    const canAct = true;
     const leftMs = this.turnLeftMs(state);
     const country = COUNTRY_LABEL_RU[cell?.country] || cell?.country || '';
     const canPay = payer && payer.money >= pa.amount;

@@ -1621,15 +1621,6 @@ button, input, select { font-family: inherit; }
   line-height: 1.25;
 }
 
-.rent-panel--force .rent-panel__title {
-  margin: -4px -6px 4px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: rgba(40, 24, 12, 0.28);
-  color: #f3e6d4;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
-}
-
 .rent-panel__card {
   font-weight: 700;
   font-size: clamp(0.82rem, 1.3vw, 0.98rem);
@@ -2165,6 +2156,8 @@ button, input, select { font-family: inherit; }
     0 5px 14px rgba(0, 0, 0, 0.4),
     inset 0 0 0 1px rgba(40, 24, 12, 0.45);
   overflow: hidden;
+  font-family: 'PTNarrow', sans-serif;
+  font-synthesis: none;
 }
 
 .p-card__inner {
@@ -2173,15 +2166,16 @@ button, input, select { font-family: inherit; }
   min-height: 92px;
   border-radius: 5px;
   padding: 10px 12px 12px;
+  /* Верхний блик — «свечение» ячейки */
   background:
-    radial-gradient(120% 80% at 50% -8%, rgba(255, 236, 190, 0.42), transparent 52%),
+    radial-gradient(120% 80% at 50% -8%, rgba(255, 236, 190, 0.48), transparent 52%),
     url('/assets/ui/leather.png') center / cover;
   box-shadow:
     inset 0 0 0 1px rgba(70, 45, 25, 0.35),
     inset 0 3px 10px rgba(0, 0, 0, 0.22),
     inset 0 -2px 6px rgba(255, 220, 160, 0.12);
   border: 1px dashed rgba(55, 35, 18, 0.4);
-  color: #2e2218;
+  color: #2a2118;
   overflow: hidden;
 }
 
@@ -2192,9 +2186,27 @@ button, input, select { font-family: inherit; }
     inset 0 0 0 1px rgba(40, 24, 12, 0.45);
 }
 
-.p-card--out { opacity: 0.42; filter: grayscale(0.75); }
+/* Банкрот: без блика, тусклее */
+.p-card--out {
+  opacity: 0.72;
+  filter: grayscale(0.55) brightness(0.92);
+}
 
-.p-card--me .p-card__inner {
+.p-card--out .p-card__inner {
+  background: url('/assets/ui/leather.png') center / cover;
+  box-shadow:
+    inset 0 0 0 1px rgba(70, 45, 25, 0.45),
+    inset 0 4px 12px rgba(0, 0, 0, 0.35);
+  color: #5a4a3c;
+}
+
+.p-card--out.p-card--active {
+  box-shadow:
+    0 5px 14px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgba(40, 24, 12, 0.45);
+}
+
+.p-card--me:not(.p-card--out) .p-card__inner {
   box-shadow:
     inset 0 0 0 2px rgba(160, 110, 40, 0.55),
     inset 0 3px 10px rgba(0, 0, 0, 0.22),
@@ -2204,54 +2216,84 @@ button, input, select { font-family: inherit; }
 .p-card__head {
   display: flex;
   align-items: center;
+  gap: 6px;
   padding-right: 44px;
   min-width: 0;
 }
 
+.p-card__mail {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 11px;
+  color: #3a2a1c;
+  opacity: 0.85;
+}
+
+.p-card--out .p-card__mail {
+  opacity: 0.45;
+}
+
 .p-card__name {
-  font-family: 'PTNarrow', var(--font);
-  font-weight: 700;
-  font-size: clamp(0.95rem, 1.3vw, 1.12rem);
-  line-height: 1.15;
-  color: #1a120c;
+  font-family: 'PTNarrow', sans-serif;
+  font-weight: 500;
+  font-size: clamp(0.98rem, 1.35vw, 1.18rem);
+  line-height: 1.1;
+  color: #2a2118;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  letter-spacing: 0.02em;
-  -webkit-text-stroke: 0.35px currentColor;
-  paint-order: stroke fill;
+  letter-spacing: 0.01em;
+  min-width: 0;
 }
 
 .p-card__cash {
-  margin-top: 4px;
-  font-family: 'PTNarrow', var(--font);
+  margin-top: 5px;
+  font-family: 'PTNarrow', sans-serif;
   font-weight: 400;
-  font-size: clamp(1.05rem, 1.5vw, 1.28rem);
-  line-height: 1.1;
-  color: #2a1e14;
+  font-size: clamp(1.2rem, 1.75vw, 1.45rem);
+  line-height: 1.05;
+  color: #1f1812;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.015em;
+}
+
+.p-card__cash--out {
+  font-weight: 500;
+  font-size: clamp(1.05rem, 1.45vw, 1.25rem);
+  color: #4a3a2c;
 }
 
 .p-card__capital {
-  margin-top: 2px;
+  margin-top: 3px;
   padding-right: 52px;
-  font-family: 'PTNarrow', var(--font);
+  font-family: 'PTNarrow', sans-serif;
   font-weight: 400;
-  font-size: clamp(0.78rem, 1.05vw, 0.92rem);
+  font-size: clamp(0.8rem, 1.1vw, 0.95rem);
   color: #3a2a1a;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
 }
 
 .p-card__stats {
   margin-top: 6px;
   padding-right: 52px;
-  font-family: 'PTNarrow', var(--font);
+  font-family: 'PTNarrow', sans-serif;
   font-weight: 400;
   font-size: clamp(0.72rem, 1vw, 0.86rem);
   line-height: 1.25;
   color: #3a2a1a;
   font-variant-numeric: tabular-nums;
+}
+
+.p-card--out .p-card__name,
+.p-card--out .p-card__capital,
+.p-card--out .p-card__stats {
+  color: #5a4a3c;
+}
+
+.p-card--out .p-card__chip {
+  filter: grayscale(0.85) brightness(0.65);
+  opacity: 0.75;
 }
 
 .p-card__chip {

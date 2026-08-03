@@ -1,15 +1,46 @@
 import { PHASE } from '../js/game.js';
 import { getCell } from '../js/config.js';
+import { moveAnimMs } from '../js/anim-timing.js';
 import {
   shouldBotBuy,
   shouldBotBid,
+  maxAuctionBid,
   chooseBotShareCell,
+  chooseBotDeal,
+  HUMAN_DEAL_COOLDOWN_MS,
   mortgageCandidates,
   shareSellCandidates,
   shouldAcceptDeal,
 } from '../js/bot-strategy.js';
 
-export function runBotTurn(game, onDone) {
+/** Пауза между видимыми действиями бота (лог / UI) */
+const STEP_MS = 2000;
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function pulse(broadcast) {
+  if (typeof broadcast === 'function') broadcast();
+  await wait(STEP_MS);
+}
+
+/** Ждём конец анимации кубиков/хода, затем commitMove */
+async function waitForMoveAnim(game, broadcast) {
+  if (game.phase !== PHASE.MOVING) return;
+  const ends = game.moveAnimEndsAt || (Date.now() + moveAnimMs(
+    (game.dice?.[0] || 0) + (game.dice?.[1] || 0),
+    { moved: !game._pendingJailStay },
+  ));
+  const left = Math.max(0, ends - Date.now());
+  await wait(left + 40);
+  if (game.phase === PHASE.MOVING) {
+    game.commitMove();
+  }
+  if (typeof broadcast === 'function') broadcast();
+}
+
+export function runBotTurn(game, onDone, broadcast = () => {}) {
   // Ответ на входящую сделку (боты сами сделки не предлагают)
   if (game.deal) {
     const to = game.players[game.deal.toId];
@@ -17,7 +48,7 @@ export function runBotTurn(game, onDone) {
       setTimeout(() => {
         settleBotDeal(game);
         onDone();
-      }, 900);
+      }, STEP_MS);
       return;
     }
   }
@@ -28,19 +59,36 @@ export function runBotTurn(game, onDone) {
     return;
   }
 
-  setTimeout(() => {
+  (async () => {
+    await wait(STEP_MS);
+
     if (game.phase === PHASE.ROLL) {
       if (game.deal || game.dealUiOpen || game.shareUiOpen) {
         onDone();
         return;
       }
-      // Перед броском — одна акция, если выгодно и есть запас кэша
-      tryBotBuyShare(game);
+
+      // До броска: попробовать выкупить недостающую компанию для страны
+      if (!player.inJail && tryBotProposeDeal(game, player)) {
+        await pulse(broadcast);
+        onDone();
+        return;
+      }
+
+      // Порядок: бросок → клетка → покупка/аренда → акция (после хода)
       if (player.inJail && player.money >= 50_000 && Math.random() > 0.55) {
         game.payJailBail();
+        await pulse(broadcast);
       }
       game.rollDice();
-      handleAfterRoll(game, onDone);
+      if (typeof broadcast === 'function') broadcast();
+      await waitForMoveAnim(game, broadcast);
+      await handleAfterRoll(game, broadcast);
+      onDone();
+    } else if (game.phase === PHASE.MOVING) {
+      await waitForMoveAnim(game, broadcast);
+      await handleAfterRoll(game, broadcast);
+      onDone();
     } else if (game.phase === PHASE.AUCTION) {
       tryBotAuctionRound(game);
       onDone();
@@ -49,73 +97,107 @@ export function runBotTurn(game, onDone) {
       && ['rent', 'tax', 'force'].includes(game.pendingAction?.type)
     ) {
       settleBotRent(game);
-      finishBotTurn(game, onDone);
+      await pulse(broadcast);
+      await finishBotTurn(game, broadcast);
+      onDone();
     } else if (game.phase === PHASE.END) {
-      game.endTurn();
+      await finishBotTurn(game, broadcast);
       onDone();
     } else {
       onDone();
     }
-  }, 1100);
+  })().catch(() => onDone());
 }
 
-function handleAfterRoll(game, onDone) {
-  const steps = (game.dice?.[0] || 0) + (game.dice?.[1] || 0);
-  const animWait = 2800 + Math.min(steps, 12) * 240;
+async function handleAfterRoll(game, broadcast) {
+  // Анимация уже доиграна в waitForMoveAnim → commitMove
+  if (game.phase === PHASE.MOVING) {
+    await waitForMoveAnim(game, broadcast);
+  }
 
-  setTimeout(() => {
-    if (game.phase === PHASE.ACTION && game.pendingAction?.type === 'buy') {
-      const { cellId, price } = game.pendingAction;
-      const player = game.currentPlayer;
-      const cell = getCell(cellId);
+  if (game.phase === PHASE.ACTION && game.pendingAction?.type === 'buy') {
+    const { cellId, price } = game.pendingAction;
+    const player = game.currentPlayer;
+    const cell = getCell(cellId);
 
-      if (shouldBotBuy(game, player, cell, price)) {
-        game.buyProperty();
-      } else {
-        game.passProperty();
-      }
+    if (shouldBotBuy(game, player, cell, price)) {
+      game.buyProperty();
+    } else {
+      game.passProperty();
+    }
+    await pulse(broadcast);
 
-      setTimeout(() => {
-        if (game.phase === PHASE.AUCTION) {
-          tryBotAuctionRound(game);
-        }
-        finishBotTurn(game, onDone);
-      }, 900);
-    } else if (
-      game.phase === PHASE.ACTION
-      && ['rent', 'tax', 'force'].includes(game.pendingAction?.type)
-    ) {
-      settleBotRent(game);
-      setTimeout(() => finishBotTurn(game, onDone), 700);
-    } else if (game.phase === PHASE.AUCTION) {
+    if (game.phase === PHASE.AUCTION) {
       tryBotAuctionRound(game);
-      onDone();
-    } else if (game.phase === PHASE.END) {
-      game.endTurn();
-      onDone();
-    } else if (game.phase === PHASE.GAME_OVER) {
-      onDone();
-    } else {
-      finishBotTurn(game, onDone);
+      await pulse(broadcast);
     }
-  }, animWait);
+    await finishBotTurn(game, broadcast);
+    return;
+  }
+
+  if (
+    game.phase === PHASE.ACTION
+    && ['rent', 'tax', 'force'].includes(game.pendingAction?.type)
+  ) {
+    settleBotRent(game);
+    await pulse(broadcast);
+    await finishBotTurn(game, broadcast);
+    return;
+  }
+
+  if (game.phase === PHASE.AUCTION) {
+    tryBotAuctionRound(game);
+    await pulse(broadcast);
+    return;
+  }
+
+  if (game.phase === PHASE.END) {
+    await finishBotTurn(game, broadcast);
+    return;
+  }
+
+  if (game.phase === PHASE.GAME_OVER) {
+    return;
+  }
+
+  // Дубль: фаза снова ROLL — следующий runBotTurn в цепочке
+  if (game.phase === PHASE.ROLL) {
+    await wait(STEP_MS);
+    return;
+  }
+
+  await finishBotTurn(game, broadcast);
 }
 
-/** Боты: ставка или «пропустить». Если все пропустили — аукцион закрывается. */
+/** Боты: ставки; выход только если цена выше потолка (не из‑за «не хочу в этот тик»). */
 function tryBotAuctionRound(game) {
   if (game.phase !== PHASE.AUCTION || !game.auction) return;
-  const next = game.nextAuctionPrice();
   const cell = getCell(game.auction.cellId);
 
-  // Сначала одна ставка (если кто-то хочет), затем остальные пропускают
-  for (const p of game.activePlayers) {
-    if (!p.isBot) continue;
-    if (!game.canPlayerAuctionBid?.(p.id)) continue;
-    if (game.auction.highBidder === p.id) continue;
-    if (p.money >= next && shouldBotBid(game, p, cell, next)) {
-      game.placeAuctionBid(p.id);
-      break;
+  // До 3 перебивок за раунд — боты торгуются между собой
+  for (let bids = 0; bids < 3; bids++) {
+    if (game.phase !== PHASE.AUCTION) return;
+    const next = game.nextAuctionPrice();
+    let placed = false;
+    const contenders = game.activePlayers.filter((p) => (
+      p.isBot
+      && game.canPlayerAuctionBid?.(p.id)
+      && game.auction.highBidder !== p.id
+      && p.money >= next
+      && shouldBotBid(game, p, cell, next)
+    ));
+    // Случайный порядок — кто первый перебьёт
+    for (let i = contenders.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [contenders[i], contenders[j]] = [contenders[j], contenders[i]];
     }
+    for (const p of contenders) {
+      if (game.placeAuctionBid(p.id)) {
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) break;
   }
   if (game.phase !== PHASE.AUCTION) return;
 
@@ -124,9 +206,9 @@ function tryBotAuctionRound(game) {
     if (!p.isBot) continue;
     if (!game.canPlayerAuctionBid?.(p.id)) continue;
     if (game.auction.highBidder === p.id) continue;
-    // Пропуск только если точно не будут бить (без второй случайности «чуть-чуть»)
-    const want = p.money >= ask && shouldBotBid(game, p, cell, ask);
-    if (!want) {
+    const cap = maxAuctionBid(game, p, cell);
+    // Выходим только когда дальше не потянем — иначе остаёмся на следующий раунд
+    if (p.money < ask || ask > cap) {
       game.leaveAuction(p.id);
       if (game.phase !== PHASE.AUCTION) return;
     }
@@ -136,6 +218,7 @@ function tryBotAuctionRound(game) {
 export function tryBotBuyShare(game) {
   const player = game.currentPlayer;
   if (!player?.isBot || player.bankrupt) return false;
+  if (player.inJail) return false;
   const cellId = chooseBotShareCell(game, player);
   if (cellId == null) return false;
   return game.buildHouse(cellId);
@@ -148,7 +231,6 @@ function settleBotRent(game) {
   let guard = 0;
 
   while (player.money < pa.amount && guard < 20) {
-    // Сначала залог «мусора», акции/монополии — позже
     const props = mortgageCandidates(game, player);
     if (props.length) {
       game.mortgageProperty(props[0]);
@@ -166,17 +248,24 @@ function settleBotRent(game) {
   else game.payRentDebt();
 }
 
-function finishBotTurn(game, onDone) {
+async function finishBotTurn(game, broadcast) {
   if (
     game.phase === PHASE.ACTION
     && ['rent', 'tax', 'force'].includes(game.pendingAction?.type)
   ) {
     settleBotRent(game);
+    await pulse(broadcast);
   }
+
   if (game.phase === PHASE.END) {
-    game.endTurn();
+    // После клетки / оплаты — одна акция, затем смена хода
+    if (tryBotBuyShare(game)) {
+      await pulse(broadcast);
+    }
+    if (game.phase === PHASE.END) {
+      game.endTurn();
+    }
   }
-  setTimeout(onDone, 400);
 }
 
 function settleBotDeal(game) {
@@ -190,6 +279,27 @@ function settleBotDeal(game) {
   } else {
     game.rejectDeal(to.id);
   }
+}
+
+/** Предложить сделку за недостающую клетку страны (бот↔бот или бот→игрок). */
+function tryBotProposeDeal(game, bot) {
+  if (!game.canOfferDeal?.(bot.id)) return false;
+  // Не каждый ход — иначе спам
+  if (Math.random() > 0.55) return false;
+
+  const humanCooldownOk = (
+    Date.now() - (game.lastBotDealToHumanAt || 0) >= HUMAN_DEAL_COOLDOWN_MS
+  );
+  const deal = chooseBotDeal(game, bot, { humanCooldownOk });
+  if (!deal) return false;
+
+  const { _targetIsHuman, _cellName, ...payload } = deal;
+  if (!game.proposeDeal(bot.id, payload)) return false;
+
+  if (_targetIsHuman) {
+    game.lastBotDealToHumanAt = Date.now();
+  }
+  return true;
 }
 
 export function processBotChain(game, broadcast) {
@@ -209,7 +319,7 @@ export function processBotChain(game, broadcast) {
         runBotTurn(game, () => {
           broadcast();
           tick();
-        });
+        }, broadcast);
         return;
       }
       game._botRunning = false;
@@ -220,7 +330,6 @@ export function processBotChain(game, broadcast) {
       tryBotAuctionRound(game);
       broadcast();
       if (game.phase !== PHASE.AUCTION) {
-        // Закрыт по пропускам / последней ставке — ход дальше
         tick();
         return;
       }
@@ -229,7 +338,7 @@ export function processBotChain(game, broadcast) {
         if (game.phase === PHASE.AUCTION || game.currentPlayer?.isBot) {
           processBotChain(game, broadcast);
         }
-      }, 1600);
+      }, STEP_MS);
       return;
     }
 
@@ -238,7 +347,7 @@ export function processBotChain(game, broadcast) {
       runBotTurn(game, () => {
         broadcast();
         tick();
-      });
+      }, broadcast);
     } else {
       game._botRunning = false;
     }
