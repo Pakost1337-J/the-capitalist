@@ -22,30 +22,39 @@ function preventGamePagePan(e) {
   if (!allow) e.preventDefault();
 }
 
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 async function tryRestoreSession() {
   const saved = loadSession();
   if (!saved?.roomId || !saved?.sessionToken) return false;
 
-  const res = await network.rejoinRoom(saved.roomId, saved.sessionToken);
-  if (!res?.ok) {
-    clearSession();
-    return false;
+  let lastErr = '';
+  for (let attempt = 0; attempt < 6; attempt++) {
+    if (attempt) await sleep(350);
+    const res = await network.rejoinRoom(saved.roomId, saved.sessionToken);
+    if (res?.ok) {
+      if (res.playing && res.state) {
+        lobby.hide();
+        startGameUI(res.state);
+        return true;
+      }
+      if (res.lobby) {
+        lobby.show();
+        lobby.showView('room');
+        lobby.renderRoom(res.lobby);
+        return true;
+      }
+    }
+    lastErr = res?.error || '';
+    // стол точно мёртв — забываем сессию
+    if (/закрыт|не найден|покинул/i.test(lastErr)) {
+      clearSession();
+      return false;
+    }
   }
-
-  if (res.playing && res.state) {
-    lobby.hide();
-    startGameUI(res.state);
-    return true;
-  }
-
-  if (res.lobby) {
-    lobby.show();
-    lobby.showView('room');
-    lobby.renderRoom(res.lobby);
-    return true;
-  }
-
-  clearSession();
+  // Сессию оставляем — в списке столов будет «Подключиться»
   return false;
 }
 
@@ -96,8 +105,32 @@ async function init() {
   };
 
   network.onGameStart = (state) => {
+    if (state?.session) network._applySession(state.session);
     lobby.hide();
     startGameUI(state);
+  };
+
+  lobby.onRejoin = async (roomId) => {
+    const saved = loadSession();
+    if (!saved?.sessionToken || saved.roomId !== roomId) {
+      lobby.showError('Нет сохранённой сессии для этого стола');
+      return;
+    }
+    const res = await network.rejoinRoom(saved.roomId, saved.sessionToken);
+    if (!res?.ok) {
+      lobby.showError(res?.error || 'Не удалось подключиться');
+      if (/закрыт|не найден|покинул/i.test(res?.error || '')) clearSession();
+      return;
+    }
+    if (res.playing && res.state) {
+      lobby.hide();
+      startGameUI(res.state);
+      return;
+    }
+    if (res.lobby) {
+      lobby.showView('room');
+      lobby.renderRoom(res.lobby);
+    }
   };
 
   network.onGameState = (state) => {
@@ -126,8 +159,12 @@ function showToast(text) {
   setTimeout(() => el.remove(), 2500);
 }
 
-function confirmExitGame() {
+function confirmExitGame(e) {
+  e?.preventDefault?.();
+  e?.stopPropagation?.();
   if (!ui) return;
+  // уже открыт — не сбрасываем таймер 3с
+  if (ui.gameDialog && !ui.gameDialog.hidden) return;
   const isSpec = network.role === 'spectator' || ui?.lastState?.isSpectator;
   ui.showExitDialog({
     isSpectator: isSpec,
@@ -136,6 +173,13 @@ function confirmExitGame() {
       location.reload();
     },
   });
+}
+
+function bindExitButton() {
+  const exitBtn = document.getElementById('btn-exit-game');
+  if (!exitBtn || exitBtn.dataset.bound) return;
+  exitBtn.dataset.bound = '1';
+  exitBtn.addEventListener('click', confirmExitGame);
 }
 
 function startGameUI(state) {
@@ -156,11 +200,7 @@ function startGameUI(state) {
   ui.fitLayout();
   ui.render(state);
 
-  const exitBtn = document.getElementById('btn-exit-game');
-  if (exitBtn && !exitBtn.dataset.bound) {
-    exitBtn.dataset.bound = '1';
-    exitBtn.addEventListener('click', confirmExitGame);
-  }
+  bindExitButton();
 }
 
 init();

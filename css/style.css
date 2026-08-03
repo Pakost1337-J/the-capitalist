@@ -190,6 +190,8 @@ button, input, select { font-family: inherit; }
 
 .online-badge {
   display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
   margin-top: 12px;
   padding: 6px 14px;
   background: rgba(20, 40, 18, 0.35);
@@ -197,7 +199,25 @@ button, input, select { font-family: inherit; }
   border-radius: 8px;
   font-size: 0.85rem;
   font-weight: 800;
+  line-height: 1;
   box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.35);
+}
+
+.online-badge__dot {
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 50%;
+  background: #3fbf45;
+  box-shadow: 0 0 0 2px rgba(63, 191, 69, 0.25);
+  flex: 0 0 auto;
+}
+
+.online-badge__label,
+.online-badge__num {
+  font: inherit;
+  font-weight: 800;
+  line-height: 1;
+  display: inline-block;
 }
 
 .lobby__error {
@@ -274,12 +294,21 @@ button, input, select { font-family: inherit; }
 .room-card__status--open { color: #1f5c24; }
 .room-card__status--full { color: #8a3a10; }
 .room-card__status--play { color: #3d2a20; }
+.room-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
 .room-card__join {
   width: auto !important;
   margin: 0 !important;
   padding: 8px 14px !important;
   font-size: 0.78rem !important;
+  white-space: nowrap;
 }
+
 
 .lobby__room-title { text-align: center; font-size: 1.15rem; margin-bottom: 8px; color: #1a120c; }
 .lobby__room-count { text-align: center; color: #3d2a20; font-weight: 700; margin-bottom: 14px; }
@@ -477,7 +506,8 @@ button, input, select { font-family: inherit; }
   min-width: 0;
   min-height: 0;
   border-radius: 6px;
-  z-index: 0;
+  /* Выше клеток (z:2): иначе флаги/логотипы с краёв перехватывают клики по «Выход» на ПК */
+  z-index: 5;
   pointer-events: none;
   box-sizing: border-box;
 }
@@ -1618,7 +1648,9 @@ button, input, select { font-family: inherit; }
   position: absolute;
   top: 8px;
   right: 8px;
-  z-index: 12;
+  z-index: 40;
+  isolation: isolate;
+  pointer-events: auto;
   background: rgba(0,0,0,0.45);
   color: #f3e6d4;
   border: 1px solid rgba(255,255,255,0.2);

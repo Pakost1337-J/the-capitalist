@@ -260,6 +260,8 @@ export class LobbyUI {
       return;
     }
 
+    const saved = loadSession();
+
     list.innerHTML = rooms.map(room => {
       const status = room.status === 'lobby'
         ? (room.canJoin ? 'Ожидание' : 'Полный')
@@ -268,8 +270,20 @@ export class LobbyUI {
         ? (room.canJoin ? 'room-card__status--open' : 'room-card__status--full')
         : 'room-card__status--play';
 
+      const canRejoin = !!(
+        saved?.roomId === room.id
+        && saved?.sessionToken
+        && saved?.role === 'player'
+        && room.status === 'playing'
+      );
+
       let actions = '';
-      if (room.canJoin) {
+      if (canRejoin) {
+        actions = `
+          <button class="btn btn--club room-card__join" data-rejoin="${room.id}">Подключиться</button>
+          ${room.canSpectate ? `<button class="btn btn--club-muted room-card__join" data-spectate="${room.id}">Смотреть</button>` : ''}
+        `;
+      } else if (room.canJoin) {
         actions = `<button class="btn btn--club room-card__join" data-join="${room.id}">Войти</button>`;
       } else if (room.canSpectate) {
         actions = `<button class="btn btn--club room-card__join" data-spectate="${room.id}">Смотреть</button>`;
@@ -288,13 +302,16 @@ export class LobbyUI {
               · <span class="room-card__status ${statusClass}">${status}</span>
             </div>
           </div>
-          ${actions}
+          <div class="room-card__actions">${actions}</div>
         </div>
       `;
     }).join('');
 
     list.querySelectorAll('[data-join]').forEach(btn => {
       btn.addEventListener('click', () => this.joinById(btn.dataset.join));
+    });
+    list.querySelectorAll('[data-rejoin]').forEach(btn => {
+      btn.addEventListener('click', () => this.onRejoin?.(btn.dataset.rejoin));
     });
     list.querySelectorAll('[data-spectate]').forEach(btn => {
       btn.addEventListener('click', () => {

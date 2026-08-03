@@ -950,20 +950,30 @@ export class UI {
     `;
     const exitBtn = document.getElementById('dialog-exit');
     const stayBtn = document.getElementById('dialog-stay');
-    stayBtn?.addEventListener('click', () => this.hideGameDialog());
-    this.gameDialog.onclick = (e) => {
-      if (e.target === this.gameDialog) this.hideGameDialog();
-    };
+    stayBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.hideGameDialog();
+    });
+    exitBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (exitBtn.disabled) return;
+      this.hideGameDialog();
+      onConfirm?.();
+    });
+    // фон — со следующего кадра, чтобы клик открытия не закрыл диалог сразу
+    this.gameDialog.onclick = null;
+    requestAnimationFrame(() => {
+      if (this.gameDialog?.hidden) return;
+      this.gameDialog.onclick = (e) => {
+        if (e.target === this.gameDialog) this.hideGameDialog();
+      };
+    });
     if (this._exitUnlockTimer) clearTimeout(this._exitUnlockTimer);
     this._exitUnlockTimer = setTimeout(() => {
       this._exitUnlockTimer = null;
-      if (!exitBtn) return;
+      if (!exitBtn || this.gameDialog?.hidden) return;
       exitBtn.disabled = false;
       exitBtn.classList.add('is-ready');
-      exitBtn.addEventListener('click', () => {
-        this.hideGameDialog();
-        onConfirm?.();
-      }, { once: true });
     }, 3000);
   }
 

@@ -119,8 +119,28 @@ io.on('connection', (socket) => {
   });
 
   socket.on('rejoin-room', ({ roomId, sessionToken }, cb) => {
-    if (getRoomBySocket(socket.id)) {
-      return cb?.({ ok: false, error: 'Уже в комнате' });
+    const already = getRoomBySocket(socket.id);
+    if (already) {
+      if (already.id === roomId) {
+        const session = sessionForSocket(already, socket.id);
+        if (already.status === 'playing' && already.game) {
+          return cb?.({
+            ok: true,
+            playing: true,
+            role: session?.role || 'player',
+            session,
+            state: getGameState(already, socket.id),
+          });
+        }
+        return cb?.({
+          ok: true,
+          playing: false,
+          role: session?.role || 'player',
+          session,
+          lobby: getLobbyState(already),
+        });
+      }
+      return cb?.({ ok: false, error: 'Уже в другой комнате' });
     }
     const result = rejoinRoom(roomId, socket.id, sessionToken);
     if (result.error) return cb?.({ ok: false, error: result.error });
@@ -164,7 +184,9 @@ io.on('connection', (socket) => {
 
       for (const member of room.members) {
         if (!member.socketId || String(member.socketId).startsWith('pending:')) continue;
-        io.to(member.socketId).emit('game-start', getGameState(room, member.socketId));
+        const state = getGameState(room, member.socketId);
+        const session = sessionForSocket(room, member.socketId);
+        io.to(member.socketId).emit('game-start', { ...state, session });
       }
 
       cb?.({ ok: true, session: sessionForSocket(room, socket.id) });

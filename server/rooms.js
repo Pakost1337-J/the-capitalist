@@ -6,7 +6,10 @@ import { processBotChain } from './bot.js';
 
 const rooms = new Map();
 let roomSeq = 0;
-const RECONNECT_MS = 90_000;
+/** Если за столом никого онлайн — через это время стол закрывается */
+const EMPTY_ROOM_MS = 5 * 60_000;
+/** Наблюдатели без reconnect */
+const SPECTATOR_DROP_MS = 90_000;
 
 function genRoomId() {
   roomSeq += 1;
@@ -97,21 +100,6 @@ function clearReconnectTimer(room, key) {
   room._reconnectTimers?.delete(key);
 }
 
-function schedulePlayerAbandon(room, member, io) {
-  if (!room._reconnectTimers) room._reconnectTimers = new Map();
-  const key = `p:${member.sessionToken}`;
-  clearReconnectTimer(room, key);
-  room._reconnectTimers.set(key, setTimeout(() => {
-    room._reconnectTimers.delete(key);
-    if (!rooms.has(room.id)) return;
-    const still = room.members.find(m => m.sessionToken === member.sessionToken);
-    if (!still || !still.disconnectedAt) return;
-    abandonMember(room, still);
-    room.members = room.members.filter(m => m.sessionToken !== still.sessionToken);
-    afterMemberRemoved(room, io);
-  }, RECONNECT_MS));
-}
-
 function scheduleSpectatorDrop(room, spec) {
   if (!room._reconnectTimers) room._reconnectTimers = new Map();
   const key = `s:${spec.sessionToken}`;
@@ -120,7 +108,22 @@ function scheduleSpectatorDrop(room, spec) {
     room._reconnectTimers.delete(key);
     if (!rooms.has(room.id)) return;
     room.spectators = (room.spectators || []).filter(s => s.sessionToken !== spec.sessionToken);
-  }, RECONNECT_MS));
+  }, SPECTATOR_DROP_MS));
+}
+
+/** Место игрока держим до возврата; стол закрываем, только если онлайн никого нет */
+function scheduleEmptyRoomCleanup(room, io) {
+  if (!room._reconnectTimers) room._reconnectTimers = new Map();
+  clearReconnectTimer(room, 'room-empty');
+  if (room.members.some(m => isLiveSocket(m.socketId))) return;
+  room._reconnectTimers.set('room-empty', setTimeout(() => {
+    room._reconnectTimers.delete('room-empty');
+    if (!rooms.has(room.id)) return;
+    if (room.members.some(m => isLiveSocket(m.socketId))) return;
+    for (const m of [...room.members]) abandonMember(room, m);
+    room.members = [];
+    afterMemberRemoved(room, io);
+  }, EMPTY_ROOM_MS));
 }
 
 function abandonMember(room, member) {
@@ -204,7 +207,7 @@ export function leaveRoom(socketId, { intentional = true, io = null } = {}) {
       if (room.game.players[member.slot]) {
         room.game.players[member.slot].disconnected = true;
       }
-      schedulePlayerAbandon(room, member, io);
+      scheduleEmptyRoomCleanup(room, io);
       broadcastGame(room, io);
       return { room, id, disconnected: true };
     }
@@ -235,11 +238,16 @@ export function rejoinRoom(roomId, socketId, sessionToken) {
       return { error: 'Сначала выйдите из другой комнаты' };
     }
     clearReconnectTimer(room, `p:${member.sessionToken}`);
+    clearReconnectTimer(room, 'room-empty');
     member.socketId = socketId;
     member.disconnectedAt = null;
     if (room.game?.players[member.slot]) {
-      room.game.players[member.slot].socketId = socketId;
-      room.game.players[member.slot].disconnected = false;
+      const gp = room.game.players[member.slot];
+      if (gp.left || gp.bankrupt) {
+        return { error: 'Вы уже покинули эту игру' };
+      }
+      gp.socketId = socketId;
+      gp.disconnected = false;
     }
     if (member.isHost) room.hostSocketId = socketId;
     return {
