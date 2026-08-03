@@ -8,9 +8,11 @@ import {
   startGame, handleGameAction, getLobbyState, getGameState,
   broadcastGame, startBotLoop, listPublicRooms, scheduleAuctionEnd, scheduleRentEnd, scheduleTurnTimers,
   scheduleMoveCommit, sessionForSocket, findSpectatorBySocket, findMemberBySocket,
+  setMemberChip,
 } from './server/rooms.js';
 import { PHASE } from './js/game.js';
 import { getCustomPayload, saveCustom, resetCustom } from './server/customize.js';
+import { tryReplyBotChat } from './server/bot.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -76,17 +78,33 @@ io.on('connection', (socket) => {
     socket.emit('server-info', payload);
   });
 
-  socket.on('create-room', ({ name, maxPlayers, fillBots }, cb) => {
+  socket.on('create-room', ({ name, maxPlayers, fillBots, chipSlot }, cb) => {
     if (getRoomBySocket(socket.id)) {
       return cb?.({ ok: false, error: 'Сначала выйдите из текущей комнаты' });
     }
 
-    const room = createRoom(socket.id, name || 'Игрок', maxPlayers || 4, fillBots !== false && fillBots !== 0 && fillBots !== '0');
+    const room = createRoom(
+      socket.id,
+      name || 'Игрок',
+      maxPlayers || 4,
+      fillBots !== false && fillBots !== 0 && fillBots !== '0',
+      chipSlot,
+    );
     socket.join(room.id);
     const session = sessionForSocket(room, socket.id);
     cb?.({ ok: true, lobby: getLobbyState(room), session });
     io.to(room.id).emit('lobby-update', getLobbyState(room));
     broadcastServerInfo();
+  });
+
+  socket.on('set-chip', ({ chipSlot }, cb) => {
+    const room = getRoomBySocket(socket.id);
+    if (!room) return cb?.({ ok: false, error: 'Вы не в комнате' });
+    const result = setMemberChip(room.id, socket.id, chipSlot);
+    if (result.error) return cb?.({ ok: false, error: result.error });
+    const session = sessionForSocket(result.room, socket.id);
+    cb?.({ ok: true, lobby: getLobbyState(result.room), session });
+    io.to(room.id).emit('lobby-update', getLobbyState(result.room));
   });
 
   socket.on('join-room', ({ id, name }, cb) => {
@@ -233,6 +251,7 @@ io.on('connection', (socket) => {
     const name = member?.name || spectator?.name || 'Игрок';
     if (room.game) {
       room.game.addLog(`${name}: ${clean}`);
+      tryReplyBotChat(room.game, name, clean);
       broadcastGame(room, io);
       return;
     }

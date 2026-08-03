@@ -1,5 +1,8 @@
+import { PLAYER_SLOTS } from './config.js';
+
 const NAME_KEY = 'capitalist-player-name';
 const SESSION_KEY = 'capitalist-session-v1';
+const CHIP_KEY = 'capitalist-chip-slot';
 
 export function loadPlayerName() {
   try {
@@ -12,6 +15,20 @@ export function loadPlayerName() {
 export function savePlayerName(name) {
   try {
     localStorage.setItem(NAME_KEY, String(name || '').slice(0, 20));
+  } catch { /* ignore */ }
+}
+
+export function loadChipSlot() {
+  try {
+    const n = Number(localStorage.getItem(CHIP_KEY));
+    if (Number.isInteger(n) && n >= 0 && n < PLAYER_SLOTS.length) return n;
+  } catch { /* ignore */ }
+  return 0;
+}
+
+export function saveChipSlot(slot) {
+  try {
+    localStorage.setItem(CHIP_KEY, String(slot));
   } catch { /* ignore */ }
 }
 
@@ -90,9 +107,18 @@ export class Network {
     saveSession(session);
   }
 
-  createRoom(name, maxPlayers, fillBots = true) {
+  createRoom(name, maxPlayers, fillBots = true, chipSlot = 0) {
     return new Promise((resolve) => {
-      this.socket.emit('create-room', { name, maxPlayers, fillBots }, (res) => {
+      this.socket.emit('create-room', { name, maxPlayers, fillBots, chipSlot }, (res) => {
+        if (res?.ok && res.session) this._applySession(res.session);
+        resolve(res || { ok: false, error: 'Нет ответа' });
+      });
+    });
+  }
+
+  setChip(chipSlot) {
+    return new Promise((resolve) => {
+      this.socket.emit('set-chip', { chipSlot }, (res) => {
         if (res?.ok && res.session) this._applySession(res.session);
         resolve(res || { ok: false, error: 'Нет ответа' });
       });
@@ -155,8 +181,10 @@ export class LobbyUI {
   constructor(network) {
     this.network = network;
     this.el = document.getElementById('lobby');
+    this.selectedChip = loadChipSlot();
     this.setupEvents();
     this.restoreName();
+    this.renderMenuChipPicker();
   }
 
   setupEvents() {
@@ -165,6 +193,63 @@ export class LobbyUI {
     document.getElementById('btn-leave').addEventListener('click', () => this.leave());
     document.getElementById('player-name')?.addEventListener('change', () => {
       savePlayerName(this.getPlayerName());
+    });
+  }
+
+  renderMenuChipPicker() {
+    const el = document.getElementById('chip-picker');
+    if (!el) return;
+    el.innerHTML = PLAYER_SLOTS.map((s) => `
+      <button type="button" class="chip-picker__btn${this.selectedChip === s.id ? ' is-active' : ''}"
+        data-chip="${s.id}" title="${escapeHtml(s.name)}" style="--chip:${s.color}" aria-pressed="${this.selectedChip === s.id}">
+        <span class="chip-picker__swatch" style="background:${s.color}"></span>
+        <span class="chip-picker__label">${escapeHtml(s.name)}</span>
+      </button>
+    `).join('');
+    el.querySelectorAll('[data-chip]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.selectedChip = Number(btn.dataset.chip);
+        saveChipSlot(this.selectedChip);
+        this.renderMenuChipPicker();
+      });
+    });
+  }
+
+  renderRoomChipPicker(lobby) {
+    const wrap = document.getElementById('room-chip-wrap');
+    const el = document.getElementById('room-chip-picker');
+    if (!wrap || !el) return;
+    // В лобби slot = цвет фишки; после старта игры экран комнаты скрыт.
+    const mine = lobby.members.find(m => m.slot === this.network.mySlot)
+      || lobby.members.find(m => m.isHost && lobby.hostSocketId === this.network.socket?.id)
+      || lobby.members.find(m => m.name === this.getPlayerName());
+    const myChip = mine?.chipSlot ?? mine?.slot ?? this.selectedChip;
+    const taken = new Set(
+      lobby.members
+        .filter(m => m !== mine)
+        .map(m => m.chipSlot ?? m.slot),
+    );
+    wrap.hidden = false;
+    el.innerHTML = PLAYER_SLOTS.map((s) => {
+      const busy = taken.has(s.id);
+      const active = myChip === s.id;
+      return `
+        <button type="button" class="chip-picker__btn${active ? ' is-active' : ''}${busy ? ' is-busy' : ''}"
+          data-chip="${s.id}" title="${escapeHtml(s.name)}" style="--chip:${s.color}"
+          ${busy ? 'disabled' : ''} aria-pressed="${active}">
+          <span class="chip-picker__swatch" style="background:${s.color}"></span>
+          <span class="chip-picker__label">${escapeHtml(s.name)}</span>
+        </button>`;
+    }).join('');
+    el.querySelectorAll('[data-chip]:not(:disabled)').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const chipSlot = Number(btn.dataset.chip);
+        const res = await this.network.setChip(chipSlot);
+        if (!res?.ok) return this.showError(res?.error || 'Не удалось сменить цвет');
+        this.selectedChip = chipSlot;
+        saveChipSlot(chipSlot);
+        if (res.lobby) this.renderRoom(res.lobby);
+      });
     });
   }
 
@@ -200,7 +285,8 @@ export class LobbyUI {
     const name = this.getPlayerName();
     const maxPlayers = Number(document.getElementById('max-players').value);
     const fillBots = document.getElementById('fill-bots')?.value !== '0';
-    const res = await this.network.createRoom(name, maxPlayers, fillBots);
+    const chipSlot = this.selectedChip;
+    const res = await this.network.createRoom(name, maxPlayers, fillBots, chipSlot);
     if (!res.ok) return this.showError(res.error);
     this.showView('room');
     this.renderRoom(res.lobby);
@@ -348,6 +434,8 @@ export class LobbyUI {
           <span>${emptyLabel}</span>
         </div>`;
     }
+
+    this.renderRoomChipPicker(lobby);
   }
 
   showError(msg) {

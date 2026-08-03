@@ -86,7 +86,7 @@ async function init() {
     applyTheme(theme);
     if (ui?.lastState?.players) {
       for (const p of ui.lastState.players) {
-        const slot = PLAYER_SLOTS[p.id];
+        const slot = PLAYER_SLOTS[p.chipSlot ?? p.id];
         if (!slot) continue;
         p.color = slot.color;
         p.colorSoft = slot.colorSoft;

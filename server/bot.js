@@ -4,6 +4,7 @@ import { moveAnimMs } from '../js/anim-timing.js';
 import {
   shouldBotBuy,
   shouldBotBid,
+  botStaysInAuction,
   maxAuctionBid,
   chooseBotShareCell,
   chooseBotDeal,
@@ -12,7 +13,12 @@ import {
   mortgageCandidates,
   shareSellCandidates,
   shouldAcceptDeal,
+  botBuyPriceFor,
+  botSellPriceFor,
 } from '../js/bot-strategy.js';
+import { botSay, botAnnounceDesire } from './bot-chat.js';
+
+export { tryReplyBotChat } from './bot-chat.js';
 
 /** Пауза между видимыми действиями бота (лог / UI) */
 const STEP_MS = 2000;
@@ -21,53 +27,40 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function botSay(game, bot, text) {
-  if (!game || !bot || !text) return;
-  // Не чаще одного комментария за ~1.2с — меньше спама
-  const now = Date.now();
-  if (now - (game._lastBotChatAt || 0) < 1200) return;
-  game._lastBotChatAt = now;
-  game.addLog(`${bot.name}: ${text}`);
-}
-
+const U = String.fromCharCode;
+function q(n) { return '\u00AB' + n + '\u00BB'; }
 const BOT_THOUGHTS = {
   roll: [
-    'Кидаю кости…',
-    'Поехали!',
-    'Что там судьба подкинет…',
-    'Ход за мной.',
+    U(0x041A,0x0438,0x0434,0x0430,0x044E) + ' ' + U(0x043A,0x043E,0x0441,0x0442,0x0438) + U(0x2026),
+    U(0x041F,0x043E,0x0435,0x0445,0x0430,0x043B,0x0438) + '!',
+    U(0x0425,0x043E,0x0434) + ' ' + U(0x0437,0x0430) + ' ' + U(0x043C,0x043D,0x043E,0x0439) + '.',
   ],
   buy: [
-    (n) => `Беру «${n}» — пригодится.`,
-    (n) => `«${n}» в портфель.`,
-    (n) => `Покупаю «${n}».`,
+    (n) => U(0x0411,0x0435,0x0440,0x0443) + ' ' + q(n) + '!',
+    (n) => q(n) + ' ' + U(0x0432) + ' ' + U(0x043F,0x043E,0x0440,0x0442,0x0444,0x0435,0x043B,0x044C) + '.',
+    (n) => U(0x041F,0x043E,0x043A,0x0443,0x043F,0x0430,0x044E) + ' ' + q(n) + '.',
   ],
   pass: [
-    (n) => `«${n}» дорого — пас.`,
-    (n) => `Не сейчас «${n}».`,
-    (n) => `Пусть уходит на аукцион.`,
+    (n) => q(n) + ' ' + U(0x0434,0x043E,0x0440,0x043E,0x0433,0x043E) + ' ' + U(0x2014) + ' ' + U(0x043F,0x0430,0x0441) + '.',
+    (n) => U(0x041D,0x0435) + ' ' + U(0x0441,0x0435,0x0439,0x0447,0x0430,0x0441) + ' ' + q(n) + '.',
+    (n) => U(0x041D,0x0430) + ' ' + U(0x0430,0x0443,0x043A,0x0446,0x0438,0x043E,0x043D) + ': ' + q(n),
   ],
   rent: [
-    'Оплачу и пойду дальше.',
-    'Долг погашаю.',
-    'Придётся заплатить…',
+    U(0x041E,0x043F,0x043B,0x0430,0x0447,0x0443) + '.',
+    U(0x0414,0x043E,0x043B,0x0433) + ' ' + U(0x043F,0x043E,0x0433,0x0430,0x0448,0x0430,0x044E) + '.',
+    U(0x041F,0x0440,0x0438,0x0434,0x0451,0x0442,0x0441,0x044F) + ' ' + U(0x0437,0x0430,0x043F,0x043B,0x0430,0x0442,0x0438,0x0442,0x044C) + U(0x2026),
   ],
   share: [
-    (n) => `Акция на «${n}».`,
-    (n) => `Усиливаю «${n}».`,
+    (n) => U(0x0410,0x043A,0x0446,0x0438,0x044F) + ' ' + U(0x043D,0x0430) + ' ' + q(n) + '.',
+    (n) => U(0x0423,0x0441,0x0438,0x043B,0x0438,0x0432,0x0430,0x044E) + ' ' + q(n) + '.',
   ],
   auction: [
-    (n) => `Ставлю за «${n}».`,
-    (n) => `Перебиваю за «${n}».`,
+    (n) => U(0x0421,0x0442,0x0430,0x0432,0x043B,0x044E) + ' ' + U(0x0437,0x0430) + ' ' + q(n) + '!',
+    (n) => U(0x041F,0x0435,0x0440,0x0435,0x0431,0x0438,0x0432,0x0430,0x044E) + ' ' + U(0x0437,0x0430) + ' ' + q(n) + '.',
   ],
   jail: [
-    'Выхожу из тюрьмы.',
-    'Плачу залог — свобода дороже.',
-  ],
-  think: [
-    'Считаю варианты…',
-    'Смотрю на поле.',
-    'Думаю над ходом.',
+    U(0x0412,0x044B,0x0445,0x043E,0x0436,0x0443) + ' ' + U(0x0438,0x0437) + ' ' + U(0x0442,0x044E,0x0440,0x044C,0x043C,0x044B) + '.',
+    U(0x041F,0x043B,0x0430,0x0447,0x0443) + ' ' + U(0x0437,0x0430,0x043B,0x043E,0x0433) + '.',
   ],
 };
 
@@ -96,7 +89,7 @@ async function waitForMoveAnim(game, broadcast) {
 }
 
 export function runBotTurn(game, onDone, broadcast = () => {}) {
-  // Ответ на входящую сделку (боты сами сделки не предлагают)
+  // Ответ на входящую сделку
   if (game.deal) {
     const to = game.players[game.deal.toId];
     if (to?.isBot && !to.bankrupt) {
@@ -123,7 +116,12 @@ export function runBotTurn(game, onDone, broadcast = () => {}) {
         return;
       }
 
-      // До броска: попробовать выкупить недостающую компанию для страны
+      // До броска: желание в чат, затем сделка / кости
+      if (!player.inJail) {
+        botAnnounceDesire(game, player);
+        if (typeof broadcast === 'function') broadcast();
+        await wait(600);
+      }
       if (!player.inJail && tryBotProposeDeal(game, player)) {
         await pulse(broadcast);
         onDone();
@@ -132,11 +130,11 @@ export function runBotTurn(game, onDone, broadcast = () => {}) {
 
       // Порядок: бросок → клетка → покупка/аренда → акция (после хода)
       if (player.inJail && player.money >= 50_000 && Math.random() > 0.55) {
-        botSay(game, player, pick(BOT_THOUGHTS.jail));
+        botSay(game, player, pick(BOT_THOUGHTS.jail), { force: true });
         game.payJailBail();
         await pulse(broadcast);
       }
-      if (Math.random() < 0.55) botSay(game, player, pick(BOT_THOUGHTS.roll));
+      botSay(game, player, pick(BOT_THOUGHTS.roll), { force: true });
       game.rollDice();
       if (typeof broadcast === 'function') broadcast();
       await waitForMoveAnim(game, broadcast);
@@ -179,18 +177,18 @@ async function handleAfterRoll(game, broadcast) {
 
     // Не хватает денег — пробуем заложить, потом купить, иначе аукцион
     if (player.money < price) {
-      botSay(game, player, 'Денег мало — заложу что-нибудь…');
+      botSay(game, player, U(0x0414,0x0435,0x043D,0x0435,0x0433) + ' ' + U(0x043C,0x0430,0x043B,0x043E) + U(0x2026), { force: true });
       game.autoRaiseCash?.(player, price);
       await pulse(broadcast);
     }
     if (player.money >= price && shouldBotBuy(game, player, cell, price)) {
-      botSay(game, player, pick(BOT_THOUGHTS.buy)(cell?.name || 'компанию'));
+      botSay(game, player, pick(BOT_THOUGHTS.buy)(cell?.name || '?'), { force: true });
       game.buyProperty();
     } else if (player.money >= price && Math.random() < 0.35) {
-      botSay(game, player, pick(BOT_THOUGHTS.buy)(cell?.name || 'компанию'));
+      botSay(game, player, pick(BOT_THOUGHTS.buy)(cell?.name || '?'), { force: true });
       game.buyProperty();
     } else {
-      botSay(game, player, pick(BOT_THOUGHTS.pass)(cell?.name || 'это'));
+      botSay(game, player, pick(BOT_THOUGHTS.pass)(cell?.name || '?'), { force: true });
       game.passProperty();
     }
     await pulse(broadcast);
@@ -208,7 +206,7 @@ async function handleAfterRoll(game, broadcast) {
     && ['rent', 'tax', 'force'].includes(game.pendingAction?.type)
   ) {
     const player = game.currentPlayer;
-    if (Math.random() < 0.7) botSay(game, player, pick(BOT_THOUGHTS.rent));
+    if (Math.random() < 0.85) botSay(game, player, pick(BOT_THOUGHTS.rent), { force: true });
     settleBotRent(game);
     await pulse(broadcast);
     await finishBotTurn(game, broadcast);
@@ -239,7 +237,7 @@ async function handleAfterRoll(game, broadcast) {
   await finishBotTurn(game, broadcast);
 }
 
-/** Боты: ставки; выход только если цена выше потолка (не из‑за «не хочу в этот тик»). */
+/** Боты: ставки; кто не будет перебивать — выходит (иначе аукцион не закрывается). */
 function tryBotAuctionRound(game) {
   if (game.phase !== PHASE.AUCTION || !game.auction) return;
   const cell = getCell(game.auction.cellId);
@@ -256,14 +254,13 @@ function tryBotAuctionRound(game) {
       && p.money >= next
       && shouldBotBid(game, p, cell, next)
     ));
-    // Случайный порядок — кто первый перебьёт
     for (let i = contenders.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [contenders[i], contenders[j]] = [contenders[j], contenders[i]];
     }
     for (const p of contenders) {
       if (game.placeAuctionBid(p.id)) {
-        botSay(game, p, pick(BOT_THOUGHTS.auction)(cell?.name || 'лот'));
+        botSay(game, p, pick(BOT_THOUGHTS.auction)(cell?.name || '?'), { force: true });
         placed = true;
         break;
       }
@@ -272,18 +269,19 @@ function tryBotAuctionRound(game) {
   }
   if (game.phase !== PHASE.AUCTION) return;
 
+  // Кто не ставит дальше (потолок / нет денег / неинтересно) — выходит,
+  // чтобы аукцион закрылся, когда ставка уже «за» ботом и люди ушли.
   const ask = game.nextAuctionPrice();
   for (const p of game.activePlayers) {
     if (!p.isBot) continue;
     if (!game.canPlayerAuctionBid?.(p.id)) continue;
     if (game.auction.highBidder === p.id) continue;
-    const cap = maxAuctionBid(game, p, cell);
-    // Выходим только когда дальше не потянем — иначе остаёмся на следующий раунд
-    if (p.money < ask || ask > cap) {
+    if (!botStaysInAuction(game, p, cell, ask)) {
       game.leaveAuction(p.id);
       if (game.phase !== PHASE.AUCTION) return;
     }
   }
+  game.maybeFinishAuctionEarly?.();
 }
 
 export function tryBotBuyShare(game) {
@@ -294,7 +292,7 @@ export function tryBotBuyShare(game) {
   if (cellId == null) return false;
   const cell = getCell(cellId);
   const ok = game.buildHouse(cellId);
-  if (ok) botSay(game, player, pick(BOT_THOUGHTS.share)(cell?.name || 'компанию'));
+  if (ok) botSay(game, player, pick(BOT_THOUGHTS.share)(cell?.name || '?'), { force: true });
   return ok;
 }
 
@@ -352,8 +350,25 @@ function settleBotDeal(game) {
   if (!to?.isBot) return;
 
   if (shouldAcceptDeal(game, to, d)) {
+    botSay(game, to, pick([
+      'Принимаю — честная цена.',
+      'Ок, берём.',
+      'Договорились.',
+    ]), { force: true });
     game.acceptDeal(to.id);
   } else {
+    const askCell = (d.askCells || [])[0];
+    const cell = askCell != null ? getCell(askCell) : null;
+    let counter = '';
+    if (cell && (d.askCells || []).includes(cell.id)) {
+      const min = botSellPriceFor(game, to, cell);
+      if (min > 0) counter = ` Минимум $${min.toLocaleString('ru-RU')} или обмен.`;
+    }
+    botSay(game, to, pick([
+      `Не выгодно.${counter}`,
+      `Отказ — компании дороже денег.${counter}`,
+      `Нет.${counter} Кидайте лучше обмен.`,
+    ]), { force: true });
     game.rejectDeal(to.id);
   }
 }
@@ -361,8 +376,8 @@ function settleBotDeal(game) {
 /** Предложить сделку за недостающую клетку страны (бот↔бот или бот→игрок). */
 function tryBotProposeDeal(game, bot) {
   if (!game.canOfferDeal?.(bot.id)) return false;
-  // Чаще просто ходим — сделки не должны стопорить партию
-  if (Math.random() > 0.28) return false;
+  // Чаще предлагаем людям, реже — «пустые» ходы без сделки
+  if (Math.random() > 0.52) return false;
 
   const now = Date.now();
   const humanCooldownOk = now - (game.lastBotDealToHumanAt || 0) >= HUMAN_DEAL_COOLDOWN_MS;
@@ -374,7 +389,6 @@ function tryBotProposeDeal(game, bot) {
 
   const { _targetIsHuman, _cellName, _chat, fromId, ...payload } = deal;
 
-  // Бот↔бот: только если цель точно примет (без спама отказов)
   if (!_targetIsHuman) {
     const target = game.players[payload.toId];
     if (!target || !shouldAcceptDeal(game, target, { ...payload, fromId: bot.id })) {
@@ -384,7 +398,7 @@ function tryBotProposeDeal(game, bot) {
 
   if (!game.proposeDeal(bot.id, payload)) return false;
 
-  if (_chat) game.addLog(`${bot.name}: ${_chat}`);
+  if (_chat) botSay(game, bot, _chat, { force: true });
   if (_targetIsHuman) game.lastBotDealToHumanAt = now;
   else game.lastBotBotDealAt = now;
   return true;

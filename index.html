@@ -60,6 +60,11 @@
             </select>
           </label>
 
+          <div class="lobby__field">
+            <span>Цвет фишки</span>
+            <div class="chip-picker" id="chip-picker" role="radiogroup" aria-label="Цвет фишки"></div>
+          </div>
+
           <button class="btn btn--club lobby__btn" id="btn-create">Создать стол</button>
 
           <div class="lobby__divider">Столы онлайн</div>
@@ -72,6 +77,10 @@
           <div class="lobby__room-title"><strong id="room-name">Стол</strong></div>
           <p class="lobby__room-count">Игроков: <span id="room-count">0/4</span></p>
           <div class="lobby__players" id="room-players"></div>
+          <div class="lobby__field lobby__field--chip" id="room-chip-wrap">
+            <span>Ваша фишка</span>
+            <div class="chip-picker" id="room-chip-picker" role="radiogroup" aria-label="Сменить цвет фишки"></div>
+          </div>
           <p class="lobby__hint" id="host-hint" hidden>Ожидайте, пока хост начнёт игру</p>
           <button class="btn btn--club lobby__btn" id="btn-start">Начать игру</button>
           <button class="btn btn--club-muted lobby__btn" id="btn-leave">Выйти</button>

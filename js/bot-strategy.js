@@ -223,6 +223,24 @@ export function shouldBotBid(game, player, cell, nextPrice) {
   return Math.random() < 0.45;
 }
 
+/** Без рандома: останется ли бот в аукционе (для досрочного закрытия). */
+export function botStaysInAuction(game, player, cell, nextPrice) {
+  if (!player || !cell || nextPrice == null) return false;
+  if (player.money < nextPrice) return false;
+  const cap = maxAuctionBid(game, player, cell);
+  if (nextPrice > cap) return false;
+  const list = cell.price || 0;
+  const blocks = blocksEnemyMonopoly(game, player.id, cell);
+  const completes = wouldCompleteGroup(game, player.id, cell);
+  const score = interestScore(game, player.id, cell);
+  const hunger = propertyHunger(player);
+  if (blocks || completes) return true;
+  if (score >= 70 && nextPrice <= list * 1.25) return true;
+  if (score >= 55 && nextPrice <= list * 1.12) return true;
+  if ((score >= 35 || hunger >= 0.65) && nextPrice <= list) return true;
+  return false;
+}
+
 export function chooseBotShareCell(game, player) {
   if (!player) return null;
   const options = game.getBuildableProperties?.(player.id) || [];
@@ -378,9 +396,13 @@ export function shouldAcceptDeal(game, bot, deal) {
 }
 
 /** Cooldown for bot deals offered to human players */
-export const HUMAN_DEAL_COOLDOWN_MS = 180_000;
+export const HUMAN_DEAL_COOLDOWN_MS = 90_000;
 /** Пауза между любыми сделками бот↔бот (антиспам) */
-export const BOT_BOT_DEAL_COOLDOWN_MS = 120_000;
+export const BOT_BOT_DEAL_COOLDOWN_MS = 90_000;
+
+function roundCash(n) {
+  return Math.max(0, Math.round(Number(n) / 10_000) * 10_000);
+}
 
 /** Цель почти собрала эту страну — у неё эту клетку не просить */
 function isAlmostMonoPiece(game, ownerId, cell) {
@@ -391,9 +413,345 @@ function isAlmostMonoPiece(game, ownerId, cell) {
   return mine >= total - 1;
 }
 
+function isTradeableCell(game, cellId) {
+  const cell = getCell(cellId);
+  const ps = game.propertyState[cellId];
+  if (!cell || !ps) return false;
+  if (ps.mortgaged || (ps.houses || 0) > 0) return false;
+  return ['property', 'railroad', 'utility'].includes(cell.type);
+}
+
+/** Сколько бот готов отдать за клетку (для чата / контрпредложений) */
+export function botBuyPriceFor(game, bot, cell) {
+  if (!bot || !cell?.price) return 0;
+  const list = cell.price;
+  let mult = 1.05;
+  if (wouldCompleteGroup(game, bot.id, cell)) mult = 1.55;
+  else if (countOwnedInGroup(game, bot.id, cell.group) >= 1) mult = 1.3;
+  else if (blocksEnemyMonopoly(game, bot.id, cell)) mult = 1.4;
+  else if (interestScore(game, bot.id, cell) >= 55) mult = 1.15;
+  let cash = roundCash(list * mult);
+  const reserve = softReserve(bot);
+  if (bot.money - cash < reserve) {
+    cash = roundCash(Math.max(0, bot.money - reserve));
+  }
+  return cash;
+}
+
+/** Мин. цена, за которую бот отдаст клетку */
+export function botSellPriceFor(game, bot, cell) {
+  if (!bot || !cell?.price) return 0;
+  const list = cell.price;
+  let mult = 1.25;
+  if (game.ownsGroup?.(bot.id, cell.group)) mult = 3;
+  else if (isAlmostMonoPiece(game, bot.id, cell)) mult = 2.2;
+  else if (countOwnedInGroup(game, bot.id, cell.group) >= 2) mult = 1.7;
+  else if (countOwnedInGroup(game, bot.id, cell.group) >= 1) mult = 1.4;
+  return roundCash(list * mult);
+}
+
+function botHasMonopoly(game, bot) {
+  const seen = new Set();
+  for (const id of bot.properties || []) {
+    const cell = getCell(id);
+    if (!cell?.group || seen.has(cell.group)) continue;
+    seen.add(cell.group);
+    if (game.ownsGroup?.(bot.id, cell.group)) return true;
+  }
+  return false;
+}
+
+/** Компании, которые бот может отдать (не ломая свою почти/готовую страну) */
+function botOfferableCells(game, bot) {
+  const list = [];
+  for (const junkId of bot.properties || []) {
+    if (!isTradeableCell(game, junkId)) continue;
+    const jc = getCell(junkId);
+    if (!jc?.group) continue;
+    if (game.ownsGroup?.(bot.id, jc.group)) continue;
+    if (isAlmostMonoPiece(game, bot.id, jc)) continue;
+    list.push({ junkId, jc, price: jc.price || 0 });
+  }
+  return list;
+}
+
 /**
- * Find a deal to complete a country (missing 1 company).
- * Returns proposeDeal payload or null.
+ * Кандидаты на обмен: приоритет — закрыть/усилить страну партнёру,
+ * затем близкая цена (доплату деньгами можно выровнять).
+ */
+function rankSwapCandidates(game, bot, owner, wantCell) {
+  const wantPrice = wantCell.price || 0;
+  const out = [];
+  for (const { junkId, jc, price } of botOfferableCells(game, bot)) {
+    const completesThem = wouldCompleteGroup(game, owner.id, jc);
+    const expandsThem = countOwnedInGroup(game, owner.id, jc.group) >= 1;
+    const ratio = wantPrice > 0 ? price / wantPrice : 1;
+    let score = 0;
+    if (completesThem) score += 120;
+    else if (expandsThem) score += 55;
+    // Равноценность по цене (остаток добьём деньгами)
+    if (ratio >= 0.75 && ratio <= 1.25) score += 35;
+    else if (ratio >= 0.45 && ratio <= 1.6) score += 20;
+    else if (ratio >= 0.25) score += 8;
+    // Чуть предпочитаем близкий тир
+    score += Math.max(0, 18 - Math.abs(price - wantPrice) / 25_000);
+    out.push({ junkId, jc, price, score, completesThem, expandsThem });
+  }
+  out.sort((a, b) => b.score - a.score || Math.abs(a.price - wantPrice) - Math.abs(b.price - wantPrice));
+  return out;
+}
+
+/** Равноценный обмен: компания + доплата, чтобы обеим было по стране / по цене */
+function makeFairSwapDeal(game, bot, owner, wantCell, cand) {
+  const wantPrice = wantCell.price || 0;
+  const offerPrice = cand.price || 0;
+  let offerMoney = 0;
+  let askMoney = 0;
+  // balance > 0 → бот получает более дорогую → доплачивает
+  let balance = wantPrice - offerPrice;
+
+  if (cand.completesThem) {
+    // Им страну закрываем — не просим доплату, сами доплачиваем до цены
+    balance = Math.max(balance, 0);
+    if (balance > 10_000) offerMoney = roundCash(balance);
+  } else if (cand.expandsThem) {
+    if (balance > 15_000) offerMoney = roundCash(balance * 0.95);
+    else if (balance < -40_000) askMoney = roundCash((-balance) * 0.35);
+  } else {
+    if (balance > 10_000) offerMoney = roundCash(balance);
+    else if (balance < -10_000) askMoney = roundCash(-balance * 0.75);
+  }
+
+  const reserve = softReserve(bot);
+  if (offerMoney > 0 && bot.money - offerMoney < reserve) {
+    offerMoney = roundCash(Math.max(0, bot.money - reserve));
+  }
+  if (askMoney > 0 && owner.money < askMoney) {
+    askMoney = roundCash(Math.max(0, owner.money - 40_000));
+  }
+
+  // Нетто в одну сторону
+  const net = offerMoney - askMoney;
+  if (net >= 0) { offerMoney = net; askMoney = 0; }
+  else { askMoney = -net; offerMoney = 0; }
+
+  return {
+    toId: owner.id,
+    offerMoney,
+    askMoney,
+    offerCells: [cand.junkId],
+    askCells: [wantCell.id],
+    fromId: bot.id,
+  };
+}
+
+function swapChat(wantName, offerName, offerMoney, askMoney, cand) {
+  const cashBit = offerMoney
+    ? ` + $${offerMoney.toLocaleString('ru-RU')}`
+    : (askMoney ? ` (вы +$${askMoney.toLocaleString('ru-RU')})` : '');
+  if (cand.completesThem) {
+    return `Меняю «${offerName}»${cashBit} на «${wantName}» — вам страна, мне страна. Честный обмен!`;
+  }
+  if (cand.expandsThem) {
+    return `Обмен: вам «${offerName}»${cashBit} за «${wantName}» — усиливаем обе группы.`;
+  }
+  return `Равноценный обмен: «${offerName}»${cashBit} ↔ «${wantName}». Откройте сделку!`;
+}
+
+function buildBuyDeal(game, bot, owner, cell, kind) {
+  const candidates = rankSwapCandidates(game, bot, owner, cell);
+  // С человеком — сначала только обмен; деньги alone — лишь если нечего предложить
+  // Если у бота уже есть страна — денег без компании не предлагаем
+  const noCashOnly = !owner.isBot && (botHasMonopoly(game, bot) || candidates.length > 0);
+
+  for (const cand of candidates) {
+    // С человеком берём даже слабый кандидат (выровняем доплатой)
+    if (!owner.isBot && cand.score < 8) continue;
+    if (owner.isBot && cand.score < 40) continue;
+
+    const draft = makeFairSwapDeal(game, bot, owner, cell, cand);
+    if (owner.isBot && !shouldAcceptDeal(game, owner, { ...draft, fromId: bot.id })) {
+      continue;
+    }
+    // С человеком: если сильно недоплатили за их дорогую клетку — пропустим слабый оффер
+    if (!owner.isBot) {
+      const theyGet = (cand.price || 0) + draft.offerMoney;
+      const weGet = (cell.price || 0) + draft.askMoney;
+      if (theyGet < weGet * 0.75 && !cand.completesThem) continue;
+    }
+
+    return {
+      ...draft,
+      _targetIsHuman: !owner.isBot,
+      _cellName: cell.name,
+      _chat: swapChat(cell.name, cand.jc.name, draft.offerMoney, draft.askMoney, cand),
+    };
+  }
+
+  if (noCashOnly) return null;
+
+  const cash = botBuyPriceFor(game, bot, cell);
+  const listPrice = cell.price || 0;
+  const minOk = roundCash(listPrice * (owner.isBot ? 1.15 : 1.05));
+  if (cash < minOk || bot.money < cash) return null;
+
+  const draft = {
+    toId: owner.id,
+    offerMoney: cash,
+    askMoney: 0,
+    offerCells: [],
+    askCells: [cell.id],
+    fromId: bot.id,
+  };
+  if (owner.isBot && !shouldAcceptDeal(game, owner, draft)) return null;
+
+  const why = kind === 'complete'
+    ? 'закрываю страну'
+    : kind === 'expand'
+      ? 'добиваю группу'
+      : 'нужна в портфель';
+  return {
+    ...draft,
+    _targetIsHuman: !owner.isBot,
+    _cellName: cell.name,
+    _chat: `Беру «${cell.name}» за $${cash.toLocaleString('ru-RU')} (${why}). Могу и на обмен компанией!`,
+  };
+}
+
+function buildSellDeal(game, bot, buyer, cell) {
+  if (!isTradeableCell(game, cell.id)) return null;
+  if (isAlmostMonoPiece(game, bot.id, cell)) return null;
+  const list = cell.price || 0;
+  const completesThem = wouldCompleteGroup(game, buyer.id, cell);
+
+  // С человеком: сначала обмен — им ключ к стране / нам добор
+  if (!buyer.isBot) {
+    const wants = [];
+    for (const id of buyer.properties || []) {
+      if (!isTradeableCell(game, id)) continue;
+      const c = getCell(id);
+      if (!c || isAlmostMonoPiece(game, buyer.id, c)) continue;
+      let score = interestScore(game, bot.id, c);
+      if (wouldCompleteGroup(game, bot.id, c)) score += 50;
+      else if (countOwnedInGroup(game, bot.id, c.group) >= 1) score += 25;
+      if (score >= 40) wants.push({ c, score });
+    }
+    wants.sort((a, b) => b.score - a.score);
+    if (wants.length) {
+      const take = wants[0].c;
+      let offerMoney = 0;
+      let askMoney = 0;
+      const balance = (take.price || 0) - list; // >0 мы получаем дороже → они доплачивают
+      if (wouldCompleteGroup(game, bot.id, take)) {
+        // Нам закрывают страну — можем доплатить
+        if (balance < -10_000) offerMoney = roundCash(-balance * 0.9);
+      } else if (completesThem) {
+        // Им закрываем — просим доплату если их ключ дешевле
+        if (balance > 10_000) askMoney = roundCash(balance * 0.9);
+        else if (balance < -15_000) offerMoney = roundCash(-balance * 0.5);
+      } else {
+        if (balance > 10_000) askMoney = roundCash(balance);
+        else if (balance < -10_000) offerMoney = roundCash(-balance);
+      }
+      const reserve = softReserve(bot);
+      if (offerMoney > 0 && bot.money - offerMoney < reserve) {
+        offerMoney = roundCash(Math.max(0, bot.money - reserve));
+      }
+      if (askMoney > 0 && buyer.money < askMoney) {
+        askMoney = roundCash(Math.max(0, buyer.money - 40_000));
+      }
+      const net = offerMoney - askMoney;
+      if (net >= 0) { offerMoney = net; askMoney = 0; }
+      else { askMoney = -net; offerMoney = 0; }
+      return {
+        toId: buyer.id,
+        offerMoney,
+        askMoney,
+        offerCells: [cell.id],
+        askCells: [take.id],
+        fromId: bot.id,
+        _targetIsHuman: true,
+        _cellName: cell.name,
+        _chat: completesThem || wouldCompleteGroup(game, bot.id, take)
+          ? `Обмен странами: «${cell.name}» ↔ «${take.name}»${offerMoney ? ` + $${offerMoney.toLocaleString('ru-RU')} от меня` : ''}${askMoney ? ` + $${askMoney.toLocaleString('ru-RU')} от вас` : ''}.`
+          : `Меняю «${cell.name}» на «${take.name}»${offerMoney ? ` +$${offerMoney.toLocaleString('ru-RU')}` : ''}${askMoney ? ` (вы +$${askMoney.toLocaleString('ru-RU')})` : ''}.`,
+      };
+    }
+    // Нечего менять — продажа за деньги только если это ключ к их стране
+    if (!completesThem && botHasMonopoly(game, bot)) return null;
+  }
+
+  let ask = botSellPriceFor(game, bot, cell);
+  if (buyer.isBot) {
+    ask = 0;
+    for (const mult of [1.05, 1.12, 1.2, 1.28]) {
+      const tryAsk = roundCash(list * (completesThem ? mult + 0.1 : mult));
+      const draft = {
+        toId: buyer.id,
+        offerMoney: 0,
+        askMoney: tryAsk,
+        offerCells: [cell.id],
+        askCells: [],
+        fromId: bot.id,
+      };
+      if (buyer.money >= tryAsk && shouldAcceptDeal(game, buyer, draft)) {
+        ask = tryAsk;
+        break;
+      }
+    }
+    if (!ask) {
+      const wants = [];
+      for (const id of buyer.properties || []) {
+        if (!isTradeableCell(game, id)) continue;
+        const c = getCell(id);
+        if (!c || isAlmostMonoPiece(game, buyer.id, c)) continue;
+        let score = interestScore(game, bot.id, c);
+        if (wouldCompleteGroup(game, bot.id, c)) score += 40;
+        if (score >= 45) wants.push({ c, score });
+      }
+      wants.sort((a, b) => b.score - a.score);
+      if (!wants.length) return null;
+      const take = wants[0].c;
+      let topUp = roundCash(list - (take.price || 0));
+      if (topUp < 0) topUp = 0;
+      const draft = {
+        toId: buyer.id,
+        offerMoney: 0,
+        askMoney: topUp,
+        offerCells: [cell.id],
+        askCells: [take.id],
+        fromId: bot.id,
+      };
+      if (topUp > 0 && buyer.money < topUp) return null;
+      if (!shouldAcceptDeal(game, buyer, draft)) return null;
+      return {
+        ...draft,
+        _targetIsHuman: false,
+        _cellName: cell.name,
+        _chat: `Меняю «${cell.name}» на «${take.name}»${topUp ? ` + $${topUp.toLocaleString('ru-RU')}` : ''} — обеим выгоднее.`,
+      };
+    }
+  }
+
+  if (ask <= 0 || buyer.money < ask) return null;
+  return {
+    toId: buyer.id,
+    offerMoney: 0,
+    askMoney: ask,
+    offerCells: [cell.id],
+    askCells: [],
+    fromId: bot.id,
+    _targetIsHuman: !buyer.isBot,
+    _cellName: cell.name,
+    _chat: completesThem
+      ? `Продаю «${cell.name}» за $${ask.toLocaleString('ru-RU')} — вам для страны. Лучше обмен компанией!`
+      : `Продаю «${cell.name}» за $${ask.toLocaleString('ru-RU')}. Предпочитаю обмен.`,
+  };
+}
+
+/**
+ * Умная сделка: добор страны, расширение группы, продажа «ключа» человеку,
+ * обмен компаниями (в т.ч. бот↔бот, если цель примет).
  */
 export function chooseBotDeal(game, bot, { humanCooldownOk = true, botBotCooldownOk = true } = {}) {
   if (!bot || bot.bankrupt) return null;
@@ -409,119 +767,84 @@ export function chooseBotDeal(game, bot, { humanCooldownOk = true, botBotCooldow
     const { total, props } = groupStats(game, cell.group);
     if (total < 2) continue;
     const mine = countOwnedInGroup(game, bot.id, cell.group);
-    if (mine !== total - 1) continue;
+    if (mine < 1 || mine >= total) continue;
+
+    const kind = mine === total - 1 ? 'complete' : 'expand';
+    const baseScore = kind === 'complete' ? 100 : 55;
 
     for (const c of props) {
       const ps = game.propertyState[c.id];
       if (!ps || ps.owner == null || ps.owner === bot.id) continue;
-      if (ps.mortgaged || (ps.houses || 0) > 0) continue;
-      if (!['property', 'railroad', 'utility'].includes(c.type)) continue;
+      if (!isTradeableCell(game, c.id)) continue;
       const owner = game.players[ps.owner];
       if (!owner || owner.bankrupt) continue;
-      // Не просим клетку из почти готовой страны жертвы — всегда отказ
       if (isAlmostMonoPiece(game, owner.id, c)) continue;
-      opportunities.push({ cell: c, owner, listPrice: c.price || 0 });
+      let score = baseScore + (owner.isBot ? 0 : 15) + (c.price || 0) / 1e6;
+      // Бонус, если можем закрыть им страну в обмен
+      const bestSwap = rankSwapCandidates(game, bot, owner, c)[0];
+      if (bestSwap?.completesThem) score += 40;
+      else if (bestSwap?.expandsThem) score += 18;
+      else if (bestSwap && !owner.isBot) score += 10;
+      opportunities.push({
+        type: 'buy',
+        cell: c,
+        owner,
+        listPrice: c.price || 0,
+        kind,
+        score,
+      });
+    }
+  }
+
+  // Продажа клетки, которая закрывает страну человеку (или усиливает группу)
+  for (const id of bot.properties || []) {
+    if (!isTradeableCell(game, id)) continue;
+    const cell = getCell(id);
+    if (!cell?.group) continue;
+    if (isAlmostMonoPiece(game, bot.id, cell)) continue;
+    for (const p of game.activePlayers) {
+      if (p.id === bot.id || p.bankrupt) continue;
+      if (!wouldCompleteGroup(game, p.id, cell) && countOwnedInGroup(game, p.id, cell.group) < 1) continue;
+      let score = wouldCompleteGroup(game, p.id, cell) ? 85 : 40;
+      score += p.isBot ? 0 : 12;
+      // Ещё выше, если взамен можем закрыть свою страну
+      for (const oid of p.properties || []) {
+        if (!isTradeableCell(game, oid)) continue;
+        const oc = getCell(oid);
+        if (oc && wouldCompleteGroup(game, bot.id, oc)) {
+          score += 35;
+          break;
+        }
+      }
+      opportunities.push({
+        type: 'sell',
+        cell,
+        owner: p,
+        listPrice: cell.price || 0,
+        kind: 'sell',
+        score,
+      });
     }
   }
 
   if (!opportunities.length) return null;
 
-  // С людьми — приоритет; бот↔бот только если кулдаун ок
   opportunities.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
     const ah = a.owner.isBot ? 1 : 0;
     const bh = b.owner.isBot ? 1 : 0;
-    if (ah !== bh) return ah - bh;
-    return b.listPrice - a.listPrice;
+    return ah - bh;
   });
 
   for (const opp of opportunities) {
-    const { cell, owner, listPrice } = opp;
+    const { owner } = opp;
     if (!owner.isBot && !humanCooldownOk) continue;
     if (owner.isBot && !botBotCooldownOk) continue;
 
-    // Бот↔бот: только деньги (обмен «мусор на монополию» всегда отклоняли → спам)
-    // С человеком: можно предложить обмен, если ему это выгодно
-    if (!owner.isBot) {
-      const swapCandidates = [];
-      for (const junkId of bot.properties || []) {
-        if (junkId === cell.id) continue;
-        const jc = getCell(junkId);
-        const jps = game.propertyState[junkId];
-        if (!jc?.group || !jps || jps.mortgaged || (jps.houses || 0) > 0) continue;
-        const jMine = countOwnedInGroup(game, bot.id, jc.group);
-        const { total: jTotal } = groupStats(game, jc.group);
-        if (jMine >= jTotal - 1) continue;
-        const theirGain = countOwnedInGroup(game, owner.id, jc.group);
-        const completesThem = wouldCompleteGroup(game, owner.id, jc);
-        const price = jc.price || 0;
-        const ratio = listPrice > 0 ? price / listPrice : 0;
-        let score = 0;
-        if (completesThem) score += 80;
-        else if (theirGain >= 1 && ratio >= 0.75 && ratio <= 1.4) score += 45;
-        else if (ratio >= 0.9 && ratio <= 1.15) score += 20;
-        if (score >= 45) swapCandidates.push({ junkId, price, score, jc });
-      }
-      swapCandidates.sort((a, b) => b.score - a.score);
-      if (swapCandidates.length) {
-        const best = swapCandidates[0];
-        let cash = 0;
-        const diff = listPrice - best.price;
-        if (diff > 20_000) {
-          cash = Math.round(diff * 0.9 / 10_000) * 10_000;
-          const reserve = softReserve(bot);
-          if (bot.money - cash < reserve) {
-            cash = Math.max(0, Math.floor((bot.money - reserve) / 10_000) * 10_000);
-          }
-        }
-        const draft = {
-          toId: owner.id,
-          offerMoney: cash,
-          askMoney: 0,
-          offerCells: [best.junkId],
-          askCells: [cell.id],
-          fromId: bot.id,
-        };
-        // Только если человек теоретически мог бы взять (для бота-цели — ниже)
-        return {
-          ...draft,
-          _targetIsHuman: true,
-          _cellName: cell.name,
-          _chat: `Хочу «${cell.name}» за «${best.jc.name}»${cash ? ` + $${cash.toLocaleString('ru-RU')}` : ''}`,
-        };
-      }
-    }
-
-    // Деньги: боту — достаточная премия, чтобы shouldAcceptDeal принял
-    const premium = owner.isBot ? 1.35 : 1.4;
-    let cash = Math.floor(listPrice * premium);
-    cash = Math.round(cash / 10_000) * 10_000;
-    cash = Math.max(cash, Math.floor(listPrice * (owner.isBot ? 1.25 : 1.15)));
-    const reserve = softReserve(bot);
-    if (bot.money - cash < reserve) {
-      cash = Math.max(0, bot.money - reserve);
-      cash = Math.floor(cash / 10_000) * 10_000;
-    }
-    if (cash < Math.floor(listPrice * (owner.isBot ? 1.2 : 1.1))) continue;
-    if (bot.money < cash) continue;
-
-    const draft = {
-      toId: owner.id,
-      offerMoney: cash,
-      askMoney: 0,
-      offerCells: [],
-      askCells: [cell.id],
-      fromId: bot.id,
-    };
-
-    // Не предлагаем боту то, что он точно отклонит
-    if (owner.isBot && !shouldAcceptDeal(game, owner, draft)) continue;
-
-    return {
-      ...draft,
-      _targetIsHuman: !owner.isBot,
-      _cellName: cell.name,
-      _chat: `Хочу «${cell.name}» за $${cash.toLocaleString('ru-RU')}`,
-    };
+    const draft = opp.type === 'sell'
+      ? buildSellDeal(game, bot, owner, opp.cell)
+      : buildBuyDeal(game, bot, owner, opp.cell, opp.kind);
+    if (draft) return draft;
   }
   return null;
 }

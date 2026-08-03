@@ -244,15 +244,20 @@ export class UI {
   paintLogLines(gameLines) {
     if (!this.gameLog) return;
     this.gameLog.innerHTML = gameLines.map(line => {
-      const parts = String(line).split('\n').filter(Boolean);
+      const raw = String(line);
+      const parts = raw.split('\n').filter(Boolean);
       if (parts.length > 1) {
         return `<div class="log-line log-beat">${parts.map((p, i) =>
           `<div class="${i === 0 ? 'log-beat-title' : 'log-beat-result'}">${escapeHtml(p)}</div>`
         ).join('')}</div>`;
       }
-      return `<div class="log-line">${escapeHtml(line)}</div>`;
+      // Чат: «Имя: текст»
+      const chat = raw.match(/^([^:]{1,40}):\s+(.+)$/);
+      if (chat && !/бросает|должен|получает|покупает|закладывает|аукцион/i.test(raw)) {
+        return `<div class="log-line log-chat"><span class="log-chat__who">${escapeHtml(chat[1])}</span><span class="log-chat__msg">${escapeHtml(chat[2])}</span></div>`;
+      }
+      return `<div class="log-line">${escapeHtml(raw)}</div>`;
     }).join('');
-    // Лента ходов+чата: новые снизу, скролл за ними
     requestAnimationFrame(() => {
       this.gameLog.scrollTop = this.gameLog.scrollHeight;
     });
@@ -291,6 +296,7 @@ export class UI {
       if (cellEl && this._boardPick) {
         e.preventDefault();
         e.stopPropagation();
+        if (!cellEl.classList.contains('cell--pickable')) return;
         this.onBoardPick(Number(cellEl.dataset.id));
         return;
       }
@@ -944,18 +950,77 @@ export class UI {
         if (ps.owner === me && (ps.houses || 0) > 0 && !ps.mortgaged) mark([Number(id)]);
       }
     } else if (mode === 'mortgage') {
-      for (const [id, ps] of Object.entries(st.propertyState || {})) {
-        if (ps.owner === me && !ps.mortgaged && (ps.houses || 0) === 0) mark([Number(id)]);
-      }
+      mark(this.mortgageableIds(st));
     } else if (mode === 'unmortgage') {
-      for (const [id, ps] of Object.entries(st.propertyState || {})) {
-        if (ps.owner === me && ps.mortgaged) mark([Number(id)]);
-      }
+      mark(this.unmortgageableIds(st));
     } else if (mode === 'dealOffer') {
       mark((st.myTradeableCompanies || []).map(c => c.cellId));
     } else if (mode === 'dealAsk') {
       const toId = this._dealCompose?.toId;
       mark((st.dealableCompanies || []).filter(c => c.ownerId === toId).map(c => c.cellId));
+    }
+  }
+
+  mortgageableIds(state = this.lastState) {
+    const me = this.mySlot;
+    const ids = [];
+    if (me == null || !state?.propertyState) return ids;
+    for (const [id, ps] of Object.entries(state.propertyState)) {
+      const cell = BOARD[Number(id)];
+      if (!ps || ps.owner !== me || ps.mortgaged || (ps.houses || 0) > 0) continue;
+      if (!cell?.price) continue;
+      if (!['property', 'railroad', 'utility'].includes(cell.type)) continue;
+      ids.push(Number(id));
+    }
+    return ids;
+  }
+
+  unmortgageableIds(state = this.lastState) {
+    const me = this.mySlot;
+    const ids = [];
+    if (me == null || !state?.propertyState) return ids;
+    const money = state.players?.[me]?.money ?? 0;
+    for (const [id, ps] of Object.entries(state.propertyState)) {
+      const cell = BOARD[Number(id)];
+      if (!ps || ps.owner !== me || !ps.mortgaged) continue;
+      const cost = Math.floor((cell?.price || 0) * 0.55);
+      if (money >= cost) ids.push(Number(id));
+    }
+    return ids;
+  }
+
+  /** Панель «клик по полю» для залога / выкупа */
+  renderBoardMortgageUi(state, mode = 'mortgage') {
+    const isMortgage = mode === 'mortgage';
+    const left = isMortgage ? this.mortgageableIds(state).length : this.unmortgageableIds(state).length;
+    if (left === 0) {
+      this.exitBoardMortgageMode(state);
+      return;
+    }
+    const leftMs = this.turnLeftMs(state);
+    this.setBoardPick(mode);
+    this.actionArea.innerHTML = `
+      <div class="deal-panel">
+        <p class="deal-panel__title">${isMortgage ? 'Залог' : 'Выкуп из залога'}</p>
+        <p class="deal-panel__hint">${isMortgage
+          ? `Клик по компаниям на поле · можно несколько · осталось ${left}`
+          : `Клик по заложенным на поле (55%) · осталось ${left}`}</p>
+        <button type="button" class="btn btn--club-muted" id="board-pick-cancel">Готово</button>
+        ${this.flipTimerHtml(leftMs)}
+      </div>`;
+    document.getElementById('board-pick-cancel')?.addEventListener('click', () => {
+      this.exitBoardMortgageMode(this.lastState || state);
+    });
+  }
+
+  exitBoardMortgageMode(state) {
+    this.setBoardPick(null);
+    if (!state) return;
+    if (state.pendingAction?.type === 'buy') this.renderBuyActions(state);
+    else if (state.pendingAction && ['rent', 'tax', 'force'].includes(state.pendingAction.type)) {
+      this.renderRentActions(state);
+    } else if (state.phase === PHASE.ROLL) {
+      this.renderRollActions(state);
     }
   }
 
@@ -987,24 +1052,24 @@ export class UI {
     }
     if (mode === 'mortgage') {
       await this.doAction({ type: 'mortgage', cellId });
-      if (this.lastState?.pendingAction?.type === 'buy') {
-        this.setBoardPick(null);
-        this.renderBuyActions(this.lastState);
-      } else if (this.lastState?.pendingAction && ['rent', 'tax', 'force'].includes(this.lastState.pendingAction.type)) {
-        this.setBoardPick(null);
-        this.renderRentActions(this.lastState);
-      } else if (this.lastState?.phase === PHASE.ROLL) {
-        this.setBoardPick('mortgage');
-        // остаёмся в режиме залога — можно заложить ещё
-      } else {
-        this.setBoardPick('mortgage');
+      const st = this.lastState;
+      if (!st) return;
+      if (!this.mortgageableIds(st).length) {
+        this.exitBoardMortgageMode(st);
+        return;
       }
+      this.renderBoardMortgageUi(st, 'mortgage');
       return;
     }
     if (mode === 'unmortgage') {
       await this.doAction({ type: 'unmortgage', cellId });
-      this.setBoardPick('unmortgage');
-      if (this.lastState?.phase === PHASE.ROLL) this.renderRollActions(this.lastState);
+      const st = this.lastState;
+      if (!st) return;
+      if (!this.unmortgageableIds(st).length) {
+        this.exitBoardMortgageMode(st);
+        return;
+      }
+      this.renderBoardMortgageUi(st, 'unmortgage');
       return;
     }
     if (mode === 'dealOffer' || mode === 'dealAsk') {
@@ -1276,10 +1341,12 @@ export class UI {
   }
 
   countOwnedInGroup(state, ownerId, group) {
+    if (ownerId == null || !group) return 0;
+    const oid = Number(ownerId);
     return BOARD.filter(c => (
       c.group === group
-      && state.propertyState[c.id]?.owner === ownerId
-      && !state.propertyState[c.id]?.mortgaged
+      && this.cellOwnerId(state, c.id) === oid
+      && !(state.propertyState?.[c.id]?.mortgaged || state.propertyState?.[String(c.id)]?.mortgaged)
     )).length;
   }
 
@@ -1288,99 +1355,108 @@ export class UI {
     container.innerHTML = `<img class="share-mark ${countClass || ''}" src="${src}" alt="" draggable="false" />`;
   }
 
+  /** Владелец клетки из state (propertyState или список properties) */
+  cellOwnerId(state, cellId) {
+    const id = Number(cellId);
+    const ps = state?.propertyState?.[id] ?? state?.propertyState?.[String(id)];
+    if (ps?.owner != null && ps.owner !== '') return Number(ps.owner);
+    for (const p of state?.players || []) {
+      if (p.bankrupt || p.left) continue;
+      const props = p.properties || [];
+      if (props.includes(id) || props.includes(String(id))) return Number(p.id);
+    }
+    return null;
+  }
+
   /** Текущая аренда на клетке (как calcRent, без костей — для Кореи тариф × кости) */
   displayCellRent(state, cellId) {
-    const cell = BOARD[cellId];
-    const ps = state?.propertyState?.[cellId];
+    const cell = BOARD[Number(cellId)];
     if (!cell) return { text: '', mult: false };
 
+    const ps = state?.propertyState?.[Number(cellId)]
+      ?? state?.propertyState?.[String(cellId)]
+      ?? { owner: null, houses: 0, mortgaged: false };
+    const ownerId = this.cellOwnerId(state, cellId);
+    const mortgaged = !!ps.mortgaged;
+
     // Свободно / в залоге — цена покупки; Корея — базовый тариф × кости
-    if (!ps || ps.owner == null || ps.mortgaged) {
+    if (ownerId == null || mortgaged) {
       if (cell.type === 'utility' && cell.rent?.[0] != null) {
-        return { text: formatPriceShort(cell.rent[0]), mult: true, tariff: cell.rent[0] };
+        return { text: formatPriceShort(cell.rent[0]), mult: true, tariff: cell.rent[0], mode: 'buy' };
       }
       return {
         text: cell.price != null ? formatPriceShort(cell.price) : '',
         mult: false,
+        mode: 'buy',
       };
     }
 
     if (cell.type === 'utility' || cell.diceRent) {
-      const n = this.countOwnedInGroup(state, ps.owner, cell.group);
+      const n = this.countOwnedInGroup(state, ownerId, cell.group);
       const tariff = cell.rent?.[n >= 2 ? 1 : 0] || cell.rent?.[0] || 0;
-      return { text: formatPriceShort(tariff), mult: true, tariff };
+      return { text: formatPriceShort(tariff), mult: true, tariff, mode: 'rent' };
     }
 
     if (cell.type === 'railroad') {
       const count = BOARD.filter(c => (
         c.type === 'railroad'
-        && state.propertyState[c.id]?.owner === ps.owner
-        && !state.propertyState[c.id]?.mortgaged
+        && this.cellOwnerId(state, c.id) === ownerId
+        && !state.propertyState?.[c.id]?.mortgaged
+        && !state.propertyState?.[String(c.id)]?.mortgaged
       )).length;
       const amount = cell.rent?.[Math.max(0, count - 1)] || cell.rent?.[0] || 0;
-      return { text: formatPriceShort(amount), mult: false };
+      return { text: formatPriceShort(amount), mult: false, mode: 'rent' };
     }
 
     if (cell.type === 'property') {
       if (cell.noShares || NO_SHARE_GROUPS.has(cell.group)) {
-        const owned = this.countOwnedInGroup(state, ps.owner, cell.group);
+        const owned = this.countOwnedInGroup(state, ownerId, cell.group);
         const idx = Math.max(0, Math.min(owned - 1, (cell.rent?.length || 1) - 1));
-        return { text: formatPriceShort(cell.rent?.[idx] || cell.rent?.[0] || 0), mult: false };
+        return { text: formatPriceShort(cell.rent?.[idx] || cell.rent?.[0] || 0), mult: false, mode: 'rent' };
       }
       const houses = ps.houses || 0;
       if (houses > 0) {
-        return { text: formatPriceShort(cell.rent?.[houses] || 0), mult: false };
+        return { text: formatPriceShort(cell.rent?.[houses] || 0), mult: false, mode: 'rent' };
       }
       const group = getGroupProperties(cell.group);
       const mono = group.length > 0 && group.every(c => (
-        state.propertyState[c.id]?.owner === ps.owner
-        && !state.propertyState[c.id]?.mortgaged
+        this.cellOwnerId(state, c.id) === ownerId
+        && !(state.propertyState?.[c.id]?.mortgaged || state.propertyState?.[String(c.id)]?.mortgaged)
       ));
       const base = cell.rent?.[0] || 0;
-      return { text: formatPriceShort(mono ? base * 2 : base), mult: false };
+      return { text: formatPriceShort(mono ? base * 2 : base), mult: false, mode: 'rent' };
     }
 
     return {
       text: cell.price != null ? formatPriceShort(cell.price) : '',
       mult: false,
+      mode: 'buy',
     };
   }
 
   /** После покупки — аренда (с акциями); свободно — цена покупки */
   updateCellPriceLabels(state) {
-    document.querySelectorAll('[data-cell-price]').forEach((el) => {
-      const cellId = Number(el.dataset.cellPrice);
+    const apply = (el, cellId) => {
       const cell = BOARD[cellId];
-      if (!cell) return;
-      const valEl = el.querySelector('.cell__price-val');
-      if (!valEl) return;
+      if (!cell || !el) return;
       const info = this.displayCellRent(state, cellId);
-      valEl.textContent = info.text;
+      const core = el.querySelector('.cell__price-core') || el;
+      const multHtml = info.mult
+        ? '<span class="cell__price-x" aria-hidden="true">×</span><span class="dice-pip" aria-hidden="true">⚂</span>'
+        : '';
+      core.innerHTML = `<span class="cell__price-val">${info.text}</span>${multHtml}`;
+      el.classList.toggle('cell__price--mult', !!info.mult);
+      el.classList.toggle('cell__price--rent', info.mode === 'rent');
+      el.title = info.mode === 'rent' ? `Аренда: ${info.text}` : (cell.price != null ? `Цена: ${formatPriceShort(cell.price)}` : '');
+    };
 
-      const wantMult = !!info.mult;
-      el.classList.toggle('cell__price--mult', wantMult);
-      let xEl = el.querySelector('.cell__price-x');
-      let dieEl = el.querySelector('.dice-pip');
-      if (wantMult) {
-        const core = el.querySelector('.cell__price-core');
-        if (!xEl && core) {
-          xEl = document.createElement('span');
-          xEl.className = 'cell__price-x';
-          xEl.setAttribute('aria-hidden', 'true');
-          xEl.textContent = '×';
-          core.appendChild(xEl);
-        }
-        if (!dieEl && core) {
-          dieEl = document.createElement('span');
-          dieEl.className = 'dice-pip';
-          dieEl.setAttribute('aria-hidden', 'true');
-          dieEl.textContent = '⚂';
-          core.appendChild(dieEl);
-        }
-      } else {
-        xEl?.remove();
-        dieEl?.remove();
-      }
+    // По клеткам доски — надёжнее, чем один querySelector
+    for (const [id, cellEl] of Object.entries(this.cells || {})) {
+      const priceEl = cellEl?.querySelector?.('[data-cell-price]');
+      if (priceEl) apply(priceEl, Number(id));
+    }
+    document.querySelectorAll('[data-cell-price]').forEach((el) => {
+      apply(el, Number(el.dataset.cellPrice));
     });
   }
 
@@ -1399,20 +1475,22 @@ export class UI {
 
     for (const [cellId, ps] of Object.entries(state.propertyState)) {
       const owner = ps.owner != null ? state.players[ps.owner] : null;
+      // Банкрот / вышедший не владеет — клетка должна быть свободна
+      const liveOwner = owner && !owner.bankrupt && !owner.left ? owner : null;
       const cellEl = this.cells[cellId];
       const side = this.cellSide(Number(cellId));
       const cell = BOARD[Number(cellId)];
       const vertical = side === 'left' || side === 'right';
       const container = document.querySelector(`[data-houses="${cellId}"]`);
 
-      if (owner && cell && !ps.mortgaged) {
+      if (liveOwner && cell && !ps.mortgaged) {
         if (cell.group === 'cn') {
-          const n = this.countOwnedInGroup(state, owner.id, 'cn');
+          const n = this.countOwnedInGroup(state, liveOwner.id, 'cn');
           if (n > 0) {
             this.paintShareMarker(container, this.shareSpriteSrc('chn', n, false), `share-mark--chn share-mark--n${n}`);
           }
         } else if (cell.group === 'kr') {
-          const n = this.countOwnedInGroup(state, owner.id, 'kr');
+          const n = this.countOwnedInGroup(state, liveOwner.id, 'kr');
           if (n > 0) {
             this.paintShareMarker(container, this.shareSpriteSrc('ko', n, false), `share-mark--ko share-mark--n${n}`);
           }
@@ -1426,19 +1504,19 @@ export class UI {
         }
       }
 
-      if (!cellEl || ps.owner == null || !owner) continue;
+      if (!cellEl || liveOwner == null) continue;
 
-      const mortgaged = !!ps.mortgaged || !!owner.bankrupt;
+      const mortgaged = !!ps.mortgaged;
       cellEl.classList.add('cell--owned');
       if (mortgaged) cellEl.classList.add('cell--mortgaged');
-      cellEl.style.setProperty('--owner-color', owner.color);
+      cellEl.style.setProperty('--owner-color', liveOwner.color);
 
       const mark = cellEl.querySelector(`[data-owner="${cellId}"]`);
       if (mark && side !== 'corner') {
         const sideKey = ['top', 'right', 'bottom', 'left'].includes(side) ? side : 'top';
         mark.hidden = false;
         mark.dataset.side = sideKey;
-        mark.style.setProperty('--own-tint', playerOwnTint(owner, sideKey));
+        mark.style.setProperty('--own-tint', playerOwnTint(liveOwner, sideKey));
       }
 
       const lock = cellEl.querySelector(`[data-lock="${cellId}"]`);
@@ -1529,6 +1607,12 @@ export class UI {
       return;
     }
 
+    // Залог / выкуп по полю — не сбрасывать при sync (rent / buy / roll)
+    if (this._boardPick === 'mortgage' || this._boardPick === 'unmortgage') {
+      this.renderBoardMortgageUi(state, this._boardPick);
+      return;
+    }
+
     if (
       state.phase === PHASE.ACTION
       && ['rent', 'tax', 'force'].includes(state.pendingAction?.type)
@@ -1557,6 +1641,15 @@ export class UI {
         return;
       }
       if (this._shareBuy || state.shareUiOpen) {
+        // Сервер закрыл меню после покупки (1 страна / лимит) — продолжаем ход
+        const opts = state.shareBuyOptions || [];
+        const bought = state.sharesBoughtThisTurn || 0;
+        if (!state.shareUiOpen && bought > 0 && opts.length === 0) {
+          this._shareBuy = false;
+          this.setBoardPick(null);
+          this.renderRollActions(state);
+          return;
+        }
         this._shareBuy = true;
         this.renderShareBuy(state);
         return;
@@ -1595,6 +1688,8 @@ export class UI {
     return !!(
       this._dealCompose
       || this._shareBuy
+      || this._boardPick === 'mortgage'
+      || this._boardPick === 'unmortgage'
       || this._rentMortgagePick
       || this._rentSharesPick
       || state?.dealUiOpen
@@ -1625,8 +1720,11 @@ export class UI {
     const isDeal = !throwing && !!state.deal && !!state.isDealParty;
     const myShareMenu = !!(actor && (this._shareBuy || state.shareUiOpen));
     const myDealMenu = !!(actor && (this._dealCompose || state.dealUiOpen));
+    const myMortgagePick = !!(actor && (
+      this._boardPick === 'mortgage' || this._boardPick === 'unmortgage'
+    ));
     const menuOpen = !throwing && !!(
-      isRent || isBuy || isDeal || myDealMenu || myShareMenu
+      isRent || isBuy || isDeal || myDealMenu || myShareMenu || myMortgagePick
     );
     // Кнопки хода (бросок/сделка/акции) — без костей, иначе меню обрезается
     const rollMenu = !!(isRollTimed && !menuOpen);
@@ -1651,7 +1749,13 @@ export class UI {
         };
       }
       if (state.shareUiOpen) this._shareBuy = true;
-      // !shareUiOpen / !dealUiOpen — НЕ сбрасываем: клик ставит флаг до ответа сервера
+      else if (
+        this._shareBuy
+        && (state.sharesBoughtThisTurn || 0) > 0
+        && !(state.shareBuyOptions || []).length
+      ) {
+        this._shareBuy = false;
+      }
     }
 
     const uiOpen = this.isActionFormOpen(state);
@@ -1823,33 +1927,11 @@ export class UI {
     });
     document.getElementById('btn-mortgage-board')?.addEventListener('click', () => {
       this._shareBuy = false;
-      this.setBoardPick('mortgage');
-      this.actionArea.innerHTML = `
-        <div class="deal-panel">
-          <p class="deal-panel__title">Залог</p>
-          <p class="deal-panel__hint">Нажмите компанию на поле</p>
-          <button type="button" class="btn btn--club-muted" id="board-pick-cancel">Отмена</button>
-          ${this.flipTimerHtml(leftMs)}
-        </div>`;
-      document.getElementById('board-pick-cancel')?.addEventListener('click', () => {
-        this.setBoardPick(null);
-        this.renderRollActions(this.lastState || state);
-      });
+      this.renderBoardMortgageUi(this.lastState || state, 'mortgage');
     });
     document.getElementById('btn-unmortgage-board')?.addEventListener('click', () => {
       this._shareBuy = false;
-      this.setBoardPick('unmortgage');
-      this.actionArea.innerHTML = `
-        <div class="deal-panel">
-          <p class="deal-panel__title">Выкуп из залога</p>
-          <p class="deal-panel__hint">Нажмите заложенную компанию на поле (55% цены)</p>
-          <button type="button" class="btn btn--club-muted" id="board-pick-cancel">Отмена</button>
-          ${this.flipTimerHtml(leftMs)}
-        </div>`;
-      document.getElementById('board-pick-cancel')?.addEventListener('click', () => {
-        this.setBoardPick(null);
-        this.renderRollActions(this.lastState || state);
-      });
+      this.renderBoardMortgageUi(this.lastState || state, 'unmortgage');
     });
   }
 
@@ -1871,11 +1953,27 @@ export class UI {
     const bought = state.sharesBoughtThisTurn || 0;
     const leftMs = this.turnLeftMs(state);
     this.setBoardPick(options.length ? 'share' : null);
+
+    const cards = options.map((o) => {
+      const next = (o.houses || 0) + 1;
+      const detail = next >= 5 ? '51% акций' : '9% акций';
+      return this.clubBuyCardHtml({
+        cellId: o.cellId,
+        action: 'Купить',
+        detail,
+        price: o.price,
+        listPrice: BOARD[o.cellId]?.price || 0,
+        attrs: `data-share-buy="${o.cellId}"`,
+      });
+    }).join('');
+
     this.actionArea.innerHTML = `
-      <div class="deal-panel">
+      <div class="deal-panel deal-panel--shares">
         <p class="deal-panel__title">Купить акции</p>
-        <p class="deal-panel__hint">Нажмите на компанию на поле · до 2 акций за ход на разные страны · ${bought}/2 · ${formatPriceShort(me?.money || 0)}</p>
-        <p class="deal-panel__hint">${options.length ? 'Доступные поля — тёмная тень' : (bought >= 2 ? 'Лимит акций на этот ход' : 'Нечего покупать')}</p>
+        <p class="deal-panel__hint">1 акция на страну · до 2 стран за ход · ${bought}/2 · ${formatPriceShort(me?.money || 0)}</p>
+        ${cards
+          ? `<div class="club-buy-list">${cards}</div>`
+          : `<p class="deal-panel__hint">${bought >= 2 ? 'Лимит акций на этот ход' : 'Нечего покупать — ход продолжается'}</p>`}
         <div class="deal-panel__btns">
           <button type="button" class="btn btn--club" id="btn-sell-share-board">Снять акцию</button>
           <button type="button" class="btn btn--club-muted" id="btn-shares-done">Готово</button>
@@ -1883,6 +1981,13 @@ export class UI {
         ${state.phase === PHASE.ROLL ? this.flipTimerHtml(leftMs) : ''}
       </div>
     `;
+
+    this.actionArea.querySelectorAll('[data-share-buy]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const cellId = Number(btn.dataset.shareBuy);
+        await this.doAction({ type: 'build', cellId });
+      });
+    });
 
     document.getElementById('btn-sell-share-board')?.addEventListener('click', () => {
       this.setBoardPick('sellShare');
@@ -1918,7 +2023,56 @@ export class UI {
     `;
   }
 
-  dealBundleHtml({ money = 0, cells = [] }) {
+  /**
+   * Карточка Club: «Купить / 9% акций / за $…» с логотипом на фоне
+   * (акции и покупка компании в сделке).
+   */
+  clubBuyCardHtml({
+    cellId,
+    action = 'Купить',
+    detail = '',
+    price = 0,
+    listPrice = null,
+    attrs = '',
+    tag = 'button',
+  } = {}) {
+    const cell = cellId != null ? BOARD[cellId] : null;
+    const logo = cell
+      ? (BRAND_LOGO_SRC[cell.name] || BRAND_LOGO_SRC[cell.brand] || '')
+      : '';
+    const list = listPrice != null ? listPrice : (cell?.price || 0);
+    const typeAttr = tag === 'button' ? ' type="button"' : '';
+    return `
+      <${tag} class="club-buy-card"${typeAttr} ${attrs}
+        style="${logo ? `--club-logo:url('${logo}')` : ''}">
+        <span class="club-buy-card__text">
+          <span class="club-buy-card__action">${escapeHtml(action)}</span>
+          <span class="club-buy-card__detail">${detail}</span>
+          <span class="club-buy-card__price">за ${formatMoney(price)}</span>
+        </span>
+        ${list > 0 ? `<span class="club-buy-card__list">${formatPriceShort(list)}</span>` : ''}
+      </${tag}>
+    `;
+  }
+
+  dealBundleHtml({ money = 0, cells = [], asBuyCards = false } = {}) {
+    if (asBuyCards && cells.length) {
+      const cards = cells.map((id) => {
+        const cell = BOARD[id];
+        return this.clubBuyCardHtml({
+          cellId: id,
+          action: 'Купить',
+          detail: escapeHtml(cell?.name || 'компанию'),
+          price: money > 0 && cells.length === 1 ? money : (cell?.price || 0),
+          listPrice: cell?.price || 0,
+          tag: 'div',
+        });
+      });
+      if (money > 0 && cells.length > 1) {
+        cards.push(`<div class="deal-money">${formatMoney(money)}</div>`);
+      }
+      return `<div class="deal-bundle deal-bundle--cards">${cards.join('')}</div>`;
+    }
     const parts = [];
     for (const id of cells) parts.push(this.dealCompanyChipHtml(id));
     if (money > 0) {
@@ -2098,17 +2252,47 @@ export class UI {
       if (!offerMoney && d.price != null) offerMoney = Number(d.price) || 0;
     }
 
-    // Для получателя: «предлагает вам» = offerCells + offerMoney; «отдадите» = askCells + askMoney
-    const youGet = this.dealBundleHtml({ money: offerMoney, cells: offerCells });
-    const youGive = this.dealBundleHtml({ money: askMoney, cells: askCells });
+    // moneyForCompany: бот/игрок даёт деньги за одну вашу компанию
+    const moneyForCompany = offerMoney > 0 && askCells.length === 1 && !offerCells.length;
+    const sellForCash = askMoney > 0 && offerCells.length === 1 && !askCells.length;
 
     if (iAmTo) {
+      let body;
+      if (moneyForCompany) {
+        const cell = BOARD[askCells[0]];
+        body = `
+          <p class="deal-view__mid">У вас просят компанию</p>
+          ${this.clubBuyCardHtml({
+            cellId: askCells[0],
+            action: 'Продать',
+            detail: escapeHtml(cell?.name || 'компанию'),
+            price: offerMoney,
+            listPrice: cell?.price || 0,
+            tag: 'div',
+          })}
+          <p class="deal-view__mid">Вы получите ${formatMoney(offerMoney)}</p>`;
+      } else if (sellForCash) {
+        const cell = BOARD[offerCells[0]];
+        body = `
+          <p class="deal-view__mid">Вам предлагают купить</p>
+          ${this.clubBuyCardHtml({
+            cellId: offerCells[0],
+            action: 'Купить',
+            detail: escapeHtml(cell?.name || 'компанию'),
+            price: askMoney,
+            listPrice: cell?.price || 0,
+            tag: 'div',
+          })}`;
+      } else {
+        body = `
+          ${this.dealBundleHtml({ money: offerMoney, cells: offerCells })}
+          <p class="deal-view__mid">Вы отдадите</p>
+          ${this.dealBundleHtml({ money: askMoney, cells: askCells })}`;
+      }
       this.actionArea.innerHTML = `
         <div class="deal-view">
           <p class="deal-view__head">${escapeHtml(from?.name || 'Игрок')} предлагает вам</p>
-          ${youGet}
-          <p class="deal-view__mid">Вы отдадите</p>
-          ${youGive}
+          ${body}
           <div class="deal-view__bar">
             <button type="button" class="btn btn--club" id="deal-reject">Отказаться</button>
             ${this.flipTimerHtml(leftMs)}
@@ -2122,13 +2306,41 @@ export class UI {
     }
 
     if (iAmFrom) {
+      let giveHtml;
+      let getHtml;
+      if (moneyForCompany) {
+        const cell = BOARD[askCells[0]];
+        giveHtml = `<div class="deal-money">${formatMoney(offerMoney)}</div>`;
+        getHtml = this.clubBuyCardHtml({
+          cellId: askCells[0],
+          action: 'Купить',
+          detail: escapeHtml(cell?.name || 'компанию'),
+          price: offerMoney,
+          listPrice: cell?.price || 0,
+          tag: 'div',
+        });
+      } else if (sellForCash) {
+        const cell = BOARD[offerCells[0]];
+        giveHtml = this.clubBuyCardHtml({
+          cellId: offerCells[0],
+          action: 'Продать',
+          detail: escapeHtml(cell?.name || 'компанию'),
+          price: askMoney,
+          listPrice: cell?.price || 0,
+          tag: 'div',
+        });
+        getHtml = `<div class="deal-money">${formatMoney(askMoney)}</div>`;
+      } else {
+        giveHtml = this.dealBundleHtml({ money: offerMoney, cells: offerCells });
+        getHtml = this.dealBundleHtml({ money: askMoney, cells: askCells });
+      }
       this.actionArea.innerHTML = `
         <div class="deal-view">
           <p class="deal-view__head">Ожидание ответа от ${escapeHtml(to?.name || 'игрока')}</p>
           <p class="deal-view__mid">Вы отдадите</p>
-          ${this.dealBundleHtml({ money: offerMoney, cells: offerCells })}
+          ${giveHtml}
           <p class="deal-view__mid">Вы получите</p>
-          ${this.dealBundleHtml({ money: askMoney, cells: askCells })}
+          ${getHtml}
           <div class="deal-view__bar deal-view__bar--single">
             <button type="button" class="btn btn--club-muted" id="deal-cancel-pending">Отменить</button>
             ${this.flipTimerHtml(leftMs)}
@@ -2217,9 +2429,7 @@ export class UI {
     document.getElementById('btn-buy')?.addEventListener('click', () => this.doAction({ type: 'buy' }));
     document.getElementById('btn-pass')?.addEventListener('click', () => this.doAction({ type: 'pass' }));
     document.getElementById('btn-buy-mortgage')?.addEventListener('click', () => {
-      this.setBoardPick('mortgage');
-      this.actionArea.insertAdjacentHTML('beforeend',
-        `<p class="rent-panel__hint">Нажмите свою компанию на поле для залога</p>`);
+      this.renderBoardMortgageUi(this.lastState || state, 'mortgage');
     });
   }
 
@@ -2378,7 +2588,7 @@ export class UI {
       e.stopPropagation();
       this._rentMortgagePick = false;
       this._rentSharesPick = false;
-      this.setBoardPick('mortgage');
+      this.renderBoardMortgageUi(this.lastState || state, 'mortgage');
     });
     document.getElementById('btn-rent-back')?.addEventListener('click', (e) => {
       e.preventDefault();

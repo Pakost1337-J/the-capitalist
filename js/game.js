@@ -21,11 +21,12 @@ export const PHASE = {
   GAME_OVER: 'game_over',
 };
 
-function createPlayer(slot, name, socketId, isBot) {
-  const cfg = PLAYER_SLOTS[slot];
+function createPlayer(id, name, socketId, isBot, chipSlot = id) {
+  const cfg = PLAYER_SLOTS[chipSlot] || PLAYER_SLOTS[id] || PLAYER_SLOTS[0];
   const color = cfg.color;
   return {
-    id: slot,
+    id,
+    chipSlot: cfg.id,
     name,
     color,
     colorSoft: cfg.colorSoft || color,
@@ -33,7 +34,7 @@ function createPlayer(slot, name, socketId, isBot) {
     ownRight: cfg.ownRight || color,
     ownBottom: cfg.ownBottom || color,
     ownLeft: cfg.ownLeft || color,
-    chipName: cfg.name || `Фишка ${slot + 1}`,
+    chipName: cfg.name || `Фишка ${cfg.id + 1}`,
     token: cfg.token,
     tokenImage: cfg.tokenImage || '',
     tokenBoardImage: cfg.tokenBoardImage || '',
@@ -53,8 +54,12 @@ function createPlayer(slot, name, socketId, isBot) {
 export function createGame(playerConfigs) {
   const engine = new GameEngine();
   engine.players = playerConfigs.map((p, i) =>
-    createPlayer(i, p.name, p.socketId || null, p.isBot ?? false)
+    createPlayer(i, p.name, p.socketId || null, p.isBot ?? false, p.chipSlot ?? i)
   );
+  // Кто ходит первым — случайно
+  if (engine.players.length > 0) {
+    engine.currentPlayerIndex = Math.floor(Math.random() * engine.players.length);
+  }
   return engine;
 }
 
@@ -610,10 +615,19 @@ export class GameEngine {
     this.dealUiOpen = false;
     this.shareUiOpen = false;
 
-    let d1 = rand();
-    let d2 = rand();
+    let d1;
+    let d2;
+    // Дубль — ровно 1 из 24 бросков (не 6/36 как у честных 2d6)
+    const wantDoubles = Math.random() < (1 / 24);
+    if (wantDoubles) {
+      d1 = d2 = rand();
+    } else {
+      d1 = rand();
+      do { d2 = rand(); } while (d2 === d1);
+    }
     // Нельзя выбить дубль два раза подряд в одном ходе
     if (this._lastRollDoubles && d1 === d2) {
+      d1 = rand();
       do { d2 = rand(); } while (d2 === d1);
     }
     this.dice = [d1, d2];
@@ -1212,7 +1226,29 @@ export class GameEngine {
     if (!this.shareGroupsBoughtThisTurn) this.shareGroupsBoughtThisTurn = [];
     this.shareGroupsBoughtThisTurn.push(cell.group);
     this.addLog(logBuild(p.name, cell.name));
+    // 1 акция / страна: если других стран нет — закрываем меню и продолжаем ход
+    this.maybeAutoFinishShares(p.id);
     return true;
+  }
+
+  /**
+   * После покупки: если больше нельзя купить (одна страна или лимит 2) —
+   * закрыть UI акций / завершить BUILD и продолжить ход.
+   */
+  maybeAutoFinishShares(playerId) {
+    const more = this.getBuildableProperties(playerId);
+    if (more.length > 0 && this.sharesBoughtThisTurn < this.maxSharesPerTurn) {
+      return false;
+    }
+    if (this.phase === PHASE.ROLL && this.shareUiOpen) {
+      this.shareUiOpen = false;
+      return true;
+    }
+    if (this.phase === PHASE.BUILD) {
+      this.finishBuild();
+      return true;
+    }
+    return false;
   }
 
   getBuildableProperties(playerId) {
@@ -1402,10 +1438,23 @@ export class GameEngine {
 
   handleBankruptcy(debtor, creditor, amount) {
     this.addLog(`💀 ${debtor.name} обанкротился!`);
-    // Компании банкрота возвращаются в банк (можно купить снова)
-    this.liquidatePlayer(debtor, creditor, { returnToBank: true });
+    // Как при выходе из сессии: компании аннулируются, снова можно купить
+    this.releasePlayerToBank(debtor, {
+      payCreditor: creditor && !creditor.bankrupt ? creditor : null,
+    });
     this.pendingAction = null;
     this.doubles = false;
+    this.deal = null;
+    this.dealUiOpen = false;
+    this.shareUiOpen = false;
+    if (this.auction) {
+      this.auction.optedOut = [...new Set([...(this.auction.optedOut || []), debtor.id])];
+      if (this.auction.highBidder === debtor.id) {
+        this.auction.highBidder = null;
+        this.auction.currentBid = 0;
+      }
+      this.maybeFinishAuctionEarly?.();
+    }
 
     if (this.activePlayers.length <= 1) {
       this.winner = this.activePlayers[0] || creditor;
@@ -1417,31 +1466,41 @@ export class GameEngine {
     this.endTurn();
   }
 
-  liquidatePlayer(player, creditor, { returnToBank = false } = {}) {
-    for (const pid of [...player.properties]) {
-      const cell = getCell(pid);
-      const ps = this.propertyState[pid];
-      const toBank = returnToBank || !creditor || creditor.bankrupt;
-      if (!toBank) {
-        creditor.properties.push(pid);
-        this.propertyState[pid].owner = creditor.id;
-        this.addLog(`${cell.name} → ${creditor.name}`);
-      } else {
-        this.propertyState[pid].owner = null;
-        this.propertyState[pid].houses = 0;
-        this.addLog(`«${cell.name}» снова свободна`);
+  /**
+   * Все компании игрока → банк (свободны, без акций/залога).
+   * Деньги опционально уходят кредитору. Как при выходе из сессии.
+   */
+  releasePlayerToBank(player, { payCreditor = null } = {}) {
+    if (!player) return [];
+    const freed = [];
+    for (const [idStr, ps] of Object.entries(this.propertyState || {})) {
+      const pid = Number(idStr);
+      if (!ps || ps.owner !== player.id) continue;
+      const houses = ps.houses || 0;
+      if (houses > 0) {
+        this.housesBuilt = Math.max(0, (this.housesBuilt || 0) - houses);
       }
+      ps.owner = null;
+      ps.houses = 0;
       ps.mortgaged = false;
+      freed.push(pid);
+      const cell = getCell(pid);
+      if (cell?.name) this.addLog(`«${cell.name}» снова свободна`);
     }
-    if (creditor && !creditor.bankrupt && !returnToBank) {
-      creditor.money += Math.max(0, player.money);
-    } else if (creditor && !creditor.bankrupt && returnToBank) {
-      // Деньги кредитору, компании — в банк
-      creditor.money += Math.max(0, player.money);
+    if (payCreditor && !payCreditor.bankrupt) {
+      payCreditor.money += Math.max(0, player.money);
     }
     player.properties = [];
     player.money = 0;
     player.bankrupt = true;
+    return freed;
+  }
+
+  /** Совместимость: компании всегда в банк, кредитору только деньги */
+  liquidatePlayer(player, creditor) {
+    this.releasePlayerToBank(player, {
+      payCreditor: creditor && !creditor.bankrupt ? creditor : null,
+    });
   }
 
   /** Игрок вышел: клетки свободны, фишка снимается (left+bankrupt) */
@@ -1452,10 +1511,10 @@ export class GameEngine {
 
     if (!player.bankrupt) {
       this.addLog(`👋 ${player.name} покинул игру — компании снова свободны`);
-      this.liquidatePlayer(player, null);
     } else {
       this.addLog(`👋 ${player.name} покинул игру`);
     }
+    this.releasePlayerToBank(player);
     player.left = true;
     player.disconnected = false;
 
@@ -1468,8 +1527,9 @@ export class GameEngine {
       this.auction.optedOut = [...(this.auction.optedOut || []), playerId];
       if (this.auction.highBidder === playerId) {
         this.auction.highBidder = null;
-        this.auction.highBid = 0;
+        this.auction.currentBid = 0;
       }
+      this.maybeFinishAuctionEarly?.();
     }
     if (this.pendingAction && this.currentPlayerIndex === playerId) {
       this.pendingAction = null;

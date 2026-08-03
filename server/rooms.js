@@ -24,10 +24,11 @@ function isLiveSocket(id) {
   return !!(id && !String(id).startsWith('pending:'));
 }
 
-export function createRoom(hostSocketId, hostName, maxPlayers = 4, fillBots = true) {
+export function createRoom(hostSocketId, hostName, maxPlayers = 4, fillBots = true, chipSlot = 0) {
   const id = genRoomId();
   const name = (hostName || 'Игрок').slice(0, 20);
   const sessionToken = makeSessionToken();
+  const slot = clampChipSlot(chipSlot, []);
   const room = {
     id,
     name: `Стол ${name}`,
@@ -38,7 +39,8 @@ export function createRoom(hostSocketId, hostName, maxPlayers = 4, fillBots = tr
     members: [{
       socketId: hostSocketId,
       name,
-      slot: 0,
+      slot,
+      chipSlot: slot,
       isHost: true,
       sessionToken,
       disconnectedAt: null,
@@ -49,6 +51,14 @@ export function createRoom(hostSocketId, hostName, maxPlayers = 4, fillBots = tr
   };
   rooms.set(id, room);
   return room;
+}
+
+function clampChipSlot(raw, usedSlots) {
+  const n = Number(raw);
+  const preferred = Number.isInteger(n) && n >= 0 && n < PLAYER_SLOTS.length ? n : 0;
+  if (!usedSlots.includes(preferred)) return preferred;
+  const free = PLAYER_SLOTS.find(s => !usedSlots.includes(s.id));
+  return free?.id ?? 0;
 }
 
 export function getRoom(id) {
@@ -62,20 +72,38 @@ export function joinRoom(id, socketId, name) {
   if (room.members.length >= room.maxPlayers) return { error: 'Комната заполнена' };
   if (room.members.some(m => m.socketId === socketId)) return { error: 'Вы уже в комнате' };
 
-  const usedSlots = room.members.map(m => m.slot);
-  const slot = PLAYER_SLOTS.find(s => !usedSlots.includes(s.id))?.id ?? room.members.length;
+  const usedSlots = room.members.map(m => m.chipSlot ?? m.slot);
+  const slot = clampChipSlot(undefined, usedSlots);
   const sessionToken = makeSessionToken();
 
   room.members.push({
     socketId,
     name: (name || 'Игрок').slice(0, 20),
     slot,
+    chipSlot: slot,
     isHost: false,
     sessionToken,
     disconnectedAt: null,
   });
 
   return { room, sessionToken, slot };
+}
+
+/** Смена цвета фишки в лобби */
+export function setMemberChip(roomId, socketId, chipSlot) {
+  const room = getRoom(roomId);
+  if (!room) return { error: 'Комната не найдена' };
+  if (room.status !== 'lobby') return { error: 'Игра уже началась' };
+  const member = findMemberBySocket(room, socketId);
+  if (!member) return { error: 'Вы не в комнате' };
+  const used = room.members
+    .filter(m => m.socketId !== socketId)
+    .map(m => m.chipSlot ?? m.slot);
+  const next = clampChipSlot(chipSlot, used);
+  if (used.includes(next)) return { error: 'Этот цвет уже занят' };
+  member.slot = next;
+  member.chipSlot = next;
+  return { room };
 }
 
 export function spectateRoom(id, socketId, name) {
@@ -302,36 +330,48 @@ export function startGame(id, socketId) {
     return { error: 'Без ботов нужно минимум 2 игрока' };
   }
 
-  // Без ботов — плотные слоты 0..n-1, играют только люди за столом
-  if (!room.fillBots) {
-    room.members.sort((a, b) => a.slot - b.slot);
-    room.members.forEach((m, i) => { m.slot = i; });
-  }
-
   const usedNames = room.members.map(m => m.name);
   const seats = room.fillBots ? room.maxPlayers : room.members.length;
-  const botSlots = [];
+  const usedChips = new Set(room.members.map(m => m.chipSlot ?? m.slot));
+  const freeChips = PLAYER_SLOTS.map(s => s.id).filter(id => !usedChips.has(id));
+
+  const playerConfigs = room.members.map(m => ({
+    name: m.name,
+    socketId: m.socketId,
+    isBot: false,
+    chipSlot: m.chipSlot ?? m.slot,
+  }));
+
   if (room.fillBots) {
-    for (let slot = 0; slot < seats; slot++) {
-      if (!room.members.find(m => m.slot === slot)) botSlots.push(slot);
+    const botCount = Math.max(0, seats - playerConfigs.length);
+    const botNames = pickBotNames(botCount, usedNames);
+    for (let i = 0; i < botCount; i++) {
+      playerConfigs.push({
+        name: `Бот - ${botNames[i] || 'Гость'}`,
+        socketId: null,
+        isBot: true,
+        chipSlot: freeChips[i] ?? ((playerConfigs.length + i) % PLAYER_SLOTS.length),
+      });
     }
   }
-  const botNames = pickBotNames(botSlots.length, usedNames);
-  let botIdx = 0;
 
-  const playerConfigs = [];
-  for (let slot = 0; slot < seats; slot++) {
-    const member = room.members.find(m => m.slot === slot);
-    if (member) {
-      playerConfigs.push({ name: member.name, socketId: member.socketId, isBot: false });
-    } else if (room.fillBots) {
-      const botName = botNames[botIdx++] || 'Гость';
-      playerConfigs.push({ name: `Бот - ${botName}`, socketId: null, isBot: true });
-    }
+  // Случайный порядок игроков (первый в списке + currentPlayerIndex в createGame)
+  for (let i = playerConfigs.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [playerConfigs[i], playerConfigs[j]] = [playerConfigs[j], playerConfigs[i]];
   }
 
   const game = createGame(playerConfigs);
-  game.addLog('🎲 Игра началась!');
+
+  // member.slot = id игрока в партии (для действий); chipSlot сохраняем
+  for (const m of room.members) {
+    const p = game.players.find(pl => pl.socketId === m.socketId);
+    if (!p) continue;
+    m.chipSlot = p.chipSlot;
+    m.slot = p.id;
+  }
+
+  game.addLog('Игра началась!');
   game.addLog(`— Ход: ${game.currentPlayer.name} —`);
 
   room.game = game;
@@ -364,10 +404,11 @@ export function getLobbyState(room) {
     members: room.members.map(m => ({
       name: m.name,
       slot: m.slot,
+      chipSlot: m.chipSlot ?? m.slot,
       isHost: m.isHost,
-      token: PLAYER_SLOTS[m.slot]?.token,
-      chipName: PLAYER_SLOTS[m.slot]?.name,
-      color: PLAYER_SLOTS[m.slot]?.color,
+      token: PLAYER_SLOTS[m.chipSlot ?? m.slot]?.token,
+      chipName: PLAYER_SLOTS[m.chipSlot ?? m.slot]?.name,
+      color: PLAYER_SLOTS[m.chipSlot ?? m.slot]?.color,
       disconnected: !!m.disconnectedAt,
     })),
   };
