@@ -311,11 +311,13 @@ export class UI {
       const flagEl = `<div class="cell__country-slot">${flagHtml}</div>`;
       const shares = `<div class="cell__shares" data-houses="${index}" aria-label="Акции"></div>`;
       // Верх/низ: флаг у внешнего края → лого → цена
-      // Бока: лого+цена к центру, флаг у левого/правого внешнего края
+      // Бока: компактный кластер (флаг + лого/цена) по центру клетки
       if (side === 'left' || side === 'right') {
         body = `
-          <div class="cell__stack">${logo}${priceEl}</div>
-          ${flagEl}
+          <div class="cell__side-cluster">
+            <div class="cell__stack">${logo}${priceEl}</div>
+            ${flagEl}
+          </div>
           ${shares}`;
       } else {
         body = `${flagEl}${logo}${priceEl}${shares}`;
