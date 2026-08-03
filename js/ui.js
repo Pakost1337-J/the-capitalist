@@ -693,8 +693,9 @@ export class UI {
     const cols = Math.min(2, stackCount);
     const col = stackIndex % cols;
     const row = Math.floor(stackIndex / cols);
-    const ox = (col - (cols - 1) / 2) * Math.min(11, cellRect.width * 0.16);
-    const oy = (row - (Math.ceil(stackCount / cols) - 1) / 2) * Math.min(10, cellRect.height * 0.15);
+    // Шаг стека под крупные фишки (~2×)
+    const ox = (col - (cols - 1) / 2) * Math.min(22, cellRect.width * 0.22);
+    const oy = (row - (Math.ceil(stackCount / cols) - 1) / 2) * Math.min(20, cellRect.height * 0.2);
 
     return {
       x: cellRect.left - boardRect.left - padL + cellRect.width * fx + ox,
@@ -1950,8 +1951,8 @@ export class UI {
               Объявить аукцион
             </button>
           </div>
-          ${this.flipTimerHtml(leftMs)}
         </div>
+        ${this.flipTimerHtml(leftMs)}
       </div>
     `;
 
@@ -2092,8 +2093,8 @@ export class UI {
         </div>
         <div class="rent-panel__side">
           ${rightHtml}
-          ${this.flipTimerHtml(leftMs)}
         </div>
+        ${this.flipTimerHtml(leftMs)}
       </div>
     `;
 

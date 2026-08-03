@@ -23,8 +23,8 @@ const PIP_LAYOUT = {
   6: [[0, 0], [0, 1], [0, 2], [2, 0], [2, 1], [2, 2]],
 };
 
-const CAM_THROW = { x: 0, y: 5.8, z: 9.2 };
-const CAM_TOP = { x: 0, y: 7.2, z: 0.02 };
+const CAM_THROW = { x: 0, y: 4.4, z: 6.6 };
+const CAM_TOP = { x: 0, y: 4.6, z: 0.02 };
 const LOOK = { x: 0, y: 0.2, z: 0 };
 
 function easeOutCubic(t) {
@@ -164,7 +164,7 @@ export class DiceScene {
     container.appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(34, 1, 0.1, 50);
+    this.camera = new THREE.PerspectiveCamera(38, 1, 0.1, 50);
     this._setCam(CAM_TOP);
 
     this.scene.add(new THREE.AmbientLight(0xfff0e0, 0.75));
@@ -202,8 +202,8 @@ export class DiceScene {
     this.scene.add(this.groupA, this.groupB);
 
     this.rest = {
-      a: { x: -0.85, z: 0.1, twist: -6 * DEG },
-      b: { x: 0.85, z: -0.08, twist: 10 * DEG },
+      a: { x: -1.05, z: 0.12, twist: -6 * DEG },
+      b: { x: 1.05, z: -0.1, twist: 10 * DEG },
     };
 
     this.setValues(5, 4);

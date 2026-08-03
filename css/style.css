@@ -30,7 +30,7 @@
   --fs-xl: calc(22px * var(--ui-scale));
   --pad-sm: calc(6px * var(--ui-scale));
   --pad-md: calc(10px * var(--ui-scale));
-  --die-size: calc(72px * var(--ui-scale));
+  --die-size: calc(120px * var(--ui-scale));
   --logo-w: 56px;
   --logo-h: 36px;
   --font: 'PTNarrow', 'Segoe UI', system-ui, sans-serif;
@@ -1093,7 +1093,7 @@ button, input, select { font-family: inherit; }
 }
 
 .token--board {
-  --token-size: calc(40px * var(--ui-scale));
+  --token-size: calc(80px * var(--ui-scale));
   width: var(--token-size);
   height: var(--token-size);
   border-radius: 0;
@@ -1554,8 +1554,9 @@ button, input, select { font-family: inherit; }
   align-items: stretch;
   justify-content: center;
   width: 100%;
-  min-height: calc(150px * var(--ui-scale));
-  flex-shrink: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  align-self: stretch;
   z-index: 2;
 }
 
@@ -1568,10 +1569,20 @@ button, input, select { font-family: inherit; }
 
 .hub--throwing .hub__dice-row {
   display: flex !important;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
 }
 
-.hub--throwing .hub__actions .btn {
-  visibility: hidden;
+/* Во время броска — вся арена под кубики */
+.hub--throwing .hub__actions {
+  flex: 0 0 0;
+  min-height: 0;
+  max-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  opacity: 0;
   pointer-events: none;
 }
 
@@ -1581,9 +1592,11 @@ button, input, select { font-family: inherit; }
 
 .table-toss {
   position: relative;
-  width: min(100%, calc(260px * var(--ui-scale)));
+  width: 100%;
   height: 100%;
-  min-height: calc(110px * var(--ui-scale));
+  min-width: 0;
+  min-height: 0;
+  max-width: none;
   pointer-events: none;
 }
 
@@ -2017,24 +2030,38 @@ body.is-spectator .hub__actions .btn--pass {
 
 .hub--rent .hub__actions {
   max-width: min(100%, 520px);
+  overflow-x: hidden;
 }
 
-/* Панель долга / покупки — больше места тексту, компактные кнопки */
+/* Панель долга / покупки: текст | кнопки, таймер снизу на всю ширину */
 .rent-panel {
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(96px, 0.7fr);
+  grid-template-columns: minmax(0, 1fr) minmax(132px, 148px);
+  grid-template-areas:
+    'info side'
+    'timer timer';
   gap: 8px 10px;
-  align-items: center;
+  align-items: start;
   color: #1a120c;
+  box-sizing: border-box;
 }
 
 .rent-panel__info {
+  grid-area: info;
   text-align: left;
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.rent-panel__info > * {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .rent-panel__title {
@@ -2042,7 +2069,6 @@ body.is-spectator .hub__actions .btn--pass {
   font-size: var(--fs-md);
   font-weight: 700;
   line-height: 1.2;
-  overflow-wrap: anywhere;
 }
 
 .rent-panel__card {
@@ -2061,7 +2087,6 @@ body.is-spectator .hub__actions .btn--pass {
   font-weight: 800;
   font-size: var(--fs-sm);
   margin-top: 2px;
-  overflow-wrap: anywhere;
 }
 
 .rent-panel__hint {
@@ -2070,15 +2095,17 @@ body.is-spectator .hub__actions .btn--pass {
   line-height: 1.3;
   opacity: 0.9;
   margin-top: 2px;
-  overflow-wrap: anywhere;
 }
 
 .rent-panel__side {
+  grid-area: side;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 6px;
   min-width: 0;
+  width: 100%;
+  z-index: 1;
 }
 
 .rent-panel__btns {
@@ -2093,6 +2120,24 @@ body.is-spectator .hub__actions .btn--pass {
   font-size: calc(11px * var(--ui-scale));
   line-height: 1.15;
   white-space: normal;
+}
+
+/* Таймер — отдельная строка, не клипается колонкой кнопок */
+.rent-panel > .flip-timer {
+  grid-area: timer;
+  width: 100%;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rent-panel > .flip-timer .flip-timer__well {
+  gap: 4px;
+  padding: 6px 10px;
+}
+
+.rent-panel > .flip-timer .flip-timer__digit {
+  flex-shrink: 0;
+  font-size: calc(18px * var(--ui-scale));
 }
 
 .rent-panel__empty {
@@ -2127,6 +2172,7 @@ body.is-spectator .hub__actions .btn--pass {
   position: relative;
   width: var(--flip-w);
   height: var(--flip-h);
+  flex: 0 0 auto;
   font-family: 'PTNarrow', Consolas, monospace;
   font-size: var(--fs-xl);
   font-weight: 700;
