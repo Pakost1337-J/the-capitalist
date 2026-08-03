@@ -42,7 +42,7 @@
           <label class="lobby__field">
             <span>Игроков за столом</span>
             <select id="max-players">
-              <option value="1">1 игрок (+ боты)</option>
+              <option value="1">1 игрок</option>
               <option value="2">2 игрока</option>
               <option value="3">3 игрока</option>
               <option value="4" selected>4 игрока</option>
@@ -50,8 +50,15 @@
             </select>
           </label>
 
+          <label class="lobby__field">
+            <span>Режим стола</span>
+            <select id="fill-bots">
+              <option value="1" selected>С ботами</option>
+              <option value="0">Без ботов</option>
+            </select>
+          </label>
+
           <button class="btn btn--club lobby__btn" id="btn-create">Создать стол</button>
-          <a class="btn btn--club-muted lobby__btn" href="/editor.html">Цвета закраса</a>
 
           <div class="lobby__divider">Столы онлайн</div>
           <div class="rooms-list" id="rooms-list">
@@ -78,6 +85,7 @@
         <div class="board" id="board">
           <div class="board__center" id="board-center">
             <div class="hub">
+              <button type="button" class="hub__exit-btn" id="btn-exit-game">Выход</button>
               <div class="hub__main">
                 <div class="hub__arena">
                   <div class="own-toast" id="own-toast" hidden></div>

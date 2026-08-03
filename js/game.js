@@ -44,6 +44,8 @@ function createPlayer(slot, name, socketId, isBot) {
     inJail: false,
     jailTurns: 0,
     bankrupt: false,
+    left: false,
+    disconnected: false,
     properties: [],
   };
 }
@@ -1328,6 +1330,52 @@ export class GameEngine {
     player.properties = [];
     player.money = 0;
     player.bankrupt = true;
+  }
+
+  /** Игрок вышел: клетки свободны, фишка снимается (left+bankrupt) */
+  abandonPlayer(playerId) {
+    const player = this.players[playerId];
+    if (!player) return false;
+    if (player.left) return false;
+
+    if (!player.bankrupt) {
+      this.addLog(`👋 ${player.name} покинул игру — компании снова свободны`);
+      this.liquidatePlayer(player, null);
+    } else {
+      this.addLog(`👋 ${player.name} покинул игру`);
+    }
+    player.left = true;
+    player.disconnected = false;
+
+    if (this.deal && (this.deal.fromId === playerId || this.deal.toId === playerId)) {
+      this.deal = null;
+      this.dealUiOpen = false;
+      this.resumeTurnTimer();
+    }
+    if (this.auction) {
+      this.auction.optedOut = [...(this.auction.optedOut || []), playerId];
+      if (this.auction.highBidder === playerId) {
+        this.auction.highBidder = null;
+        this.auction.highBid = 0;
+      }
+    }
+    if (this.pendingAction && this.currentPlayerIndex === playerId) {
+      this.pendingAction = null;
+    }
+
+    if (this.activePlayers.length <= 1) {
+      this.winner = this.activePlayers[0] || null;
+      this.phase = PHASE.GAME_OVER;
+      this.turnEndsAt = null;
+      if (this.winner) this.addLog(`🏆 ${this.winner.name} побеждает!`);
+      return true;
+    }
+
+    if (this.currentPlayerIndex === playerId || this.players[this.currentPlayerIndex]?.bankrupt) {
+      this.phase = PHASE.END;
+      this.endTurn();
+    }
+    return true;
   }
 
   payJailBail() {

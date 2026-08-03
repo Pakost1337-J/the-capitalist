@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { createGame } from '../js/game.js';
 import { MAX_PLAYERS, MIN_PLAYERS, PLAYER_SLOTS } from '../js/config.js';
 import { pickBotNames } from '../js/names.js';
@@ -5,28 +6,43 @@ import { processBotChain } from './bot.js';
 
 const rooms = new Map();
 let roomSeq = 0;
+const RECONNECT_MS = 90_000;
 
 function genRoomId() {
   roomSeq += 1;
   return `r${Date.now().toString(36)}${roomSeq}`;
 }
 
-export function createRoom(hostSocketId, hostName, maxPlayers = 4) {
+function makeSessionToken() {
+  return randomBytes(16).toString('hex');
+}
+
+function isLiveSocket(id) {
+  return !!(id && !String(id).startsWith('pending:'));
+}
+
+export function createRoom(hostSocketId, hostName, maxPlayers = 4, fillBots = true) {
   const id = genRoomId();
   const name = (hostName || 'Игрок').slice(0, 20);
+  const sessionToken = makeSessionToken();
   const room = {
     id,
     name: `Стол ${name}`,
     hostSocketId,
     maxPlayers: Math.min(Math.max(Number(maxPlayers) || 4, MIN_PLAYERS), MAX_PLAYERS),
+    fillBots: fillBots !== false && fillBots !== 0 && fillBots !== '0',
     status: 'lobby',
     members: [{
       socketId: hostSocketId,
       name,
       slot: 0,
       isHost: true,
+      sessionToken,
+      disconnectedAt: null,
     }],
+    spectators: [],
     game: null,
+    _reconnectTimers: new Map(),
   };
   rooms.set(id, room);
   return room;
@@ -39,51 +55,233 @@ export function getRoom(id) {
 export function joinRoom(id, socketId, name) {
   const room = getRoom(id);
   if (!room) return { error: 'Комната не найдена' };
-  if (room.status !== 'lobby') return { error: 'Игра уже началась' };
+  if (room.status !== 'lobby') return { error: 'Игра уже началась — можно только смотреть' };
   if (room.members.length >= room.maxPlayers) return { error: 'Комната заполнена' };
   if (room.members.some(m => m.socketId === socketId)) return { error: 'Вы уже в комнате' };
 
   const usedSlots = room.members.map(m => m.slot);
   const slot = PLAYER_SLOTS.find(s => !usedSlots.includes(s.id))?.id ?? room.members.length;
+  const sessionToken = makeSessionToken();
 
   room.members.push({
     socketId,
     name: (name || 'Игрок').slice(0, 20),
     slot,
     isHost: false,
+    sessionToken,
+    disconnectedAt: null,
   });
 
-  return { room };
+  return { room, sessionToken, slot };
 }
 
-export function leaveRoom(socketId) {
+export function spectateRoom(id, socketId, name) {
+  const room = getRoom(id);
+  if (!room) return { error: 'Стол не найден' };
+  if (room.status !== 'playing' || !room.game) return { error: 'Стол ещё не в игре' };
+  if (getRoomBySocket(socketId)) return { error: 'Сначала выйдите из текущей комнаты' };
+
+  const sessionToken = makeSessionToken();
+  room.spectators.push({
+    socketId,
+    name: (name || 'Наблюдатель').slice(0, 20),
+    sessionToken,
+    disconnectedAt: null,
+  });
+  return { room, sessionToken };
+}
+
+function clearReconnectTimer(room, key) {
+  const t = room._reconnectTimers?.get(key);
+  if (t) clearTimeout(t);
+  room._reconnectTimers?.delete(key);
+}
+
+function schedulePlayerAbandon(room, member, io) {
+  if (!room._reconnectTimers) room._reconnectTimers = new Map();
+  const key = `p:${member.sessionToken}`;
+  clearReconnectTimer(room, key);
+  room._reconnectTimers.set(key, setTimeout(() => {
+    room._reconnectTimers.delete(key);
+    if (!rooms.has(room.id)) return;
+    const still = room.members.find(m => m.sessionToken === member.sessionToken);
+    if (!still || !still.disconnectedAt) return;
+    abandonMember(room, still);
+    room.members = room.members.filter(m => m.sessionToken !== still.sessionToken);
+    afterMemberRemoved(room, io);
+  }, RECONNECT_MS));
+}
+
+function scheduleSpectatorDrop(room, spec) {
+  if (!room._reconnectTimers) room._reconnectTimers = new Map();
+  const key = `s:${spec.sessionToken}`;
+  clearReconnectTimer(room, key);
+  room._reconnectTimers.set(key, setTimeout(() => {
+    room._reconnectTimers.delete(key);
+    if (!rooms.has(room.id)) return;
+    room.spectators = (room.spectators || []).filter(s => s.sessionToken !== spec.sessionToken);
+  }, RECONNECT_MS));
+}
+
+function abandonMember(room, member) {
+  if (!room.game || member.slot == null) return;
+  room.game.abandonPlayer(member.slot);
+  const gp = room.game.players[member.slot];
+  if (gp) {
+    gp.socketId = null;
+    gp.disconnected = false;
+  }
+}
+
+function afterMemberRemoved(room, io) {
+  if (room.members.length === 0) {
+    for (const t of room._reconnectTimers?.values() || []) clearTimeout(t);
+    const id = room.id;
+    rooms.delete(id);
+    io?.to(id).emit('room-closed');
+    return { deleted: true, id };
+  }
+
+  if (!room.members.some(m => m.isHost && isLiveSocket(m.socketId))) {
+    const nextHost = room.members.find(m => isLiveSocket(m.socketId)) || room.members[0];
+    if (nextHost) {
+      room.hostSocketId = nextHost.socketId;
+      room.members.forEach(m => { m.isHost = m.sessionToken === nextHost.sessionToken; });
+      if (room.status === 'lobby') room.name = `Стол ${nextHost.name}`;
+    }
+  }
+
+  if (room.game && io) {
+    scheduleAuctionEnd(room, io);
+    scheduleMoveCommit(room, io);
+    scheduleRentEnd(room, io);
+    scheduleTurnTimers(room, io);
+    broadcastGame(room, io);
+    startBotLoop(room, io);
+  } else if (io) {
+    io.to(room.id).emit('lobby-update', getLobbyState(room));
+  }
+  return { room, id: room.id };
+}
+
+/**
+ * intentional=true — выход кнопкой (сразу abandon)
+ * intentional=false — обрыв сети / reload (grace + rejoin)
+ */
+export function leaveRoom(socketId, { intentional = true, io = null } = {}) {
+  for (const room of rooms.values()) {
+    const sIdx = (room.spectators || []).findIndex(s => s.socketId === socketId);
+    if (sIdx !== -1) {
+      const spec = room.spectators[sIdx];
+      if (intentional || room.status !== 'playing') {
+        clearReconnectTimer(room, `s:${spec.sessionToken}`);
+        room.spectators.splice(sIdx, 1);
+        return { room, id: room.id, spectatorLeft: true };
+      }
+      spec.socketId = `pending:${spec.sessionToken}`;
+      spec.disconnectedAt = Date.now();
+      scheduleSpectatorDrop(room, spec);
+      return { room, id: room.id, disconnected: true, spectator: true };
+    }
+  }
+
   for (const [id, room] of rooms) {
     const idx = room.members.findIndex(m => m.socketId === socketId);
     if (idx === -1) continue;
+    const member = room.members[idx];
 
+    if (room.status === 'playing' && room.game) {
+      if (intentional) {
+        clearReconnectTimer(room, `p:${member.sessionToken}`);
+        abandonMember(room, member);
+        room.members.splice(idx, 1);
+        const result = afterMemberRemoved(room, io);
+        return { ...result, abandoned: true };
+      }
+
+      member.socketId = `pending:${member.sessionToken}`;
+      member.disconnectedAt = Date.now();
+      if (room.game.players[member.slot]) {
+        room.game.players[member.slot].disconnected = true;
+      }
+      schedulePlayerAbandon(room, member, io);
+      broadcastGame(room, io);
+      return { room, id, disconnected: true };
+    }
+
+    // lobby
     room.members.splice(idx, 1);
-
     if (room.members.length === 0) {
       rooms.delete(id);
       return { deleted: true, id };
     }
-
     if (room.hostSocketId === socketId) {
       room.hostSocketId = room.members[0].socketId;
       room.members[0].isHost = true;
       room.name = `Стол ${room.members[0].name}`;
     }
-
     return { room, id };
   }
   return null;
 }
 
+export function rejoinRoom(roomId, socketId, sessionToken) {
+  const room = getRoom(roomId);
+  if (!room) return { error: 'Стол уже закрыт' };
+
+  const member = room.members.find(m => m.sessionToken === sessionToken);
+  if (member) {
+    if (getRoomBySocket(socketId) && !room.members.some(m => m.socketId === socketId)) {
+      return { error: 'Сначала выйдите из другой комнаты' };
+    }
+    clearReconnectTimer(room, `p:${member.sessionToken}`);
+    member.socketId = socketId;
+    member.disconnectedAt = null;
+    if (room.game?.players[member.slot]) {
+      room.game.players[member.slot].socketId = socketId;
+      room.game.players[member.slot].disconnected = false;
+    }
+    if (member.isHost) room.hostSocketId = socketId;
+    return {
+      room,
+      role: 'player',
+      slot: member.slot,
+      sessionToken: member.sessionToken,
+      playing: room.status === 'playing',
+    };
+  }
+
+  const spec = (room.spectators || []).find(s => s.sessionToken === sessionToken);
+  if (spec) {
+    clearReconnectTimer(room, `s:${spec.sessionToken}`);
+    spec.socketId = socketId;
+    spec.disconnectedAt = null;
+    return {
+      room,
+      role: 'spectator',
+      sessionToken: spec.sessionToken,
+      playing: true,
+    };
+  }
+
+  return { error: 'Сессия не найдена' };
+}
+
 export function getRoomBySocket(socketId) {
+  if (!isLiveSocket(socketId)) return null;
   for (const room of rooms.values()) {
     if (room.members.some(m => m.socketId === socketId)) return room;
+    if ((room.spectators || []).some(s => s.socketId === socketId)) return room;
   }
   return null;
+}
+
+export function findMemberBySocket(room, socketId) {
+  return room.members.find(m => m.socketId === socketId) || null;
+}
+
+export function findSpectatorBySocket(room, socketId) {
+  return (room.spectators || []).find(s => s.socketId === socketId) || null;
 }
 
 export function startGame(id, socketId) {
@@ -92,21 +290,33 @@ export function startGame(id, socketId) {
   if (room.hostSocketId !== socketId) return { error: 'Только хост может начать игру' };
   if (room.members.length < MIN_PLAYERS) return { error: 'Нет игроков для старта' };
   if (room.status !== 'lobby') return { error: 'Игра уже началась' };
+  if (!room.fillBots && room.members.length < 2) {
+    return { error: 'Без ботов нужно минимум 2 игрока' };
+  }
+
+  // Без ботов — плотные слоты 0..n-1, играют только люди за столом
+  if (!room.fillBots) {
+    room.members.sort((a, b) => a.slot - b.slot);
+    room.members.forEach((m, i) => { m.slot = i; });
+  }
 
   const usedNames = room.members.map(m => m.name);
+  const seats = room.fillBots ? room.maxPlayers : room.members.length;
   const botSlots = [];
-  for (let slot = 0; slot < room.maxPlayers; slot++) {
-    if (!room.members.find(m => m.slot === slot)) botSlots.push(slot);
+  if (room.fillBots) {
+    for (let slot = 0; slot < seats; slot++) {
+      if (!room.members.find(m => m.slot === slot)) botSlots.push(slot);
+    }
   }
   const botNames = pickBotNames(botSlots.length, usedNames);
   let botIdx = 0;
 
   const playerConfigs = [];
-  for (let slot = 0; slot < room.maxPlayers; slot++) {
+  for (let slot = 0; slot < seats; slot++) {
     const member = room.members.find(m => m.slot === slot);
     if (member) {
       playerConfigs.push({ name: member.name, socketId: member.socketId, isBot: false });
-    } else {
+    } else if (room.fillBots) {
       const botName = botNames[botIdx++] || 'Гость';
       playerConfigs.push({ name: `Бот - ${botName}`, socketId: null, isBot: true });
     }
@@ -118,13 +328,18 @@ export function startGame(id, socketId) {
 
   room.game = game;
   room.status = 'playing';
+  room.spectators = room.spectators || [];
 
   return { room };
 }
 
 export function handleGameAction(room, socketId, action) {
-  const member = room.members.find(m => m.socketId === socketId);
+  if (findSpectatorBySocket(room, socketId)) {
+    return { error: 'Наблюдатель не может действовать' };
+  }
+  const member = findMemberBySocket(room, socketId);
   if (!member) return { error: 'Вы не в этой комнате' };
+  if (member.disconnectedAt) return { error: 'Переподключение…' };
 
   const result = room.game.applyAction(action, member.slot);
   return result;
@@ -136,6 +351,7 @@ export function getLobbyState(room) {
     name: room.name,
     status: room.status,
     maxPlayers: room.maxPlayers,
+    fillBots: !!room.fillBots,
     hostSocketId: room.hostSocketId,
     members: room.members.map(m => ({
       name: m.name,
@@ -144,6 +360,7 @@ export function getLobbyState(room) {
       token: PLAYER_SLOTS[m.slot]?.token,
       chipName: PLAYER_SLOTS[m.slot]?.name,
       color: PLAYER_SLOTS[m.slot]?.color,
+      disconnected: !!m.disconnectedAt,
     })),
   };
 }
@@ -153,10 +370,12 @@ export function listPublicRooms() {
     id: room.id,
     name: room.name,
     status: room.status,
-    players: room.members.length,
+    players: room.members.filter(m => !m.disconnectedAt || room.status === 'playing').length,
     maxPlayers: room.maxPlayers,
     hostName: room.members.find(m => m.isHost)?.name || room.members[0]?.name || '—',
+    fillBots: !!room.fillBots,
     canJoin: room.status === 'lobby' && room.members.length < room.maxPlayers,
+    canSpectate: room.status === 'playing' && !!room.game,
   })).sort((a, b) => {
     if (a.canJoin !== b.canJoin) return a.canJoin ? -1 : 1;
     return b.players - a.players;
@@ -164,36 +383,52 @@ export function listPublicRooms() {
 }
 
 export function getGameState(room, socketId) {
-  const member = room.members.find(m => m.socketId === socketId);
+  const member = findMemberBySocket(room, socketId);
+  const spectator = findSpectatorBySocket(room, socketId);
   const state = room.game.getState();
-  const me = member != null ? state.players[member.slot] : null;
+  const isSpectator = !!spectator && !member;
+
+  const players = state.players.map((p) => {
+    const m = room.members.find(x => x.slot === p.id);
+    return {
+      ...p,
+      disconnected: !!(m?.disconnectedAt) || !!p.disconnected,
+      left: !!p.left,
+    };
+  });
+
+  const me = member != null ? players[member.slot] : null;
   const isAuction = state.phase === 'auction';
   const deal = state.deal;
   const isDealParty = !!(deal && member && (deal.toId === member.slot || deal.fromId === member.slot));
-  // Строго: чей сейчас ход (не «может ли жать кнопки на аукционе»)
   const isMyTurn = !!(
     member
     && me
     && !me.bankrupt
+    && !me.left
+    && !member.disconnectedAt
     && state.players[state.currentPlayerIndex]?.id === member.slot
   );
+
   return {
     ...state,
+    players,
     roomId: room.id,
     roomName: room.name,
     mySlot: member?.slot ?? null,
-    isMyTurn,
-    canRespondDeal: !!(deal && member && deal.toId === member.slot),
-    isDealParty,
-    canAuctionBid: !!(isAuction && me && !me.bankrupt && room.game.canPlayerAuctionBid?.(member.slot)),
-    canAuctionLeave: !!(isAuction && me && !me.bankrupt
+    isSpectator,
+    isMyTurn: isSpectator ? false : isMyTurn,
+    canRespondDeal: !!(!isSpectator && deal && member && deal.toId === member.slot),
+    isDealParty: isSpectator ? false : isDealParty,
+    canAuctionBid: !!(!isSpectator && isAuction && me && !me.bankrupt && room.game.canPlayerAuctionBid?.(member.slot)),
+    canAuctionLeave: !!(!isSpectator && isAuction && me && !me.bankrupt
       && state.auction?.startedBy !== member.slot
       && state.auction?.highBidder !== member.slot
       && !(state.auction?.optedOut || []).includes(member.slot)),
-    auctionSpectator: !!(isAuction && me && state.auction?.startedBy === member.slot),
+    auctionSpectator: !!(!isSpectator && isAuction && me && state.auction?.startedBy === member.slot),
     nextAuctionPrice: room.game.nextAuctionPrice?.() ?? null,
-    dealableCompanies: room.game.dealableCompanies?.(member?.slot) || [],
-    myTradeableCompanies: room.game.ownedTradeable?.(member?.slot) || [],
+    dealableCompanies: isSpectator ? [] : (room.game.dealableCompanies?.(member?.slot) || []),
+    myTradeableCompanies: isSpectator ? [] : (room.game.ownedTradeable?.(member?.slot) || []),
   };
 }
 
@@ -288,7 +523,6 @@ export function scheduleTurnTimers(room, io) {
     return;
   }
 
-  // Таймер хода идёт и при открытой сделке/акциях — по истечении автобросок / выкуп
   if (game.phase === 'roll' && game.turnEndsAt && !game.deal) {
     const delay = Math.max(200, game.turnEndsAt - Date.now());
     room._turnTimer = setTimeout(() => {
@@ -309,7 +543,12 @@ export function scheduleTurnTimers(room, io) {
 
 export function broadcastGame(room, io) {
   for (const member of room.members) {
+    if (!isLiveSocket(member.socketId)) continue;
     io.to(member.socketId).emit('game-state', getGameState(room, member.socketId));
+  }
+  for (const s of room.spectators || []) {
+    if (!isLiveSocket(s.socketId)) continue;
+    io.to(s.socketId).emit('game-state', getGameState(room, s.socketId));
   }
 }
 
@@ -324,5 +563,30 @@ export function startBotLoop(room, io) {
 }
 
 export function findMemberSlot(room, socketId) {
-  return room.members.find(m => m.socketId === socketId)?.slot ?? null;
+  return findMemberBySocket(room, socketId)?.slot ?? null;
+}
+
+/** Session payload for client localStorage */
+export function sessionForSocket(room, socketId) {
+  const member = findMemberBySocket(room, socketId);
+  if (member) {
+    return {
+      roomId: room.id,
+      sessionToken: member.sessionToken,
+      slot: member.slot,
+      name: member.name,
+      role: 'player',
+    };
+  }
+  const spec = findSpectatorBySocket(room, socketId);
+  if (spec) {
+    return {
+      roomId: room.id,
+      sessionToken: spec.sessionToken,
+      slot: null,
+      name: spec.name,
+      role: 'spectator',
+    };
+  }
+  return null;
 }

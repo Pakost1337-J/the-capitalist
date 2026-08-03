@@ -1,8 +1,47 @@
+const NAME_KEY = 'capitalist-player-name';
+const SESSION_KEY = 'capitalist-session-v1';
+
+export function loadPlayerName() {
+  try {
+    return localStorage.getItem(NAME_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+export function savePlayerName(name) {
+  try {
+    localStorage.setItem(NAME_KEY, String(name || '').slice(0, 20));
+  } catch { /* ignore */ }
+}
+
+export function loadSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveSession(session) {
+  try {
+    if (!session) localStorage.removeItem(SESSION_KEY);
+    else localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  } catch { /* ignore */ }
+}
+
+export function clearSession() {
+  saveSession(null);
+}
+
 export class Network {
   constructor() {
     this.socket = null;
     this.mySlot = null;
     this.roomId = null;
+    this.sessionToken = null;
+    this.role = null;
     this.onLobbyUpdate = null;
     this.onGameStart = null;
     this.onGameState = null;
@@ -15,9 +54,22 @@ export class Network {
     return new Promise((resolve, reject) => {
       this.socket = io({ transports: ['websocket', 'polling'] });
 
+      let booted = false;
       this.socket.on('connect', () => {
         this.socket.emit('get-server-info');
-        resolve();
+        if (!booted) {
+          booted = true;
+          resolve();
+          return;
+        }
+        // Переподключение сокета без F5 — вернуть сессию
+        const saved = loadSession();
+        if (saved?.roomId && saved?.sessionToken) {
+          this.rejoinRoom(saved.roomId, saved.sessionToken).then((res) => {
+            if (res?.ok && res.playing && res.state) this.onGameState?.(res.state);
+            else if (res?.ok && res.lobby) this.onLobbyUpdate?.(res.lobby);
+          });
+        }
       });
       this.socket.on('connect_error', (err) => reject(err));
 
@@ -29,10 +81,19 @@ export class Network {
     });
   }
 
-  createRoom(name, maxPlayers) {
+  _applySession(session) {
+    if (!session) return;
+    this.roomId = session.roomId;
+    this.sessionToken = session.sessionToken;
+    this.mySlot = session.slot ?? null;
+    this.role = session.role || 'player';
+    saveSession(session);
+  }
+
+  createRoom(name, maxPlayers, fillBots = true) {
     return new Promise((resolve) => {
-      this.socket.emit('create-room', { name, maxPlayers }, (res) => {
-        if (res?.ok) this.roomId = res.lobby.id;
+      this.socket.emit('create-room', { name, maxPlayers, fillBots }, (res) => {
+        if (res?.ok && res.session) this._applySession(res.session);
         resolve(res || { ok: false, error: 'Нет ответа' });
       });
     });
@@ -41,7 +102,25 @@ export class Network {
   joinRoom(id, name) {
     return new Promise((resolve) => {
       this.socket.emit('join-room', { id, name }, (res) => {
-        if (res?.ok) this.roomId = res.lobby.id;
+        if (res?.ok && res.session) this._applySession(res.session);
+        resolve(res || { ok: false, error: 'Нет ответа' });
+      });
+    });
+  }
+
+  spectateRoom(id, name) {
+    return new Promise((resolve) => {
+      this.socket.emit('spectate-room', { id, name }, (res) => {
+        if (res?.ok && res.session) this._applySession(res.session);
+        resolve(res || { ok: false, error: 'Нет ответа' });
+      });
+    });
+  }
+
+  rejoinRoom(roomId, sessionToken) {
+    return new Promise((resolve) => {
+      this.socket.emit('rejoin-room', { roomId, sessionToken }, (res) => {
+        if (res?.ok && res.session) this._applySession(res.session);
         resolve(res || { ok: false, error: 'Нет ответа' });
       });
     });
@@ -49,9 +128,10 @@ export class Network {
 
   startGame() {
     return new Promise((resolve) => {
-      this.socket.emit('start-game', {}, (res) =>
-        resolve(res || { ok: false, error: 'Нет ответа сервера' })
-      );
+      this.socket.emit('start-game', {}, (res) => {
+        if (res?.ok && res.session) this._applySession(res.session);
+        resolve(res || { ok: false, error: 'Нет ответа сервера' });
+      });
     });
   }
 
@@ -65,6 +145,9 @@ export class Network {
     this.socket?.emit('leave-room');
     this.roomId = null;
     this.mySlot = null;
+    this.sessionToken = null;
+    this.role = null;
+    clearSession();
   }
 }
 
@@ -73,12 +156,23 @@ export class LobbyUI {
     this.network = network;
     this.el = document.getElementById('lobby');
     this.setupEvents();
+    this.restoreName();
   }
 
   setupEvents() {
     document.getElementById('btn-create').addEventListener('click', () => this.create());
     document.getElementById('btn-start').addEventListener('click', () => this.start());
     document.getElementById('btn-leave').addEventListener('click', () => this.leave());
+    document.getElementById('player-name')?.addEventListener('change', () => {
+      savePlayerName(this.getPlayerName());
+    });
+  }
+
+  restoreName() {
+    const input = document.getElementById('player-name');
+    if (!input) return;
+    const saved = loadPlayerName();
+    if (saved) input.value = saved;
   }
 
   show() {
@@ -97,13 +191,16 @@ export class LobbyUI {
   }
 
   getPlayerName() {
-    return document.getElementById('player-name').value.trim() || 'Игрок';
+    const name = document.getElementById('player-name').value.trim() || 'Игрок';
+    savePlayerName(name);
+    return name;
   }
 
   async create() {
     const name = this.getPlayerName();
     const maxPlayers = Number(document.getElementById('max-players').value);
-    const res = await this.network.createRoom(name, maxPlayers);
+    const fillBots = document.getElementById('fill-bots')?.value !== '0';
+    const res = await this.network.createRoom(name, maxPlayers, fillBots);
     if (!res.ok) return this.showError(res.error);
     this.showView('room');
     this.renderRoom(res.lobby);
@@ -115,6 +212,13 @@ export class LobbyUI {
     if (!res.ok) return this.showError(res.error);
     this.showView('room');
     this.renderRoom(res.lobby);
+  }
+
+  async spectateById(id) {
+    const name = this.getPlayerName();
+    const res = await this.network.spectateRoom(id, name);
+    if (!res.ok) return this.showError(res.error);
+    return res;
   }
 
   async start() {
@@ -164,19 +268,27 @@ export class LobbyUI {
         ? (room.canJoin ? 'room-card__status--open' : 'room-card__status--full')
         : 'room-card__status--play';
 
+      let actions = '';
+      if (room.canJoin) {
+        actions = `<button class="btn btn--club room-card__join" data-join="${room.id}">Войти</button>`;
+      } else if (room.canSpectate) {
+        actions = `<button class="btn btn--club room-card__join" data-spectate="${room.id}">Смотреть</button>`;
+      } else {
+        actions = `<button class="btn btn--club-muted room-card__join" disabled>${room.status === 'playing' ? 'Идёт' : 'Полный'}</button>`;
+      }
+
+      const botsLabel = room.fillBots === false ? 'без ботов' : 'с ботами';
       return `
         <div class="room-card">
           <div class="room-card__info">
             <div class="room-card__name">${escapeHtml(room.name)}</div>
             <div class="room-card__meta">
               👤 ${room.players}/${room.maxPlayers}
+              · ${botsLabel}
               · <span class="room-card__status ${statusClass}">${status}</span>
             </div>
           </div>
-          ${room.canJoin
-            ? `<button class="btn btn--club room-card__join" data-join="${room.id}">Войти</button>`
-            : `<button class="btn btn--club-muted room-card__join" disabled>${room.status === 'playing' ? 'Идёт' : 'Полный'}</button>`
-          }
+          ${actions}
         </div>
       `;
     }).join('');
@@ -184,12 +296,20 @@ export class LobbyUI {
     list.querySelectorAll('[data-join]').forEach(btn => {
       btn.addEventListener('click', () => this.joinById(btn.dataset.join));
     });
+    list.querySelectorAll('[data-spectate]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.spectateById(btn.dataset.spectate).then((res) => {
+          if (res?.ok) this.onSpectate?.(res);
+        });
+      });
+    });
   }
 
   renderRoom(lobby) {
     document.getElementById('room-name').textContent = lobby.name || 'Стол';
+    const mode = lobby.fillBots === false ? 'без ботов' : 'с ботами';
     document.getElementById('room-count').textContent =
-      `${lobby.members.length} / ${lobby.maxPlayers}`;
+      `${lobby.members.length} / ${lobby.maxPlayers} · ${mode}`;
 
     const isHost = lobby.hostSocketId === this.network.socket.id;
     document.getElementById('btn-start').hidden = !isHost;
@@ -198,14 +318,17 @@ export class LobbyUI {
     document.getElementById('room-players').innerHTML = lobby.members.map(m => `
       <div class="lobby-player" style="--pc: ${m.color}">
         <span class="chip lobby-player__token" style="background:${m.color}" title="${escapeHtml(m.chipName || '')}"></span>
-        <span class="lobby-player__name">${escapeHtml(m.name)}${m.isHost ? ' 👑' : ''}</span>
+        <span class="lobby-player__name">${escapeHtml(m.name)}${m.isHost ? ' 👑' : ''}${m.disconnected ? ' · нет сети' : ''}</span>
       </div>
     `).join('');
 
+    const emptyLabel = lobby.fillBots === false
+      ? 'Ожидание игрока'
+      : '🤖 Свободное место (бот)';
     for (let i = lobby.members.length; i < lobby.maxPlayers; i++) {
       document.getElementById('room-players').innerHTML += `
         <div class="lobby-player lobby-player--empty">
-          <span>🤖 Свободное место (бот)</span>
+          <span>${emptyLabel}</span>
         </div>`;
     }
   }

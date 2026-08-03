@@ -1550,16 +1550,40 @@ button, input, select { font-family: inherit; }
   position: absolute;
   top: 8px;
   right: 8px;
-  z-index: 5;
-  background: rgba(0,0,0,0.35);
+  z-index: 12;
+  background: rgba(0,0,0,0.45);
   color: #f3e6d4;
-  border: 1px solid rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.2);
   border-radius: 8px;
-  padding: 4px 10px;
+  padding: 6px 12px;
   font-weight: 800;
-  font-size: 0.68rem;
+  font-size: calc(11px * var(--ui-scale));
   cursor: pointer;
   flex-shrink: 0;
+}
+
+.hub__exit-btn:hover {
+  background: rgba(120, 40, 30, 0.75);
+}
+
+.p-card--left .p-card__inner {
+  opacity: 0.7;
+}
+
+body.is-spectator .hub__actions .btn--roll,
+body.is-spectator .hub__actions .btn--pass {
+  display: none;
+}
+
+.spectator-banner {
+  margin: 0;
+  padding: 8px 10px;
+  text-align: center;
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  color: #2a1c14;
+  background: rgba(255, 236, 190, 0.55);
+  border-radius: 8px;
 }
 
 .hub__actions {

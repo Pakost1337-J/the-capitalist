@@ -597,7 +597,7 @@ export class UI {
   ensureTokens(state) {
     const alive = new Set();
     for (const p of state.players) {
-      if (p.bankrupt) {
+      if (p.bankrupt || p.left) {
         this.tokenEls[p.id]?.remove();
         delete this.tokenEls[p.id];
         delete this.displayPos[p.id];
@@ -842,23 +842,36 @@ export class UI {
       const displayName = escapeHtml(
         p.isBot && !/^Бот\s*-/.test(p.name) ? `Бот - ${p.name}` : p.name,
       );
-      const moneyBlock = p.bankrupt
-        ? `<div class="p-card__cash p-card__cash--out">Банкрот</div>`
-        : `<div class="p-card__cash">${formatMoney(p.money)}</div>
+      let moneyBlock;
+      if (p.left) {
+        moneyBlock = `<div class="p-card__cash p-card__cash--out">Покинул</div>`;
+      } else if (p.bankrupt) {
+        moneyBlock = `<div class="p-card__cash p-card__cash--out">Банкрот</div>`;
+      } else if (p.disconnected) {
+        moneyBlock = `<div class="p-card__cash p-card__cash--out">Нет сети…</div>
             <div class="p-card__capital">Капитал: ${formatMoney(capital)}${jailNote}</div>
             <div class="p-card__stats">
               <div>Компаний: ${companies}</div>
               <div>Страны: ${countries}</div>
             </div>`;
+      } else {
+        moneyBlock = `<div class="p-card__cash">${formatMoney(p.money)}</div>
+            <div class="p-card__capital">Капитал: ${formatMoney(capital)}${jailNote}</div>
+            <div class="p-card__stats">
+              <div>Компаний: ${companies}</div>
+              <div>Страны: ${countries}</div>
+            </div>`;
+      }
+      const outClass = (p.bankrupt || p.left || p.disconnected) ? 'p-card--out' : '';
       return `
-        <div class="p-card ${isTurn ? 'p-card--active' : ''} ${p.bankrupt ? 'p-card--out' : ''} ${p.id === this.mySlot ? 'p-card--me' : ''}"
+        <div class="p-card ${isTurn ? 'p-card--active' : ''} ${outClass} ${p.left ? 'p-card--left' : ''} ${p.id === this.mySlot ? 'p-card--me' : ''}"
              style="--pc: ${p.color}">
           <div class="p-card__inner">
             <div class="p-card__head">
-              <div class="p-card__name">${displayName}</div>
+              <div class="p-card__name">${displayName}${p.left ? ' · выход' : p.disconnected ? ' · сеть' : ''}</div>
             </div>
             ${moneyBlock}
-            ${this.tokenImgHtml(p)}
+            ${p.left ? '' : this.tokenImgHtml(p)}
           </div>
         </div>
       `;
@@ -1102,15 +1115,38 @@ export class UI {
 
   /** Только слот текущего хода видит меню покупки/долга/акций */
   isCurrentActor(state) {
+    if (state?.isSpectator || this.isSpectator) return false;
+    const me = state?.players?.[state.mySlot];
     return state?.mySlot != null
       && state.mySlot === state.currentPlayerIndex
-      && !state.players?.[state.mySlot]?.bankrupt;
+      && me
+      && !me.bankrupt
+      && !me.left;
   }
 
   renderActions(state) {
+    this.isSpectator = !!state.isSpectator;
+    document.body.classList.toggle('is-spectator', this.isSpectator);
     const p = state.players[state.currentPlayerIndex];
     const isActor = this.isCurrentActor(state);
     this.actionArea.innerHTML = '';
+
+    if (state.isSpectator) {
+      this._dealCompose = null;
+      this._shareBuy = false;
+      if (state.phase === PHASE.GAME_OVER) {
+        this.actionArea.innerHTML = `
+          <div class="winner-banner">🏆 ${escapeHtml(state.winner?.name || '—')} победил!</div>
+          <p class="spectator-banner">Режим наблюдения</p>
+        `;
+        return;
+      }
+      const turnName = escapeHtml(p?.name || '—');
+      this.actionArea.innerHTML = `
+        <p class="spectator-banner">👁 Наблюдение · ход: ${turnName}</p>
+      `;
+      return;
+    }
 
     if (state.phase === PHASE.GAME_OVER) {
       this._dealCompose = null;

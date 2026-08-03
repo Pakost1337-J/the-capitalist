@@ -4,10 +4,10 @@ import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import {
-  createRoom, joinRoom, leaveRoom, getRoomBySocket,
+  createRoom, joinRoom, leaveRoom, getRoomBySocket, rejoinRoom, spectateRoom,
   startGame, handleGameAction, getLobbyState, getGameState,
   broadcastGame, startBotLoop, listPublicRooms, scheduleAuctionEnd, scheduleRentEnd, scheduleTurnTimers,
-  scheduleMoveCommit,
+  scheduleMoveCommit, sessionForSocket, findSpectatorBySocket, findMemberBySocket,
 } from './server/rooms.js';
 import { PHASE } from './js/game.js';
 import { getCustomPayload, saveCustom, resetCustom } from './server/customize.js';
@@ -76,14 +76,15 @@ io.on('connection', (socket) => {
     socket.emit('server-info', payload);
   });
 
-  socket.on('create-room', ({ name, maxPlayers }, cb) => {
+  socket.on('create-room', ({ name, maxPlayers, fillBots }, cb) => {
     if (getRoomBySocket(socket.id)) {
       return cb?.({ ok: false, error: 'Сначала выйдите из текущей комнаты' });
     }
 
-    const room = createRoom(socket.id, name || 'Игрок', maxPlayers || 4);
+    const room = createRoom(socket.id, name || 'Игрок', maxPlayers || 4, fillBots !== false && fillBots !== 0 && fillBots !== '0');
     socket.join(room.id);
-    cb?.({ ok: true, lobby: getLobbyState(room) });
+    const session = sessionForSocket(room, socket.id);
+    cb?.({ ok: true, lobby: getLobbyState(room), session });
     io.to(room.id).emit('lobby-update', getLobbyState(room));
     broadcastServerInfo();
   });
@@ -97,8 +98,55 @@ io.on('connection', (socket) => {
     if (result.error) return cb?.({ ok: false, error: result.error });
 
     socket.join(result.room.id);
-    cb?.({ ok: true, lobby: getLobbyState(result.room) });
+    const session = sessionForSocket(result.room, socket.id);
+    cb?.({ ok: true, lobby: getLobbyState(result.room), session });
     io.to(result.room.id).emit('lobby-update', getLobbyState(result.room));
+    broadcastServerInfo();
+  });
+
+  socket.on('spectate-room', ({ id, name }, cb) => {
+    if (getRoomBySocket(socket.id)) {
+      return cb?.({ ok: false, error: 'Сначала выйдите из текущей комнаты' });
+    }
+    const result = spectateRoom(id, socket.id, name || 'Наблюдатель');
+    if (result.error) return cb?.({ ok: false, error: result.error });
+
+    socket.join(result.room.id);
+    const session = sessionForSocket(result.room, socket.id);
+    const state = getGameState(result.room, socket.id);
+    cb?.({ ok: true, session, state });
+    broadcastServerInfo();
+  });
+
+  socket.on('rejoin-room', ({ roomId, sessionToken }, cb) => {
+    if (getRoomBySocket(socket.id)) {
+      return cb?.({ ok: false, error: 'Уже в комнате' });
+    }
+    const result = rejoinRoom(roomId, socket.id, sessionToken);
+    if (result.error) return cb?.({ ok: false, error: result.error });
+
+    socket.join(result.room.id);
+    const session = sessionForSocket(result.room, socket.id);
+
+    if (result.playing && result.room.game) {
+      broadcastGame(result.room, io);
+      cb?.({
+        ok: true,
+        playing: true,
+        role: result.role,
+        session,
+        state: getGameState(result.room, socket.id),
+      });
+    } else {
+      io.to(result.room.id).emit('lobby-update', getLobbyState(result.room));
+      cb?.({
+        ok: true,
+        playing: false,
+        role: result.role,
+        session,
+        lobby: getLobbyState(result.room),
+      });
+    }
     broadcastServerInfo();
   });
 
@@ -115,10 +163,11 @@ io.on('connection', (socket) => {
       if (result.error) return cb?.({ ok: false, error: result.error });
 
       for (const member of room.members) {
+        if (!member.socketId || String(member.socketId).startsWith('pending:')) continue;
         io.to(member.socketId).emit('game-start', getGameState(room, member.socketId));
       }
 
-      cb?.({ ok: true });
+      cb?.({ ok: true, session: sessionForSocket(room, socket.id) });
       broadcastServerInfo();
       scheduleTurnTimers(room, io);
       startBotLoop(room, io);
@@ -139,7 +188,6 @@ io.on('connection', (socket) => {
       scheduleAuctionEnd(room, io);
     }
     scheduleMoveCommit(room, io);
-    // всегда: либо ставит таймер долга, либо снимает старый
     scheduleRentEnd(room, io);
     scheduleTurnTimers(room, io);
 
@@ -156,11 +204,11 @@ io.on('connection', (socket) => {
   socket.on('chat', ({ text }) => {
     const room = getRoomBySocket(socket.id);
     if (!room) return;
-    const member = room.members.find(m => m.socketId === socket.id);
+    const member = findMemberBySocket(room, socket.id);
+    const spectator = findSpectatorBySocket(room, socket.id);
     const clean = String(text || '').trim().slice(0, 120);
     if (!clean) return;
-    const name = member?.name || 'Игрок';
-    // В игре — в общий лог ходов, чтобы чат уезжал вместе с событиями
+    const name = member?.name || spectator?.name || 'Игрок';
     if (room.game) {
       room.game.addLog(`${name}: ${clean}`);
       broadcastGame(room, io);
@@ -174,26 +222,31 @@ io.on('connection', (socket) => {
   });
 
   socket.on('leave-room', () => {
-    handleLeave(socket);
+    handleLeave(socket, true);
   });
 
   socket.on('disconnect', () => {
-    handleLeave(socket);
+    handleLeave(socket, false);
     broadcastServerInfo();
   });
 });
 
-function handleLeave(socket) {
-  const result = leaveRoom(socket.id);
+function handleLeave(socket, intentional) {
+  const result = leaveRoom(socket.id, { intentional, io });
   if (!result) {
     broadcastServerInfo();
     return;
   }
 
   if (result.deleted) {
-    io.to(result.id).emit('room-closed');
-  } else {
+    // room-closed already emitted in afterMemberRemoved when io passed
+    if (!result.abandoned) {
+      io.to(result.id).emit('room-closed');
+    }
+  } else if (result.room?.status === 'lobby') {
     io.to(result.id).emit('lobby-update', getLobbyState(result.room));
+  } else if (result.abandoned && result.room) {
+    // game broadcast already done in afterMemberRemoved
   }
 
   broadcastServerInfo();
