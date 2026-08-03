@@ -21,6 +21,7 @@
   --corner-bot: 150px;
   --cell-w: 66px;
   --cell-h: 67px;
+  --board-radius: 18px;
   --ui-scale: 1;
   --fs-xs: calc(11px * var(--ui-scale));
   --fs-sm: calc(13px * var(--ui-scale));
@@ -439,7 +440,8 @@ button, input, select { font-family: inherit; }
   height: fit-content;
   max-width: 100%;
   background: transparent url('/assets/board/board-frame.png') center / 100% 100% no-repeat;
-  border-radius: 20px;
+  /* радиус от --ui-scale (fitLayout), иначе на телефоне углы сильно срезаются */
+  border-radius: var(--board-radius, 18px);
   border: none;
   box-shadow:
     0 10px 28px rgba(20, 10, 6, 0.42),
@@ -615,9 +617,19 @@ button, input, select { font-family: inherit; }
 /* Верх/низ: флаг у внешнего края */
 .cell__body--top {
   flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 2px 1px 3px;
+  gap: 1px;
+  overflow: hidden;
 }
 .cell__body--bottom {
   flex-direction: column-reverse;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 3px 1px 2px;
+  gap: 1px;
+  overflow: hidden;
 }
 /* Бока: флаг у внешнего края, лого+цена — компактный блок внутри клетки */
 .cell__body--right {
@@ -668,62 +680,59 @@ button, input, select { font-family: inherit; }
 }
 
 .cell__flag {
-  font-size: clamp(0.95rem, 1.8vw, 1.25rem);
+  font-size: max(12px, calc(var(--cell-w) * 0.42));
   line-height: 1;
 }
 
 .cell__flag-img {
-  width: clamp(22px, 2.8vw, 32px);
+  width: max(14px, calc(var(--cell-w) * 0.52));
   height: auto;
-  max-height: clamp(16px, 2.2vw, 24px);
+  max-height: max(12px, calc(var(--cell-w) * 0.38));
   object-fit: contain;
   border-radius: 0;
   display: block;
   flex-shrink: 0;
 }
 
+.cell__body--top .cell__flag-img,
+.cell__body--bottom .cell__flag-img {
+  width: max(14px, calc(var(--cell-w) * 0.58));
+  max-height: max(12px, calc(var(--cell-w) * 0.42));
+}
+
 .cell__logo {
   width: min(100%, var(--logo-w));
   height: var(--logo-h);
-  min-height: 16px;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   border: none;
   border-radius: 0;
-  overflow: visible;
-  flex: 1 1 auto;
+  overflow: hidden;
+  flex: 0 1 auto;
   min-width: 0;
 }
 
 .cell__body--left .cell__logo,
 .cell__body--right .cell__logo {
-  width: 100%;
-  max-width: 100%;
-  height: min(var(--logo-h), calc(var(--cell-h) * 0.5));
-  max-height: calc(var(--cell-h) * 0.5);
+  width: auto;
+  max-width: calc(var(--cell-h) * 1.35);
+  height: calc(var(--cell-h) * 0.58);
+  max-height: calc(var(--cell-h) * 0.62);
   min-height: 0;
   flex: 0 1 auto;
 }
 
-.cell__body--left .cell__logo-img,
-.cell__body--right .cell__logo-img {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-}
-
 .cell__body--left .cell__logo-text,
 .cell__body--right .cell__logo-text {
-  font-size: max(8px, calc(var(--cell-h) * 0.16));
+  font-size: max(9px, calc(var(--cell-h) * 0.2));
 }
 
 .cell__body--left .cell__price,
 .cell__body--right .cell__price {
-  font-size: max(8px, calc(var(--cell-h) * 0.17));
+  font-size: max(9px, calc(var(--cell-h) * 0.2));
   width: auto;
   max-width: 100%;
 }
@@ -732,23 +741,23 @@ button, input, select { font-family: inherit; }
 .cell__body--right .cell__country-slot {
   flex: 0 0 auto;
   align-self: center;
-  max-width: calc(var(--cell-h) * 0.55);
-  max-height: calc(var(--cell-h) * 0.42);
+  max-width: calc(var(--cell-h) * 0.62);
+  max-height: calc(var(--cell-h) * 0.5);
 }
 
 .cell__body--left .cell__flag-img,
 .cell__body--right .cell__flag-img {
-  width: calc(var(--cell-h) * 0.42);
+  width: calc(var(--cell-h) * 0.5);
   max-width: 100%;
   height: auto;
-  max-height: calc(var(--cell-h) * 0.34);
+  max-height: calc(var(--cell-h) * 0.42);
 }
 
 .cell__body--left .cell__stack,
 .cell__body--right .cell__stack {
   flex: 0 1 auto;
   min-width: 0;
-  max-width: calc(var(--cell-w) * 1.15);
+  max-width: calc(var(--cell-h) * 1.45);
   max-height: 100%;
   overflow: hidden;
   gap: 1px;
@@ -883,7 +892,7 @@ button, input, select { font-family: inherit; }
   justify-content: center;
   align-items: center;
   font-family: var(--font);
-  font-size: clamp(0.58rem, 1.25vw, 0.82rem);
+  font-size: max(9px, calc(var(--cell-w) * 0.22));
   font-weight: 500;
   color: #2a1c14;
   line-height: 1.05;
@@ -891,6 +900,8 @@ button, input, select { font-family: inherit; }
   letter-spacing: 0.02em;
   white-space: nowrap;
   width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .cell__price-core {
@@ -948,7 +959,7 @@ button, input, select { font-family: inherit; }
 .share-mark {
   display: block;
   width: auto;
-  height: clamp(10px, 1.35vw, 16px);
+  height: max(11px, calc(var(--cell-w) * 0.3));
   max-width: 92%;
   object-fit: contain;
   image-rendering: auto;
@@ -2433,6 +2444,14 @@ button, input, select { font-family: inherit; }
   object-fit: contain;
   object-position: center;
   pointer-events: none;
+}
+
+.cell__body--left .cell__logo-img,
+.cell__body--right .cell__logo-img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .p-card__chip--fallback {

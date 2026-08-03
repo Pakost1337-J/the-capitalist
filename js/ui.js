@@ -159,8 +159,10 @@ export class UI {
     const cornerBot = rowTracks[rowTracks.length - 1];
     const cellW = colTracks[1];
     const cellH = rowTracks[1];
-    const logoW = Math.max(18, cellW - 6);
-    const logoH = Math.max(14, Math.round(Math.min(cellW, cellH) * 0.38));
+    // Лого заполняет клетку плотнее (на телефоне cellW мелкий — 0.38 давал «пылинки»)
+    const logoW = Math.max(16, Math.round(cellW * 0.92));
+    const logoH = Math.max(16, Math.round(Math.min(cellW * 0.78, cellH * 0.48)));
+    const boardRadius = Math.max(6, Math.round(18 * uiScale));
     const colCss = colTracks.map((px) => `${px}px`).join(' ');
     const rowCss = rowTracks.map((px) => `${px}px`).join(' ');
 
@@ -184,6 +186,7 @@ export class UI {
       el.style.setProperty('--cell-h', `${cellH}px`);
       el.style.setProperty('--logo-w', `${logoW}px`);
       el.style.setProperty('--logo-h', `${logoH}px`);
+      el.style.setProperty('--board-radius', `${boardRadius}px`);
       el.style.setProperty('--hole-l', `${holeL}px`);
       el.style.setProperty('--hole-t', `${holeT}px`);
       el.style.setProperty('--hole-r', `${holeR}px`);
@@ -197,6 +200,7 @@ export class UI {
       this.boardEl.style.width = `${boardW}px`;
       this.boardEl.style.height = `${boardH}px`;
       this.boardEl.style.padding = `${padY}px ${padXR}px ${padYB}px ${padX}px`;
+      this.boardEl.style.borderRadius = `${boardRadius}px`;
       this.boardEl.style.gridTemplateColumns = colCss;
       this.boardEl.style.gridTemplateRows = rowCss;
     }
