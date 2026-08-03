@@ -898,52 +898,52 @@ export class UI {
       rentRows = `
         <div class="company-info__row">
           <img class="company-info__share-icon" src="${this.shareSpriteSrc('ko', 1)}" alt="" />
-          <span>1 компания страны</span>
-          <strong>${formatMoney(one)} × кости</strong>
+          <span>1 комп.</span>
+          <strong>${formatPriceShort(one)}×</strong>
         </div>
         <div class="company-info__row">
           <img class="company-info__share-icon" src="${this.shareSpriteSrc('ko', 2)}" alt="" />
-          <span>2 компании страны</span>
-          <strong>${formatMoney(two)} × кости</strong>
+          <span>2 комп.</span>
+          <strong>${formatPriceShort(two)}×</strong>
         </div>`;
-      bonusHtml = `<p class="company-info__bonus">Полная страна (обе компании): тариф ${formatMoney(two)} за очко костей.</p>`;
-      shareCostHtml = `<p class="company-info__meta">Акции не покупаются — аренда от суммы костей.</p>`;
+      bonusHtml = `<p class="company-info__bonus">Страна: ${formatPriceShort(two)} за очко костей</p>`;
+      shareCostHtml = `<p class="company-info__meta">Без акций · аренда = кости × тариф</p>`;
     } else if (cell.noShares || cell.group === 'cn') {
-      const labels = ['1 компания', '2 компании', '3 компании', '4 компании'];
+      const labels = ['1 комп.', '2 комп.', '3 комп.', '4 комп.'];
       rentRows = (cell.rent || []).slice(0, 4).map((r, i) => `
         <div class="company-info__row">
           <img class="company-info__share-icon" src="${this.shareSpriteSrc('chn', i + 1)}" alt="" />
           <span>${labels[i] || `${i + 1}`}</span>
-          <strong>${formatMoney(r)}</strong>
+          <strong>${formatPriceShort(r)}</strong>
         </div>`).join('');
-      bonusHtml = `<p class="company-info__bonus">Полная страна (${groupCells.length} компании): аренда ${formatMoney(cell.rent?.[groupCells.length - 1] || cell.rent?.[cell.rent.length - 1] || 0)}.</p>`;
-      shareCostHtml = `<p class="company-info__meta">Акции не покупаются — аренда растёт с числом компаний страны.</p>`;
+      bonusHtml = `<p class="company-info__bonus">Страна (${groupCells.length}): ${formatPriceShort(cell.rent?.[groupCells.length - 1] || cell.rent?.[cell.rent.length - 1] || 0)}</p>`;
+      shareCostHtml = `<p class="company-info__meta">Без акций · аренда от числа компаний</p>`;
     } else {
       const base = cell.rent?.[0] || 0;
       const mono = base * 2;
       shareCostHtml = cell.houseCost != null
-        ? `<p class="company-info__meta">Цена 1 акции: <strong>${formatMoney(cell.houseCost)}</strong> · нужна полная страна</p>`
+        ? `<p class="company-info__meta">Акция: <strong>${formatPriceShort(cell.houseCost)}</strong> · нужна вся страна</p>`
         : '';
-      bonusHtml = `<p class="company-info__bonus">Полная страна без акций: аренда ×2 → <strong>${formatMoney(mono)}</strong></p>`;
+      bonusHtml = `<p class="company-info__bonus">Страна без акций: ×2 → <strong>${formatPriceShort(mono)}</strong></p>`;
       rentRows = `
         <div class="company-info__row company-info__row--base">
           <span class="company-info__share-empty">0</span>
           <span>Без акций</span>
-          <strong>${formatMoney(base)}</strong>
+          <strong>${formatPriceShort(base)}</strong>
         </div>
         <div class="company-info__row company-info__row--base">
           <span class="company-info__share-empty">★</span>
-          <span>Страна собрана</span>
-          <strong>${formatMoney(mono)}</strong>
+          <span>Страна</span>
+          <strong>${formatPriceShort(mono)}</strong>
         </div>`
         + [1, 2, 3, 4, 5].map((n) => {
           const src = this.shareSpriteSrc('leaf', n, false);
-          const label = n === 5 ? '5 акций (контрольный)' : `${n} ${n === 1 ? 'акция' : n < 5 ? 'акции' : 'акций'}`;
+          const label = n === 5 ? '5 (51%)' : `${n} акц.`;
           return `
             <div class="company-info__row">
               <img class="company-info__share-icon" src="${src}" alt="" />
               <span>${label}</span>
-              <strong>${formatMoney(cell.rent?.[n] || 0)}</strong>
+              <strong>${formatPriceShort(cell.rent?.[n] || 0)}</strong>
             </div>`;
         }).join('');
     }
@@ -957,12 +957,12 @@ export class UI {
         if (cell.type === 'utility' || cell.diceRent) {
           const n = this.countOwnedInGroup(state, ps.owner, cell.group);
           const perPip = cell.rent?.[n >= 2 ? 1 : 0] || 0;
-          currentPay = `<p class="company-info__current">Сейчас: ${escapeHtml(owner?.name || 'игрок')} · ${formatMoney(perPip)} × сумма костей</p>`;
+          currentPay = `<p class="company-info__current">Сейчас: ${escapeHtml(owner?.name || 'игрок')} · ${formatPriceShort(perPip)}×кости</p>`;
         } else if (cell.noShares || cell.group === 'cn') {
           const n = this.countOwnedInGroup(state, ps.owner, cell.group);
           const idx = Math.max(0, Math.min(n - 1, (cell.rent?.length || 1) - 1));
           amount = cell.rent?.[idx] || 0;
-          currentPay = `<p class="company-info__current">Сейчас платят: <strong>${formatMoney(amount)}</strong> (${escapeHtml(owner?.name || 'игрок')})</p>`;
+          currentPay = `<p class="company-info__current">Сейчас: <strong>${formatPriceShort(amount)}</strong> · ${escapeHtml(owner?.name || 'игрок')}</p>`;
         } else {
           const houses = ps.houses || 0;
           const hasMono = groupCells.length > 0 && groupCells.every(c => (
@@ -971,10 +971,10 @@ export class UI {
           ));
           const baseRent = cell.rent?.[0] || 0;
           amount = houses > 0 ? (cell.rent?.[houses] || 0) : (hasMono ? baseRent * 2 : baseRent);
-          currentPay = `<p class="company-info__current">Сейчас платят: <strong>${formatMoney(amount)}</strong> (${escapeHtml(owner?.name || 'игрок')})</p>`;
+          currentPay = `<p class="company-info__current">Сейчас: <strong>${formatPriceShort(amount)}</strong> · ${escapeHtml(owner?.name || 'игрок')}</p>`;
         }
       } else if (ps.mortgaged) {
-        currentPay = `<p class="company-info__current">В залоге — аренда не берётся</p>`;
+        currentPay = `<p class="company-info__current">В залоге — без аренды</p>`;
       }
     }
 
@@ -991,7 +991,7 @@ export class UI {
             ${country ? `<p class="company-info__country">${escapeHtml(country)}</p>` : ''}
           </div>
         </div>
-        ${cell.price != null ? `<p class="company-info__meta">Цена компании: <strong>${formatMoney(cell.price)}</strong></p>` : ''}
+        ${cell.price != null ? `<p class="company-info__meta">Компания: <strong>${formatPriceShort(cell.price)}</strong></p>` : ''}
         ${shareCostHtml}
         ${bonusHtml}
         <div class="company-info__list">
