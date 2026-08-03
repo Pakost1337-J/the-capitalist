@@ -619,20 +619,22 @@ button, input, select { font-family: inherit; }
 .cell__body--bottom {
   flex-direction: column-reverse;
 }
-/* Бока: флаг у левого/правого внешнего края доски */
+/* Бока: флаг у внешнего края, лого+цена — компактный блок внутри клетки */
 .cell__body--right {
   flex-direction: row; /* stack | flag → флаг справа */
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  padding: 4px 4px 4px 6px;
-  gap: 4px;
+  padding: 2px 3px;
+  gap: 3px;
+  overflow: hidden;
 }
 .cell__body--left {
   flex-direction: row-reverse; /* flag | stack → флаг слева */
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  padding: 4px 6px 4px 4px;
-  gap: 4px;
+  padding: 2px 3px;
+  gap: 3px;
+  overflow: hidden;
 }
 .cell__body--corner {
   padding: 0;
@@ -698,31 +700,59 @@ button, input, select { font-family: inherit; }
 .cell__body--left .cell__logo,
 .cell__body--right .cell__logo {
   width: 100%;
-  max-width: 72%;
-  height: clamp(28px, 5.2vh, 48px);
-  min-height: 20px;
+  max-width: 100%;
+  height: min(var(--logo-h), calc(var(--cell-h) * 0.5));
+  max-height: calc(var(--cell-h) * 0.5);
+  min-height: 0;
+  flex: 0 1 auto;
+}
+
+.cell__body--left .cell__logo-img,
+.cell__body--right .cell__logo-img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
 }
 
 .cell__body--left .cell__logo-text,
 .cell__body--right .cell__logo-text {
-  font-size: clamp(0.5rem, 1.1vw, 0.72rem);
+  font-size: max(8px, calc(var(--cell-h) * 0.16));
 }
 
 .cell__body--left .cell__price,
 .cell__body--right .cell__price {
-  font-size: clamp(0.52rem, 1.15vw, 0.75rem);
+  font-size: max(8px, calc(var(--cell-h) * 0.17));
+  width: auto;
+  max-width: 100%;
 }
 
 .cell__body--left .cell__country-slot,
 .cell__body--right .cell__country-slot {
   flex: 0 0 auto;
   align-self: center;
+  max-width: calc(var(--cell-h) * 0.55);
+  max-height: calc(var(--cell-h) * 0.42);
+}
+
+.cell__body--left .cell__flag-img,
+.cell__body--right .cell__flag-img {
+  width: calc(var(--cell-h) * 0.42);
+  max-width: 100%;
+  height: auto;
+  max-height: calc(var(--cell-h) * 0.34);
 }
 
 .cell__body--left .cell__stack,
 .cell__body--right .cell__stack {
   flex: 0 1 auto;
   min-width: 0;
+  max-width: calc(var(--cell-w) * 1.15);
+  max-height: 100%;
+  overflow: hidden;
+  gap: 1px;
+  justify-content: center;
 }
 
 
@@ -819,11 +849,19 @@ button, input, select { font-family: inherit; }
   letter-spacing: 0.01em;
 }
 
-/* Боковые клетки — чуть компактнее, чтобы «ШАНС» не обрезался */
+/* Боковые клетки — от высоты клетки, чтобы не вылезало */
+.cell__body--left .cell__tax-title,
+.cell__body--right .cell__tax-title,
 .cell__body--left .cell__special .cell__tax-title,
 .cell__body--right .cell__special .cell__tax-title {
-  font-size: clamp(0.48rem, 0.95vw, 0.72rem);
-  letter-spacing: 0.04em;
+  font-size: max(8px, calc(var(--cell-h) * 0.15));
+  letter-spacing: 0.03em;
+}
+.cell__body--left .cell__tax-pct,
+.cell__body--right .cell__tax-pct,
+.cell__body--left .cell__special .cell__tax-pct,
+.cell__body--right .cell__special .cell__tax-pct {
+  font-size: max(8px, calc(var(--cell-h) * 0.16));
 }
 
 .cell__icon { font-size: clamp(0.85rem, 1.6vw, 1.15rem); line-height: 1; }
