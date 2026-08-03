@@ -621,20 +621,22 @@ button, input, select { font-family: inherit; }
 .cell__body--bottom {
   flex-direction: column-reverse;
 }
-/* Бока: флаг у левого/правого внешнего края доски */
+/* Бока: флаг у внешнего края, отступ от металлической рамки */
 .cell__body--right {
   flex-direction: row; /* stack | flag → флаг справа */
   justify-content: space-between;
   align-items: center;
-  padding: 4px 4px 4px 6px;
-  gap: 4px;
+  /* справа (наружу) больше — не лезть в кант */
+  padding: 3px calc(12px * var(--ui-scale)) 3px calc(7px * var(--ui-scale));
+  gap: calc(6px * var(--ui-scale));
 }
 .cell__body--left {
   flex-direction: row-reverse; /* flag | stack → флаг слева */
   justify-content: space-between;
   align-items: center;
-  padding: 4px 6px 4px 4px;
-  gap: 4px;
+  /* слева (наружу) больше — не лезть в кант */
+  padding: 3px calc(7px * var(--ui-scale)) 3px calc(12px * var(--ui-scale));
+  gap: calc(6px * var(--ui-scale));
 }
 .cell__body--corner {
   padding: 0;
@@ -700,31 +702,47 @@ button, input, select { font-family: inherit; }
 .cell__body--left .cell__logo,
 .cell__body--right .cell__logo {
   width: 100%;
-  max-width: 72%;
-  height: clamp(28px, 5.2vh, 48px);
-  min-height: 20px;
+  max-width: 100%;
+  height: min(var(--logo-h), calc(var(--cell-h) * 0.48));
+  min-height: 0;
+  max-height: calc(var(--cell-h) * 0.5);
+  flex: 0 0 auto;
+  overflow: hidden;
 }
 
 .cell__body--left .cell__logo-text,
 .cell__body--right .cell__logo-text {
-  font-size: clamp(0.5rem, 1.1vw, 0.72rem);
+  font-size: calc(var(--cell-h) * 0.17);
 }
 
 .cell__body--left .cell__price,
 .cell__body--right .cell__price {
-  font-size: clamp(0.52rem, 1.15vw, 0.75rem);
+  font-size: calc(var(--cell-h) * 0.17);
+  flex: 0 0 auto;
 }
 
 .cell__body--left .cell__country-slot,
 .cell__body--right .cell__country-slot {
   flex: 0 0 auto;
   align-self: center;
+  margin-inline: 0;
+}
+
+.cell__body--left .cell__flag-img,
+.cell__body--right .cell__flag-img {
+  width: calc(var(--cell-h) * 0.38);
+  max-height: calc(var(--cell-h) * 0.3);
 }
 
 .cell__body--left .cell__stack,
 .cell__body--right .cell__stack {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
+  max-width: calc(100% - 28px * var(--ui-scale));
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
 }
 
 
