@@ -1,6 +1,6 @@
 import {
   BOARD, BOARD_SIZE, BRAND_LOGO_SRC, COUNTRY_FLAG_SRC, COUNTRY_LABEL_RU, GROUP_COLORS,
-  JAIL_BAIL, AUCTION_STEP, getGridPosition, getGroupProperties, playerOwnTint,
+  JAIL_BAIL, AUCTION_STEP, GO_SALARY, getGridPosition, getGroupProperties, playerOwnTint,
 } from './config.js';
 import { formatMoney, formatPriceShort, sleep } from './utils.js';
 import { PHASE } from './game.js';
@@ -34,6 +34,10 @@ export class UI {
     this.choicePanel = document.getElementById('choice-panel');
     this.ownToast = document.getElementById('own-toast');
     this.companyInfo = document.getElementById('company-info');
+    this.gameDialog = document.getElementById('game-dialog');
+    this.cellTip = document.getElementById('cell-tip');
+    this._cellTipTimer = null;
+    this._exitUnlockTimer = null;
     this._dismissedNoticeId = null;
     this._noticeTimer = null;
     this._dealCompose = null;
@@ -55,7 +59,10 @@ export class UI {
     this._syncOrientation();
     this.fitLayout();
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this._companyInfoOpen) this.hideCompanyInfo();
+      if (e.key !== 'Escape') return;
+      if (this.gameDialog && !this.gameDialog.hidden) this.hideGameDialog();
+      else if (this._companyInfoOpen) this.hideCompanyInfo();
+      else if (this.cellTip && !this.cellTip.hidden) this.hideCellTip();
     });
 
     const onViewportChange = () => {
@@ -260,6 +267,11 @@ export class UI {
       if (cell.group) el.style.setProperty('--group-color', GROUP_COLORS[cell.group]);
       const side = this.cellSide(i);
       if (side !== 'corner') el.classList.add(`cell--side-${side}`);
+      if (['go', 'jail', 'parking', 'gotojail', 'chance', 'forcemajeure', 'tax'].includes(cell.type)) {
+        el.dataset.tip = '1';
+        el.classList.add('cell--tip');
+        el.title = 'Подсказка';
+      }
       el.innerHTML = this.renderCellHTML(cell, i);
       this.boardEl.appendChild(el);
       this.cells[i] = el;
@@ -272,18 +284,27 @@ export class UI {
     this.boardEl.addEventListener('click', (e) => {
       if (document.body.classList.contains('layout-edit')) return;
       const logo = e.target.closest('.cell__logo--clickable[data-info]');
-      if (!logo) return;
-      e.preventDefault();
-      e.stopPropagation();
-      this.showCompanyInfo(Number(logo.dataset.info));
+      if (logo) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.showCompanyInfo(Number(logo.dataset.info));
+        return;
+      }
+      const tipEl = e.target.closest('.cell[data-tip]');
+      if (tipEl) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.showCellTip(Number(tipEl.dataset.id));
+      }
     });
     this.boardEl.addEventListener('keydown', (e) => {
       if (document.body.classList.contains('layout-edit')) return;
       if (e.key !== 'Enter' && e.key !== ' ') return;
       const logo = e.target.closest?.('.cell__logo--clickable[data-info]');
-      if (!logo) return;
-      e.preventDefault();
-      this.showCompanyInfo(Number(logo.dataset.info));
+      if (logo) {
+        e.preventDefault();
+        this.showCompanyInfo(Number(logo.dataset.info));
+      }
     });
   }
 
@@ -887,6 +908,105 @@ export class UI {
     document.querySelector('.hub')?.classList.remove('hub--company-info');
   }
 
+  hideGameDialog() {
+    if (this._exitUnlockTimer) {
+      clearTimeout(this._exitUnlockTimer);
+      this._exitUnlockTimer = null;
+    }
+    if (this.gameDialog) {
+      this.gameDialog.hidden = true;
+      this.gameDialog.innerHTML = '';
+    }
+  }
+
+  hideCellTip() {
+    if (this._cellTipTimer) {
+      clearTimeout(this._cellTipTimer);
+      this._cellTipTimer = null;
+    }
+    if (this.cellTip) {
+      this.cellTip.hidden = true;
+      this.cellTip.innerHTML = '';
+    }
+  }
+
+  /** Игровой диалог выхода: «Выход» 3с серый, «Остаюсь», клик снаружи */
+  showExitDialog({ isSpectator, onConfirm }) {
+    if (!this.gameDialog) return;
+    this.hideCellTip();
+    this.hideCompanyInfo();
+    const text = isSpectator
+      ? 'Выйти из режима наблюдения?'
+      : 'Покинуть игру? Ваши компании станут свободными.';
+    this.gameDialog.hidden = false;
+    this.gameDialog.innerHTML = `
+      <div class="game-dialog__card" role="dialog" aria-modal="true">
+        <p class="game-dialog__text">${escapeHtml(text)}</p>
+        <div class="game-dialog__btns">
+          <button type="button" class="btn btn--club-muted" id="dialog-stay">Остаюсь</button>
+          <button type="button" class="btn btn--club game-dialog__exit" id="dialog-exit" disabled>Выход</button>
+        </div>
+      </div>
+    `;
+    const exitBtn = document.getElementById('dialog-exit');
+    const stayBtn = document.getElementById('dialog-stay');
+    stayBtn?.addEventListener('click', () => this.hideGameDialog());
+    this.gameDialog.onclick = (e) => {
+      if (e.target === this.gameDialog) this.hideGameDialog();
+    };
+    if (this._exitUnlockTimer) clearTimeout(this._exitUnlockTimer);
+    this._exitUnlockTimer = setTimeout(() => {
+      this._exitUnlockTimer = null;
+      if (!exitBtn) return;
+      exitBtn.disabled = false;
+      exitBtn.classList.add('is-ready');
+      exitBtn.addEventListener('click', () => {
+        this.hideGameDialog();
+        onConfirm?.();
+      }, { once: true });
+    }, 3000);
+  }
+
+  cellTipText(cellId) {
+    const cell = BOARD[cellId];
+    if (!cell) return '';
+    switch (cell.type) {
+      case 'go':
+        return `Старт: проход или остановка — получите ${formatMoney(GO_SALARY)}.`;
+      case 'jail':
+        return 'Тюрьма: просто гостите, если попали мимо. Из заключения — дубль или залог.';
+      case 'parking':
+        return 'Отдых: ничего не происходит, просто пропускаете ход клетки.';
+      case 'gotojail':
+        return 'Арест: сразу отправляетесь в тюрьму без зарплаты со Старта.';
+      case 'chance':
+        return 'Шанс: случайная карта — бонус, перемещение или небольшое событие.';
+      case 'forcemajeure':
+        return 'Форс-мажор: случайный штраф, ремонт или неприятность для бизнеса.';
+      case 'tax':
+        return `Налог ${cell.taxPercent ?? 6}%: платите долю от своего капитала.`;
+      default:
+        return cell.name || '';
+    }
+  }
+
+  showCellTip(cellId) {
+    if (!this.cellTip) return;
+    const text = this.cellTipText(cellId);
+    if (!text) return;
+    this.hideCellTip();
+    this.cellTip.hidden = false;
+    this.cellTip.innerHTML = `
+      <div class="cell-tip__card">
+        <p class="cell-tip__text">${escapeHtml(text)}</p>
+      </div>
+    `;
+    this.cellTip.onclick = (e) => {
+      if (e.target === this.cellTip || e.target.closest('.cell-tip__card')) this.hideCellTip();
+    };
+    this._cellTipTimer = setTimeout(() => this.hideCellTip(), 4500);
+  }
+
   showCompanyInfo(cellId) {
     const cell = BOARD[cellId];
     if (!cell || !this.companyInfo) return;
@@ -992,7 +1112,8 @@ export class UI {
     }
 
     this._companyInfoOpen = true;
-    document.querySelector('.hub')?.classList.add('hub--company-info');
+    this.hideCellTip();
+    this.hideGameDialog();
     this.companyInfo.hidden = false;
     this.companyInfo.innerHTML = `
       <div class="company-info__card">
@@ -1808,7 +1929,7 @@ export class UI {
           ${country ? `<p class="rent-panel__country">(${escapeHtml(country)})</p>` : ''}
           <p class="rent-panel__pay">Стоимость поля: ${formatMoney(pa.price)}</p>
           <p class="rent-panel__pay">У вас средств: ${formatMoney(buyer?.money || 0)}</p>
-          <p class="rent-panel__hint">Вы можете купить эту компанию или выставить ее на аукцион</p>
+          <p class="rent-panel__hint">Купить сейчас или выставить на аукцион</p>
         </div>
         <div class="rent-panel__side">
           <div class="rent-panel__btns">

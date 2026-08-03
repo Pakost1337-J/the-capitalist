@@ -17,7 +17,7 @@ async function loadTheme() {
 function preventGamePagePan(e) {
   if (!document.body.classList.contains('is-playing')) return;
   const allow = e.target.closest?.(
-    'button, input, select, textarea, a, .hub__actions, .hub__chat-messages, .deal-panel__list, .choice-panel, .hub__choice, .company-info'
+    'button, input, select, textarea, a, .hub__actions, .hub__chat-messages, .deal-panel__list, .choice-panel, .hub__choice, .company-info, .game-dialog, .cell-tip'
   );
   if (!allow) e.preventDefault();
 }
@@ -127,13 +127,15 @@ function showToast(text) {
 }
 
 function confirmExitGame() {
+  if (!ui) return;
   const isSpec = network.role === 'spectator' || ui?.lastState?.isSpectator;
-  const msg = isSpec
-    ? 'Выйти из режима наблюдения?'
-    : 'Покинуть игру? Ваши компании станут свободными.';
-  if (!window.confirm(msg)) return;
-  network.leaveRoom();
-  location.reload();
+  ui.showExitDialog({
+    isSpectator: isSpec,
+    onConfirm: () => {
+      network.leaveRoom();
+      location.reload();
+    },
+  });
 }
 
 function startGameUI(state) {
