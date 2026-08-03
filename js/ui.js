@@ -50,49 +50,85 @@ export class UI {
 
     this.setupChat();
     this.buildBoard();
+    this._syncOrientation();
     this.fitLayout();
 
-    window.addEventListener('resize', () => {
+    const onViewportChange = () => {
       clearTimeout(this._resizeTimer);
       this._resizeTimer = setTimeout(() => {
+        this._syncOrientation();
         this.fitLayout();
         this.repositionTokens();
         this.dice3d?.resize();
       }, 80);
-    });
+    };
+    window.addEventListener('resize', onViewportChange);
+    window.addEventListener('orientationchange', onViewportChange);
   }
 
-  /** Растягивает поле на весь экран; игроки остаются сразу справа от доски */
+  /** Portrait → overlay; try landscape lock when API allows */
+  _syncOrientation() {
+    const portrait = window.matchMedia('(orientation: portrait)').matches;
+    document.body.classList.toggle('orientation-portrait', portrait);
+    const lockEl = document.getElementById('orientation-lock');
+    if (lockEl) lockEl.hidden = !portrait || !document.body.classList.contains('is-playing');
+    if (!portrait) this.tryLockLandscape();
+  }
+
+  tryLockLandscape() {
+    const orient = screen.orientation;
+    if (!orient || typeof orient.lock !== 'function') return;
+    orient.lock('landscape').catch(() => {});
+  }
+
+  /** Растягивает эталонную сцену (доска + rail справа) в viewport; единый --ui-scale */
   fitLayout() {
     const shell = document.getElementById('game-layout');
     if (!shell || shell.hidden) return;
 
-    const pad = 16;
-    const gap = 10;
-    const narrow = window.innerWidth <= 860;
-    const rail = narrow ? 0 : Math.round(Math.min(230, Math.max(188, window.innerWidth * 0.15)));
-    const availW = Math.max(320, shell.clientWidth - pad - (narrow ? 0 : rail + gap));
-    const availH = Math.max(280, shell.clientHeight - pad - (narrow ? 120 : 0));
+    // Portrait: не крутим layout — поверх overlay
+    if (document.body.classList.contains('orientation-portrait')) return;
 
+    const gap = 10;
+    const REF_RAIL = 220;
     // Делители: mid из SVG-сетки, края — inset дерева на board-frame (не 0/1023)
     // 13×8 → 38 клеток: угол + 11 mid + угол / угол + 6 mid + угол
     // board-frame.png после обрезки края −2px с каждой стороны
     const IMG_W = 1020;
     const IMG_H = 694;
-    const ASPECT = IMG_W / IMG_H;
+    const REF_STAGE_W = IMG_W + gap + REF_RAIL;
+    const REF_STAGE_H = IMG_H;
     const WOOD_X = [11, 151, 216, 282, 347, 412, 477, 542, 608, 672, 738, 803, 868, 1008];
     const WOOD_Y = [11, 152, 218, 283, 348, 413, 478, 544, 683];
 
-    let boardW = availW;
-    let boardH = Math.floor(boardW / ASPECT);
-    if (boardH > availH) {
-      boardH = availH;
-      boardW = Math.floor(boardH * ASPECT);
+    const st = getComputedStyle(shell);
+    const padL = parseFloat(st.paddingLeft) || 0;
+    const padR = parseFloat(st.paddingRight) || 0;
+    const padT = parseFloat(st.paddingTop) || 0;
+    const padB = parseFloat(st.paddingBottom) || 0;
+    const availW = Math.max(280, shell.clientWidth - padL - padR);
+    const availH = Math.max(200, shell.clientHeight - padT - padB);
+
+    const scale = Math.min(availW / REF_STAGE_W, availH / REF_STAGE_H);
+    let boardW = Math.max(1, Math.floor(IMG_W * scale));
+    let boardH = Math.round(boardW * IMG_H / IMG_W);
+    let rail = Math.round(REF_RAIL * (boardW / IMG_W));
+
+    // Поджать округления, чтобы сцена не вылезала из viewport
+    while (boardW + gap + rail > availW && boardW > 200) {
+      boardW -= 1;
+      boardH = Math.round(boardW * IMG_H / IMG_W);
+      rail = Math.round(REF_RAIL * (boardW / IMG_W));
     }
-    boardH = Math.round(boardW * IMG_H / IMG_W);
+    while (boardH > availH && boardW > 200) {
+      boardW -= 1;
+      boardH = Math.round(boardW * IMG_H / IMG_W);
+      rail = Math.round(REF_RAIL * (boardW / IMG_W));
+    }
 
     const sx = boardW / IMG_W;
     const sy = boardH / IMG_H;
+    const uiScale = sx;
 
     // Абсолютное округление линий — без накопления ошибки по mid-клеткам
     const xPx = WOOD_X.map((v) => Math.round(v * sx));
@@ -155,7 +191,8 @@ export class UI {
     };
     apply(root);
     apply(this.boardEl);
-    root.style.setProperty('--rail-w', narrow ? '100%' : `${rail}px`);
+    root.style.setProperty('--ui-scale', String(uiScale));
+    root.style.setProperty('--rail-w', `${rail}px`);
     if (this.boardEl) {
       this.boardEl.style.width = `${boardW}px`;
       this.boardEl.style.height = `${boardH}px`;

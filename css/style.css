@@ -21,7 +21,15 @@
   --corner-bot: 150px;
   --cell-w: 66px;
   --cell-h: 67px;
-  --die-size: clamp(62px, 9.2vw, 88px);
+  --ui-scale: 1;
+  --fs-xs: calc(11px * var(--ui-scale));
+  --fs-sm: calc(13px * var(--ui-scale));
+  --fs-md: calc(15px * var(--ui-scale));
+  --fs-lg: calc(18px * var(--ui-scale));
+  --fs-xl: calc(22px * var(--ui-scale));
+  --pad-sm: calc(6px * var(--ui-scale));
+  --pad-md: calc(10px * var(--ui-scale));
+  --die-size: calc(72px * var(--ui-scale));
   --logo-w: 56px;
   --logo-h: 36px;
   --font: 'PTNarrow', 'Segoe UI', system-ui, sans-serif;
@@ -57,6 +65,72 @@ body {
     radial-gradient(ellipse at 50% 40%, rgba(90, 60, 40, 0.15), rgba(20, 12, 8, 0.55) 85%),
     var(--leather-img) center / 420px 420px repeat,
     #5a4030;
+}
+
+/* Игра: без скролла/пана страницы */
+body.is-playing {
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body.is-playing button,
+body.is-playing input,
+body.is-playing select,
+body.is-playing textarea,
+body.is-playing a,
+body.is-playing .hub__actions,
+body.is-playing .hub__chat-messages,
+body.is-playing .deal-panel__list {
+  touch-action: manipulation;
+}
+
+/* Portrait: просьба повернуть */
+.orientation-lock {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(90, 60, 40, 0.2), rgba(20, 12, 8, 0.88) 85%),
+    var(--leather-img) center / 420px 420px repeat,
+    #3a2a22;
+  touch-action: none;
+}
+
+.orientation-lock[hidden] {
+  display: none !important;
+}
+
+.orientation-lock__card {
+  max-width: 280px;
+  color: #f3e6d4;
+}
+
+.orientation-lock__title {
+  font-family: 'PTNarrow', sans-serif;
+  font-size: 1.45rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.orientation-lock__text {
+  font-size: 0.95rem;
+  line-height: 1.4;
+  opacity: 0.9;
+}
+
+body.is-playing.orientation-portrait .game-shell {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 button, input, select { font-family: inherit; }
@@ -315,13 +389,20 @@ button, input, select { font-family: inherit; }
   display: flex;
   justify-content: center;
   align-items: center;
+  position: fixed;
+  inset: 0;
   width: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100%;
   height: 100dvh;
-  padding: 8px;
+  padding:
+    max(6px, env(safe-area-inset-top, 0px))
+    max(6px, env(safe-area-inset-right, 0px))
+    max(6px, env(safe-area-inset-bottom, 0px))
+    max(6px, env(safe-area-inset-left, 0px));
   box-sizing: border-box;
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
   background: transparent;
 }
 
@@ -333,6 +414,7 @@ button, input, select { font-family: inherit; }
   width: fit-content;
   max-width: 100%;
   max-height: 100%;
+  flex-shrink: 0;
 }
 
 .game-main {
@@ -900,7 +982,7 @@ button, input, select { font-family: inherit; }
 .token,
 .token-fly {
   --token-color: #e11d48;
-  --token-size: clamp(26px, 3vw, 38px);
+  --token-size: calc(32px * var(--ui-scale));
   width: var(--token-size);
   height: var(--token-size);
   border-radius: 50%;
@@ -933,7 +1015,7 @@ button, input, select { font-family: inherit; }
 }
 
 .token--board {
-  --token-size: clamp(34px, 4vw, 48px);
+  --token-size: calc(40px * var(--ui-scale));
   width: var(--token-size);
   height: var(--token-size);
   border-radius: 0;
@@ -1004,8 +1086,8 @@ button, input, select { font-family: inherit; }
   min-height: 0;
   width: 100%;
   height: 100%;
-  padding: clamp(8px, 1.2vw, 14px);
-  gap: clamp(8px, 1.2vw, 14px);
+  padding: var(--pad-md);
+  gap: var(--pad-md);
   color: var(--ink-soft);
   overflow: hidden;
   font-family: var(--font);
@@ -1129,7 +1211,7 @@ button, input, select { font-family: inherit; }
 .own-toast__title {
   font-family: 'PTNarrow', sans-serif;
   font-weight: 700;
-  font-size: clamp(1.05rem, 1.8vw, 1.35rem);
+  font-size: var(--fs-xl);
   color: #2a1c14;
   max-width: 22em;
 }
@@ -1137,7 +1219,7 @@ button, input, select { font-family: inherit; }
 .own-toast__text {
   font-family: 'PTNarrow', sans-serif;
   font-weight: 400;
-  font-size: clamp(0.85rem, 1.35vw, 1.05rem);
+  font-size: var(--fs-md);
   line-height: 1.35;
   color: #3a2a1a;
   max-width: 22em;
@@ -1158,7 +1240,7 @@ button, input, select { font-family: inherit; }
   align-items: stretch;
   justify-content: center;
   width: 100%;
-  min-height: clamp(130px, 20vh, 180px);
+  min-height: calc(150px * var(--ui-scale));
   flex-shrink: 0;
   z-index: 2;
 }
@@ -1185,9 +1267,9 @@ button, input, select { font-family: inherit; }
 
 .table-toss {
   position: relative;
-  width: min(100%, clamp(200px, 34vw, 320px));
+  width: min(100%, calc(260px * var(--ui-scale)));
   height: 100%;
-  min-height: clamp(90px, 14vh, 130px);
+  min-height: calc(110px * var(--ui-scale));
   pointer-events: none;
 }
 
@@ -1205,7 +1287,7 @@ button, input, select { font-family: inherit; }
   position: relative;
   z-index: 3;
   width: 100%;
-  max-width: 220px;
+  max-width: calc(220px * var(--ui-scale));
   text-align: center;
   flex-shrink: 0;
   margin-top: 2px;
@@ -1213,7 +1295,7 @@ button, input, select { font-family: inherit; }
 
 .hub__player-name {
   font-weight: 800;
-  font-size: clamp(0.85rem, 1.5vw, 1.1rem);
+  font-size: var(--fs-md);
   margin-bottom: 8px;
   color: #fff;
 }
@@ -1237,14 +1319,14 @@ button, input, select { font-family: inherit; }
 }
 
 .hub__stat span {
-  font-size: clamp(0.55rem, 0.95vw, 0.68rem);
+  font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--muted);
   text-transform: uppercase;
 }
 
 .hub__stat strong {
-  font-size: clamp(0.72rem, 1.2vw, 0.9rem);
+  font-size: var(--fs-sm);
   color: #7ddea0;
 }
 
@@ -1268,12 +1350,12 @@ button, input, select { font-family: inherit; }
   position: relative;
   z-index: 3;
   width: 100%;
-  max-width: 320px;
+  max-width: calc(320px * var(--ui-scale));
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--pad-sm);
   min-height: 0;
   /* Не растягивать на всю арену — иначе меню прилипает к верху */
   flex: 0 1 auto;
@@ -1329,7 +1411,7 @@ button, input, select { font-family: inherit; }
 
 .deal-panel__title {
   font-family: 'PTNarrow', sans-serif;
-  font-size: clamp(0.85rem, 1.3vw, 1.05rem);
+  font-size: var(--fs-md);
   font-weight: 700;
   margin: 0;
 }
@@ -1404,8 +1486,8 @@ button, input, select { font-family: inherit; }
 
 .deal-panel .btn {
   width: 100%;
-  padding: 8px 10px;
-  font-size: clamp(0.72rem, 1.1vw, 0.88rem);
+  padding: calc(8px * var(--ui-scale)) calc(10px * var(--ui-scale));
+  font-size: var(--fs-sm);
 }
 
 .deal-panel--compose {
@@ -1497,7 +1579,7 @@ button, input, select { font-family: inherit; }
 
 .deal-view__head {
   font-family: 'PTNarrow', sans-serif;
-  font-size: clamp(0.9rem, 1.4vw, 1.1rem);
+  font-size: var(--fs-md);
   font-weight: 700;
 }
 
@@ -1559,7 +1641,7 @@ button, input, select { font-family: inherit; }
 
 .deal-money {
   font-family: 'PTNarrow', sans-serif;
-  font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+  font-size: var(--fs-xl);
   font-weight: 800;
   letter-spacing: 0.02em;
 }
@@ -1581,8 +1663,8 @@ button, input, select { font-family: inherit; }
 
 .deal-view__bar .btn {
   width: 100%;
-  padding: 12px 8px;
-  font-size: clamp(0.72rem, 1.1vw, 0.88rem);
+  padding: calc(12px * var(--ui-scale)) calc(8px * var(--ui-scale));
+  font-size: var(--fs-sm);
 }
 
 .deal-view__bar .flip-timer {
@@ -1616,14 +1698,14 @@ button, input, select { font-family: inherit; }
 
 .rent-panel__title {
   font-family: 'PTNarrow', sans-serif;
-  font-size: clamp(0.95rem, 1.6vw, 1.2rem);
+  font-size: var(--fs-lg);
   font-weight: 700;
   line-height: 1.25;
 }
 
 .rent-panel__card {
   font-weight: 700;
-  font-size: clamp(0.82rem, 1.3vw, 0.98rem);
+  font-size: var(--fs-md);
   line-height: 1.35;
   margin-top: 4px;
 }
@@ -1635,12 +1717,12 @@ button, input, select { font-family: inherit; }
 
 .rent-panel__pay {
   font-weight: 800;
-  font-size: clamp(0.82rem, 1.35vw, 1rem);
+  font-size: var(--fs-md);
   margin-top: 4px;
 }
 
 .rent-panel__hint {
-  font-size: clamp(0.68rem, 1.1vw, 0.8rem);
+  font-size: var(--fs-sm);
   font-weight: 600;
   line-height: 1.35;
   opacity: 0.9;
@@ -1662,8 +1744,8 @@ button, input, select { font-family: inherit; }
 
 .rent-panel__btns .btn {
   width: 100%;
-  padding: 12px 10px;
-  font-size: clamp(0.78rem, 1.2vw, 0.95rem);
+  padding: calc(12px * var(--ui-scale)) calc(10px * var(--ui-scale));
+  font-size: var(--fs-sm);
 }
 
 .rent-panel__empty {
@@ -1699,7 +1781,7 @@ button, input, select { font-family: inherit; }
   width: var(--flip-w);
   height: var(--flip-h);
   font-family: 'PTNarrow', Consolas, monospace;
-  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  font-size: var(--fs-xl);
   font-weight: 700;
   color: #5dff5a;
   text-shadow: 0 0 6px rgba(60, 255, 70, 0.55);
@@ -1841,11 +1923,6 @@ button, input, select { font-family: inherit; }
 .flip-timer__colon::before { top: 18%; }
 .flip-timer__colon::after { bottom: 18%; }
 
-@media (max-width: 640px) {
-  .rent-panel {
-    grid-template-columns: 1fr;
-  }
-}
 
 .wait-turn {
   font-weight: 700;
@@ -1964,8 +2041,8 @@ button, input, select { font-family: inherit; }
   opacity: 0.9;
 }
 .auction-panel__logo {
-  width: 78px;
-  height: 78px;
+  width: calc(78px * var(--ui-scale));
+  height: calc(78px * var(--ui-scale));
   object-fit: contain;
   border-radius: 0;
   padding: 8px;
@@ -2020,16 +2097,16 @@ button, input, select { font-family: inherit; }
 }
 
 .hub__chat {
-  flex: 0 0 clamp(180px, 28%, 260px);
-  min-width: 160px;
-  max-width: 280px;
+  flex: 0 0 calc(220px * var(--ui-scale));
+  min-width: calc(160px * var(--ui-scale));
+  max-width: calc(260px * var(--ui-scale));
   align-self: stretch;
   z-index: 6;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  gap: 10px;
-  padding: clamp(8px, 1.2vw, 12px);
+  gap: var(--pad-md);
+  padding: var(--pad-md);
   /* Затемнение без жёсткой рамки */
   background:
     radial-gradient(120% 90% at 80% 50%, rgba(20, 12, 8, 0.42) 0%, rgba(20, 12, 8, 0.18) 48%, transparent 78%);
@@ -2045,7 +2122,7 @@ button, input, select { font-family: inherit; }
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  font-size: clamp(0.62rem, 1.05vw, 0.78rem);
+  font-size: var(--fs-xs);
   font-weight: 600;
   color: rgba(243, 230, 212, 0.92);
   text-align: left;
@@ -2078,7 +2155,7 @@ button, input, select { font-family: inherit; }
   border: none;
   outline: none;
   font-family: inherit;
-  font-size: clamp(0.72rem, 1vw, 0.84rem);
+  font-size: var(--fs-sm);
   font-weight: 500;
   color: #2a1c14;
   background: transparent;
@@ -2125,12 +2202,12 @@ button, input, select { font-family: inherit; }
 .players-rail {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: calc(8px * var(--ui-scale));
   width: var(--rail-w);
   min-width: var(--rail-w);
   max-width: var(--rail-w);
   overflow: hidden;
-  padding: 10px 8px;
+  padding: calc(10px * var(--ui-scale)) calc(8px * var(--ui-scale));
   flex-shrink: 0;
   align-self: stretch;
   height: auto;
@@ -2147,10 +2224,10 @@ button, input, select { font-family: inherit; }
 
 .p-card {
   flex: 1 1 0;
-  min-height: 102px;
+  min-height: calc(102px * var(--ui-scale));
   position: relative;
   border-radius: 10px;
-  padding: 4px;
+  padding: calc(4px * var(--ui-scale));
   background: linear-gradient(160deg, #8a6a48, #6e5238 45%, #5a422e);
   box-shadow:
     0 5px 14px rgba(0, 0, 0, 0.4),
@@ -2163,9 +2240,9 @@ button, input, select { font-family: inherit; }
 .p-card__inner {
   position: relative;
   height: 100%;
-  min-height: 92px;
+  min-height: calc(92px * var(--ui-scale));
   border-radius: 5px;
-  padding: 10px 12px 12px;
+  padding: calc(10px * var(--ui-scale)) calc(12px * var(--ui-scale)) calc(12px * var(--ui-scale));
   /* Верхний блик — «свечение» ячейки */
   background:
     radial-gradient(120% 80% at 50% -8%, rgba(255, 236, 190, 0.48), transparent 52%),
@@ -2236,7 +2313,7 @@ button, input, select { font-family: inherit; }
 .p-card__name {
   font-family: 'PTNarrow', sans-serif;
   font-weight: 500;
-  font-size: clamp(0.98rem, 1.35vw, 1.18rem);
+  font-size: var(--fs-lg);
   line-height: 1.1;
   color: #2a2118;
   overflow: hidden;
@@ -2250,7 +2327,7 @@ button, input, select { font-family: inherit; }
   margin-top: 5px;
   font-family: 'PTNarrow', sans-serif;
   font-weight: 400;
-  font-size: clamp(1.2rem, 1.75vw, 1.45rem);
+  font-size: var(--fs-xl);
   line-height: 1.05;
   color: #1f1812;
   font-variant-numeric: tabular-nums;
@@ -2259,7 +2336,7 @@ button, input, select { font-family: inherit; }
 
 .p-card__cash--out {
   font-weight: 500;
-  font-size: clamp(1.05rem, 1.45vw, 1.25rem);
+  font-size: var(--fs-lg);
   color: #4a3a2c;
 }
 
@@ -2268,7 +2345,7 @@ button, input, select { font-family: inherit; }
   padding-right: 52px;
   font-family: 'PTNarrow', sans-serif;
   font-weight: 400;
-  font-size: clamp(0.8rem, 1.1vw, 0.95rem);
+  font-size: var(--fs-sm);
   color: #3a2a1a;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
@@ -2279,7 +2356,7 @@ button, input, select { font-family: inherit; }
   padding-right: 52px;
   font-family: 'PTNarrow', sans-serif;
   font-weight: 400;
-  font-size: clamp(0.72rem, 1vw, 0.86rem);
+  font-size: var(--fs-sm);
   line-height: 1.25;
   color: #3a2a1a;
   font-variant-numeric: tabular-nums;
@@ -2300,8 +2377,8 @@ button, input, select { font-family: inherit; }
   position: absolute;
   right: 6px;
   bottom: 4px;
-  width: clamp(44px, 5vw, 56px);
-  height: clamp(44px, 5vw, 56px);
+  width: calc(50px * var(--ui-scale));
+  height: calc(50px * var(--ui-scale));
   object-fit: contain;
   /* тень уже в PNG */
   filter: none;
@@ -2367,37 +2444,5 @@ button, input, select { font-family: inherit; }
   box-shadow: var(--shadow);
 }
 
-/* Adaptive */
-@media (max-width: 860px) {
-  .game-shell {
-    height: auto;
-    min-height: 100dvh;
-    overflow: auto;
-    align-items: flex-start;
-  }
-
-  .game-stage {
-    flex-direction: column;
-    width: 100%;
-    align-items: center;
-  }
-
-  .players-rail {
-    flex-direction: row;
-    flex-wrap: wrap;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-  }
-
-  .p-card {
-    flex: 1 1 140px;
-    min-width: 130px;
-    max-width: 200px;
-  }
-}
-
-@media (max-height: 700px) {
-  .hub__dice-row { min-height: 72px; }
-}
+/* Layout always landscape row; scale via --ui-scale from fitLayout */
 

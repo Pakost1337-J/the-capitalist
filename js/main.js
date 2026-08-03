@@ -15,9 +15,18 @@ async function loadTheme() {
   } catch (_) {}
 }
 
+function preventGamePagePan(e) {
+  if (!document.body.classList.contains('is-playing')) return;
+  const allow = e.target.closest?.(
+    'button, input, select, textarea, a, .hub__actions, .hub__chat-messages, .deal-panel__list, .choice-panel, .hub__choice'
+  );
+  if (!allow) e.preventDefault();
+}
+
 async function init() {
   await loadTheme();
   initLayoutTweak();
+  document.addEventListener('touchmove', preventGamePagePan, { passive: false });
 
   try {
     await network.connect();
@@ -86,9 +95,12 @@ function startGameUI(state) {
   lobbyEl.style.display = 'none';
   gameEl.hidden = false;
   gameEl.style.display = 'flex';
+  document.body.classList.add('is-playing');
 
   ui = new UI(null, network);
   ui.mySlot = state.mySlot;
+  ui.tryLockLandscape();
+  ui._syncOrientation();
   ui.fitLayout();
   ui.render(state);
 }
