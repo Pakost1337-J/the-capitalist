@@ -525,6 +525,10 @@ button, input, select { font-family: inherit; }
   opacity: 0.92;
   background: transparent;
   transform-origin: center center;
+  --tw-x: 0%;
+  --tw-y: 0%;
+  --tw-s: 1;
+  transform: translate(var(--tw-x), var(--tw-y)) scale(var(--tw-s));
 }
 
 /* display:block выше иначе перебивает атрибут hidden — серый градиент на некупленных */
