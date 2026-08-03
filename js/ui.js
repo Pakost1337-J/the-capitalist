@@ -159,10 +159,10 @@ export class UI {
     const cornerBot = rowTracks[rowTracks.length - 1];
     const cellW = colTracks[1];
     const cellH = rowTracks[1];
-    // Лого заполняет клетку плотнее (на телефоне cellW мелкий — 0.38 давал «пылинки»)
-    const logoW = Math.max(16, Math.round(cellW * 0.92));
-    const logoH = Math.max(16, Math.round(Math.min(cellW * 0.78, cellH * 0.48)));
-    const boardRadius = Math.max(6, Math.round(18 * uiScale));
+    // Лого от mid-клетки; не сжимать ниже читаемого на телефоне
+    const logoW = Math.max(20, Math.round(cellW * 0.88));
+    const logoH = Math.max(18, Math.round(Math.min(cellW * 0.7, cellH * 0.42)));
+    const boardRadius = Math.max(8, Math.round(16 * uiScale));
     const colCss = colTracks.map((px) => `${px}px`).join(' ');
     const rowCss = rowTracks.map((px) => `${px}px`).join(' ');
 

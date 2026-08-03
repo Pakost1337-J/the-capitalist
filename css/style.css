@@ -604,7 +604,7 @@ button, input, select { font-family: inherit; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 5px 3px;
+  padding: 4px 3px;
   text-align: center;
   gap: 2px;
   min-height: 0;
@@ -614,39 +614,35 @@ button, input, select { font-family: inherit; }
   z-index: 2;
 }
 
-/* Верх/низ: флаг у внешнего края */
+/* Верх/низ: флаг у внешнего края → лого → цена */
 .cell__body--top {
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: space-between;
   align-items: center;
-  padding: 2px 1px 3px;
-  gap: 1px;
-  overflow: hidden;
+  padding: 4px 2px 5px;
+  gap: 2px;
 }
 .cell__body--bottom {
   flex-direction: column-reverse;
-  justify-content: flex-start;
+  justify-content: space-between;
   align-items: center;
-  padding: 3px 1px 2px;
-  gap: 1px;
-  overflow: hidden;
+  padding: 5px 2px 4px;
+  gap: 2px;
 }
-/* Бока: флаг у внешнего края, лого+цена — компактный блок внутри клетки */
+/* Бока: флаг у внешнего края, лого+цена к центру */
 .cell__body--right {
   flex-direction: row; /* stack | flag → флаг справа */
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
-  padding: 2px 3px;
+  padding: 3px 4px 3px 5px;
   gap: 3px;
-  overflow: hidden;
 }
 .cell__body--left {
   flex-direction: row-reverse; /* flag | stack → флаг слева */
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
-  padding: 2px 3px;
+  padding: 3px 5px 3px 4px;
   gap: 3px;
-  overflow: hidden;
 }
 .cell__body--corner {
   padding: 0;
@@ -671,7 +667,7 @@ button, input, select { font-family: inherit; }
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  flex: 0 0 auto;
   padding: 0;
   background: none;
   border: none;
@@ -680,30 +676,25 @@ button, input, select { font-family: inherit; }
 }
 
 .cell__flag {
-  font-size: max(12px, calc(var(--cell-w) * 0.42));
+  font-size: calc(var(--logo-h) * 0.85);
   line-height: 1;
 }
 
 .cell__flag-img {
-  width: max(14px, calc(var(--cell-w) * 0.52));
+  width: calc(var(--logo-w) * 0.55);
   height: auto;
-  max-height: max(12px, calc(var(--cell-w) * 0.38));
+  max-height: calc(var(--logo-h) * 0.72);
   object-fit: contain;
   border-radius: 0;
   display: block;
   flex-shrink: 0;
 }
 
-.cell__body--top .cell__flag-img,
-.cell__body--bottom .cell__flag-img {
-  width: max(14px, calc(var(--cell-w) * 0.58));
-  max-height: max(12px, calc(var(--cell-w) * 0.42));
-}
-
 .cell__logo {
   width: min(100%, var(--logo-w));
   height: var(--logo-h);
-  min-height: 0;
+  min-height: var(--logo-h);
+  max-height: var(--logo-h);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -711,56 +702,42 @@ button, input, select { font-family: inherit; }
   border: none;
   border-radius: 0;
   overflow: hidden;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
 }
 
 .cell__body--left .cell__logo,
 .cell__body--right .cell__logo {
-  width: auto;
-  max-width: calc(var(--cell-h) * 1.35);
-  height: calc(var(--cell-h) * 0.58);
-  max-height: calc(var(--cell-h) * 0.62);
-  min-height: 0;
-  flex: 0 1 auto;
+  width: min(100%, calc(var(--cell-h) * 1.15));
+  height: calc(var(--cell-h) * 0.48);
+  min-height: calc(var(--cell-h) * 0.48);
+  max-height: calc(var(--cell-h) * 0.48);
 }
 
 .cell__body--left .cell__logo-text,
 .cell__body--right .cell__logo-text {
-  font-size: max(9px, calc(var(--cell-h) * 0.2));
+  font-size: calc(var(--cell-h) * 0.18);
 }
 
 .cell__body--left .cell__price,
 .cell__body--right .cell__price {
-  font-size: max(9px, calc(var(--cell-h) * 0.2));
+  font-size: calc(var(--cell-h) * 0.18);
   width: auto;
   max-width: 100%;
 }
 
-.cell__body--left .cell__country-slot,
-.cell__body--right .cell__country-slot {
-  flex: 0 0 auto;
-  align-self: center;
-  max-width: calc(var(--cell-h) * 0.62);
-  max-height: calc(var(--cell-h) * 0.5);
-}
-
 .cell__body--left .cell__flag-img,
 .cell__body--right .cell__flag-img {
-  width: calc(var(--cell-h) * 0.5);
-  max-width: 100%;
-  height: auto;
-  max-height: calc(var(--cell-h) * 0.42);
+  width: calc(var(--cell-h) * 0.4);
+  max-height: calc(var(--cell-h) * 0.34);
 }
 
 .cell__body--left .cell__stack,
 .cell__body--right .cell__stack {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
-  max-width: calc(var(--cell-h) * 1.45);
   max-height: 100%;
-  overflow: hidden;
-  gap: 1px;
+  gap: 2px;
   justify-content: center;
 }
 
@@ -858,19 +835,19 @@ button, input, select { font-family: inherit; }
   letter-spacing: 0.01em;
 }
 
-/* Боковые клетки — от высоты клетки, чтобы не вылезало */
+/* Боковые клетки — чуть компактнее */
 .cell__body--left .cell__tax-title,
 .cell__body--right .cell__tax-title,
 .cell__body--left .cell__special .cell__tax-title,
 .cell__body--right .cell__special .cell__tax-title {
-  font-size: max(8px, calc(var(--cell-h) * 0.15));
+  font-size: calc(var(--cell-h) * 0.16);
   letter-spacing: 0.03em;
 }
 .cell__body--left .cell__tax-pct,
 .cell__body--right .cell__tax-pct,
 .cell__body--left .cell__special .cell__tax-pct,
 .cell__body--right .cell__special .cell__tax-pct {
-  font-size: max(8px, calc(var(--cell-h) * 0.16));
+  font-size: calc(var(--cell-h) * 0.17);
 }
 
 .cell__icon { font-size: clamp(0.85rem, 1.6vw, 1.15rem); line-height: 1; }
@@ -892,16 +869,15 @@ button, input, select { font-family: inherit; }
   justify-content: center;
   align-items: center;
   font-family: var(--font);
-  font-size: max(9px, calc(var(--cell-w) * 0.22));
+  font-size: calc(var(--logo-h) * 0.42);
   font-weight: 500;
   color: #2a1c14;
   line-height: 1.05;
-  flex-shrink: 0;
+  flex: 0 0 auto;
   letter-spacing: 0.02em;
   white-space: nowrap;
   width: 100%;
   max-width: 100%;
-  overflow: hidden;
 }
 
 .cell__price-core {
@@ -2457,14 +2433,6 @@ button, input, select { font-family: inherit; }
   object-fit: contain;
   object-position: center;
   pointer-events: none;
-}
-
-.cell__body--left .cell__logo-img,
-.cell__body--right .cell__logo-img {
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: 100%;
 }
 
 .p-card__chip--fallback {
