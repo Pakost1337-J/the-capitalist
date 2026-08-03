@@ -102,7 +102,7 @@ export class UI {
     if (document.body.classList.contains('orientation-portrait')) return;
 
     const gap = 10;
-    const REF_RAIL = 220;
+    const REF_RAIL = 248;
     // Делители: mid из SVG-сетки, края — inset дерева на board-frame (не 0/1023)
     // 13×8 → 38 клеток: угол + 11 mid + угол / угол + 6 mid + угол
     // board-frame.png после обрезки края −2px с каждой стороны
@@ -663,7 +663,7 @@ export class UI {
   tokenImgHtml(p) {
     const img = resolveIconSrc(p.tokenImage || '');
     if (img) {
-      return `<img class="p-card__chip" src="${img}" alt="" title="${escapeHtml(p.name)}" width="56" height="56" />`;
+      return `<img class="p-card__chip" src="${img}" alt="" title="${escapeHtml(p.name)}" width="76" height="76" />`;
     }
     return `<div class="p-card__chip p-card__chip--fallback" title="${escapeHtml(p.name)}" style="--token-color: ${p.color}"></div>`;
   }
@@ -693,9 +693,8 @@ export class UI {
     const cols = Math.min(2, stackCount);
     const col = stackIndex % cols;
     const row = Math.floor(stackIndex / cols);
-    // Шаг стека под крупные фишки (~2×)
-    const ox = (col - (cols - 1) / 2) * Math.min(22, cellRect.width * 0.22);
-    const oy = (row - (Math.ceil(stackCount / cols) - 1) / 2) * Math.min(20, cellRect.height * 0.2);
+    const ox = (col - (cols - 1) / 2) * Math.min(11, cellRect.width * 0.16);
+    const oy = (row - (Math.ceil(stackCount / cols) - 1) / 2) * Math.min(10, cellRect.height * 0.15);
 
     return {
       x: cellRect.left - boardRect.left - padL + cellRect.width * fx + ox,

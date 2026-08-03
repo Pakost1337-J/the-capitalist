@@ -988,31 +988,31 @@ button, input, select { font-family: inherit; }
 .share-mark {
   display: block;
   width: auto;
-  height: 14cqmin;
-  max-width: 92%;
+  height: 20cqmin;
+  max-width: 96%;
   object-fit: contain;
   image-rendering: auto;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
 }
 
 .share-mark--gold {
-  height: 16cqmin;
+  height: 22cqmin;
 }
 
 .share-mark--chn,
 .share-mark--ko {
-  height: 15cqmin;
+  height: 21cqmin;
 }
 
 .cell__body--left .share-mark,
 .cell__body--right .share-mark {
-  height: 12cqmin;
+  height: 17cqmin;
   max-width: 100%;
 }
 
 .cell__body--left .share-mark--gold,
 .cell__body--right .share-mark--gold {
-  height: 14cqmin;
+  height: 19cqmin;
 }
 
 /* Клетки без заливки — дерево/арт только с board-frame.png */
@@ -1093,7 +1093,7 @@ button, input, select { font-family: inherit; }
 }
 
 .token--board {
-  --token-size: calc(80px * var(--ui-scale));
+  --token-size: calc(40px * var(--ui-scale));
   width: var(--token-size);
   height: var(--token-size);
   border-radius: 0;
@@ -2699,7 +2699,7 @@ body.is-spectator .hub__actions .btn--pass {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding-right: calc(40px * var(--ui-scale));
+  padding-right: calc(78px * var(--ui-scale));
   min-width: 0;
   flex-shrink: 0;
 }
@@ -2737,7 +2737,7 @@ body.is-spectator .hub__actions .btn--pass {
 
 .p-card__capital {
   margin-top: calc(2px * var(--ui-scale));
-  padding-right: calc(42px * var(--ui-scale));
+  padding-right: calc(78px * var(--ui-scale));
   font-family: 'PTNarrow', sans-serif;
   font-weight: 400;
   font-size: calc(13px * var(--ui-scale));
@@ -2753,7 +2753,7 @@ body.is-spectator .hub__actions .btn--pass {
 
 .p-card__stats {
   margin-top: calc(3px * var(--ui-scale));
-  padding-right: calc(42px * var(--ui-scale));
+  padding-right: calc(78px * var(--ui-scale));
   font-family: 'PTNarrow', sans-serif;
   font-weight: 400;
   font-size: calc(13px * var(--ui-scale));
@@ -2778,10 +2778,10 @@ body.is-spectator .hub__actions .btn--pass {
 
 .p-card__chip {
   position: absolute;
-  right: calc(4px * var(--ui-scale));
-  bottom: calc(3px * var(--ui-scale));
-  width: calc(38px * var(--ui-scale));
-  height: calc(38px * var(--ui-scale));
+  right: calc(2px * var(--ui-scale));
+  bottom: calc(2px * var(--ui-scale));
+  width: calc(76px * var(--ui-scale));
+  height: calc(76px * var(--ui-scale));
   object-fit: contain;
   /* тень уже в PNG */
   filter: none;
