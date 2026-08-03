@@ -42,6 +42,7 @@ export class UI {
     this._noticeTimer = null;
     this._dealCompose = null;
     this._shareBuy = false;
+    this._boardPick = null; // share | sellShare | mortgage | unmortgage | dealOffer | dealAsk
     this._rentMortgagePick = false;
     this._rentSharesPick = false;
     this._companyInfoOpen = false;
@@ -206,6 +207,9 @@ export class UI {
     apply(root);
     apply(this.boardEl);
     root.style.setProperty('--ui-scale', String(uiScale));
+    // Текст/кнопки хаба: не мельче ~0.95, на узком телефоне чуть крупнее доски
+    const textScale = Math.max(0.95, Math.min(1.2, uiScale < 0.8 ? 1.08 : uiScale * 1.05));
+    root.style.setProperty('--text-scale', String(textScale));
     root.style.setProperty('--rail-w', `${rail}px`);
     if (this.boardEl) {
       this.boardEl.style.width = `${boardW}px`;
@@ -283,6 +287,13 @@ export class UI {
 
     this.boardEl.addEventListener('click', (e) => {
       if (document.body.classList.contains('layout-edit')) return;
+      const cellEl = e.target.closest('.cell[data-id]');
+      if (cellEl && this._boardPick) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.onBoardPick(Number(cellEl.dataset.id));
+        return;
+      }
       const logo = e.target.closest('.cell__logo--clickable[data-info]');
       if (logo) {
         e.preventDefault();
@@ -800,7 +811,8 @@ export class UI {
     const notice = state?.notice;
     if (!this.ownToast) return;
 
-    if (!notice || notice.type !== 'own' || notice.id === this._dismissedNoticeId) {
+    const okType = notice && (notice.type === 'own' || notice.type === 'chance');
+    if (!okType || notice.id === this._dismissedNoticeId) {
       if (!notice) this._dismissedNoticeId = null;
       this.ownToast.hidden = true;
       this.ownToast.innerHTML = '';
@@ -815,17 +827,25 @@ export class UI {
     }
 
     this.ownToast.dataset.noticeId = String(notice.id);
-    this.ownToast.innerHTML = `
-      <div class="own-toast__ring" aria-hidden="true">
-        <svg class="own-toast__svg" viewBox="0 0 36 36">
-          <circle class="own-toast__track" cx="18" cy="18" r="15.5" />
-          <circle class="own-toast__progress" cx="18" cy="18" r="15.5" />
-        </svg>
-        <span class="own-toast__check">✓</span>
-      </div>
-      <p class="own-toast__title">Поздравляем, ${escapeHtml(notice.playerName)}!</p>
-      <p class="own-toast__text">Вы стали владельцем контрольного пакета (51%) акций компании ${escapeHtml(notice.company)}</p>
-    `;
+    if (notice.type === 'chance') {
+      this.ownToast.innerHTML = `
+        <p class="own-toast__title">Карта «Шанс»</p>
+        <p class="own-toast__text">${escapeHtml(notice.text || '')}</p>
+        ${notice.result ? `<p class="own-toast__text"><strong>${escapeHtml(notice.result)}</strong></p>` : ''}
+      `;
+    } else {
+      this.ownToast.innerHTML = `
+        <div class="own-toast__ring" aria-hidden="true">
+          <svg class="own-toast__svg" viewBox="0 0 36 36">
+            <circle class="own-toast__track" cx="18" cy="18" r="15.5" />
+            <circle class="own-toast__progress" cx="18" cy="18" r="15.5" />
+          </svg>
+          <span class="own-toast__check">✓</span>
+        </div>
+        <p class="own-toast__title">Поздравляем, ${escapeHtml(notice.playerName)}!</p>
+        <p class="own-toast__text">Вы стали владельцем контрольного пакета (51%) акций компании ${escapeHtml(notice.company)}</p>
+      `;
+    }
     this.ownToast.hidden = false;
     hub?.classList.add('hub--own');
 
@@ -836,7 +856,7 @@ export class UI {
       this.ownToast.innerHTML = '';
       delete this.ownToast.dataset.noticeId;
       hub?.classList.remove('hub--own');
-    }, 3800);
+    }, notice.type === 'chance' ? 3200 : 3800);
   }
 
   renderPlayers(state) {
@@ -906,6 +926,97 @@ export class UI {
       this.companyInfo.innerHTML = '';
     }
     document.querySelector('.hub')?.classList.remove('hub--company-info');
+  }
+
+  setBoardPick(mode) {
+    this._boardPick = mode || null;
+    document.body.classList.toggle('is-board-pick', !!mode);
+    document.querySelectorAll('.cell--pickable').forEach(el => el.classList.remove('cell--pickable'));
+    if (!mode || !this.lastState) return;
+    const me = this.mySlot;
+    const st = this.lastState;
+    const mark = (ids) => {
+      for (const id of ids || []) this.cells[id]?.classList.add('cell--pickable');
+    };
+    if (mode === 'share') mark(st.shareBuyOptions?.map(o => o.cellId) || []);
+    else if (mode === 'sellShare') {
+      for (const [id, ps] of Object.entries(st.propertyState || {})) {
+        if (ps.owner === me && (ps.houses || 0) > 0 && !ps.mortgaged) mark([Number(id)]);
+      }
+    } else if (mode === 'mortgage') {
+      for (const [id, ps] of Object.entries(st.propertyState || {})) {
+        if (ps.owner === me && !ps.mortgaged && (ps.houses || 0) === 0) mark([Number(id)]);
+      }
+    } else if (mode === 'unmortgage') {
+      for (const [id, ps] of Object.entries(st.propertyState || {})) {
+        if (ps.owner === me && ps.mortgaged) mark([Number(id)]);
+      }
+    } else if (mode === 'dealOffer') {
+      mark((st.myTradeableCompanies || []).map(c => c.cellId));
+    } else if (mode === 'dealAsk') {
+      const toId = this._dealCompose?.toId;
+      mark((st.dealableCompanies || []).filter(c => c.ownerId === toId).map(c => c.cellId));
+    }
+  }
+
+  async onBoardPick(cellId) {
+    const mode = this._boardPick;
+    if (!mode) return;
+    if (mode === 'share') {
+      await this.doAction({ type: 'build', cellId });
+      if (this.lastState) {
+        this.renderShareBuy(this.lastState);
+        this.setBoardPick(this.lastState.canBuyShares ? 'share' : null);
+      }
+      return;
+    }
+    if (mode === 'sellShare') {
+      await this.doAction({ type: 'sellShare', cellId });
+      if (this.lastState?.pendingAction && ['rent', 'tax', 'force'].includes(this.lastState.pendingAction.type)) {
+        this.setBoardPick(null);
+        this.renderRentActions(this.lastState);
+      } else if (this._shareBuy && this.lastState) {
+        this.renderShareBuy(this.lastState);
+      } else if (this.lastState?.phase === PHASE.ROLL) {
+        this.setBoardPick(null);
+        this.renderRollActions(this.lastState);
+      } else {
+        this.setBoardPick('sellShare');
+      }
+      return;
+    }
+    if (mode === 'mortgage') {
+      await this.doAction({ type: 'mortgage', cellId });
+      if (this.lastState?.pendingAction?.type === 'buy') {
+        this.setBoardPick(null);
+        this.renderBuyActions(this.lastState);
+      } else if (this.lastState?.pendingAction && ['rent', 'tax', 'force'].includes(this.lastState.pendingAction.type)) {
+        this.setBoardPick(null);
+        this.renderRentActions(this.lastState);
+      } else if (this.lastState?.phase === PHASE.ROLL) {
+        this.setBoardPick('mortgage');
+        // остаёмся в режиме залога — можно заложить ещё
+      } else {
+        this.setBoardPick('mortgage');
+      }
+      return;
+    }
+    if (mode === 'unmortgage') {
+      await this.doAction({ type: 'unmortgage', cellId });
+      this.setBoardPick('unmortgage');
+      if (this.lastState?.phase === PHASE.ROLL) this.renderRollActions(this.lastState);
+      return;
+    }
+    if (mode === 'dealOffer' || mode === 'dealAsk') {
+      if (!this._dealCompose) return;
+      const key = mode === 'dealOffer' ? 'offerCells' : 'askCells';
+      const set = new Set(this._dealCompose[key] || []);
+      if (set.has(cellId)) set.delete(cellId);
+      else set.add(cellId);
+      this._dealCompose[key] = [...set];
+      this.renderDealCompose(this.lastState);
+      this.setBoardPick(mode);
+    }
   }
 
   hideGameDialog() {
@@ -1135,13 +1246,13 @@ export class UI {
             ${country ? `<p class="company-info__country">${escapeHtml(country)}</p>` : ''}
           </div>
         </div>
-        ${cell.price != null ? `<p class="company-info__meta">Компания: <strong>${formatPriceShort(cell.price)}</strong></p>` : ''}
-        ${shareCostHtml}
-        ${bonusHtml}
         <div class="company-info__list">
-          <p class="company-info__list-title">Оплата при наступании</p>
+          <p class="company-info__list-title">Оплата (плата при наступании)</p>
           ${rentRows}
         </div>
+        ${bonusHtml}
+        ${shareCostHtml}
+        ${cell.price != null ? `<p class="company-info__meta">Цена компании: <strong>${formatPriceShort(cell.price)}</strong></p>` : ''}
         ${currentPay}
       </div>
     `;
@@ -1311,6 +1422,8 @@ export class UI {
     if (!isActor || state.phase === PHASE.MOVING) {
       this._dealCompose = null;
       this._shareBuy = false;
+      this._boardPick = null;
+      this.setBoardPick?.(null);
       this._rentMortgagePick = false;
       this._rentSharesPick = false;
       this.actionArea.innerHTML = `<div class="wait-turn">Ход игрока <strong>${escapeHtml(p?.name || '')}</strong></div>`;
@@ -1534,6 +1647,8 @@ export class UI {
     const canBuyShares = !!state.canBuyShares;
     const leftMs = this.turnLeftMs(state);
 
+    const canMortgage = !!state.canMortgage;
+    const canUnmortgage = !!state.canUnmortgage;
     this.actionArea.innerHTML = `
       <div class="roll-panel">
         <div class="roll-panel__btns">
@@ -1548,6 +1663,16 @@ export class UI {
           ${canBuyShares ? `
             <button type="button" class="btn btn--roll" id="btn-shares">
               КУПИТЬ АКЦИИ
+            </button>
+          ` : ''}
+          ${canMortgage ? `
+            <button type="button" class="btn btn--roll" id="btn-mortgage-board">
+              ЗАЛОЖИТЬ
+            </button>
+          ` : ''}
+          ${canUnmortgage ? `
+            <button type="button" class="btn btn--roll" id="btn-unmortgage-board">
+              ВЫКУПИТЬ ЗАЛОГ
             </button>
           ` : ''}
         </div>
@@ -1597,6 +1722,36 @@ export class UI {
         this.renderShareBuy(this.lastState || state);
       }
     });
+    document.getElementById('btn-mortgage-board')?.addEventListener('click', () => {
+      this._shareBuy = false;
+      this.setBoardPick('mortgage');
+      this.actionArea.innerHTML = `
+        <div class="deal-panel">
+          <p class="deal-panel__title">Залог</p>
+          <p class="deal-panel__hint">Нажмите компанию на поле</p>
+          <button type="button" class="btn btn--club-muted" id="board-pick-cancel">Отмена</button>
+          ${this.flipTimerHtml(leftMs)}
+        </div>`;
+      document.getElementById('board-pick-cancel')?.addEventListener('click', () => {
+        this.setBoardPick(null);
+        this.renderRollActions(this.lastState || state);
+      });
+    });
+    document.getElementById('btn-unmortgage-board')?.addEventListener('click', () => {
+      this._shareBuy = false;
+      this.setBoardPick('unmortgage');
+      this.actionArea.innerHTML = `
+        <div class="deal-panel">
+          <p class="deal-panel__title">Выкуп из залога</p>
+          <p class="deal-panel__hint">Нажмите заложенную компанию на поле (55% цены)</p>
+          <button type="button" class="btn btn--club-muted" id="board-pick-cancel">Отмена</button>
+          ${this.flipTimerHtml(leftMs)}
+        </div>`;
+      document.getElementById('board-pick-cancel')?.addEventListener('click', () => {
+        this.setBoardPick(null);
+        this.renderRollActions(this.lastState || state);
+      });
+    });
   }
 
   renderShareBuy(state, optionIds = null) {
@@ -1614,34 +1769,34 @@ export class UI {
         })
       : (state.shareBuyOptions || []);
     const me = state.players.find(pl => pl.id === this.mySlot);
-
+    const bought = state.sharesBoughtThisTurn || 0;
     const leftMs = this.turnLeftMs(state);
+    this.setBoardPick(options.length ? 'share' : null);
     this.actionArea.innerHTML = `
       <div class="deal-panel">
         <p class="deal-panel__title">Купить акции</p>
-        <p class="deal-panel__hint">1 акция за ход · у вас ${formatMoney(me?.money || 0)}</p>
-        <div class="deal-panel__list">
-          ${options.length
-            ? options.map(o => `
-                <button type="button" class="btn btn--club" data-buy-share="${o.cellId}">
-                  ${escapeHtml(o.name)} · ${o.houses}/${o.max} · ${formatMoney(o.price)}
-                </button>
-              `).join('')
-            : `<p class="deal-empty">${(state.sharesBoughtThisTurn || 0) >= 1 ? 'На этот ход акция уже куплена' : 'Нечего покупать'}</p>`}
+        <p class="deal-panel__hint">До 2 акций за ход на разные страны · нажмите компанию на поле · ${bought}/2 · ${formatMoney(me?.money || 0)}</p>
+        <p class="deal-panel__hint">${options.length ? 'Подсвечены доступные поля' : (bought >= 2 ? 'Лимит акций на этот ход' : 'Нечего покупать')}</p>
+        <div class="deal-panel__btns">
+          <button type="button" class="btn btn--club" id="btn-sell-share-board">Снять акцию</button>
+          <button type="button" class="btn btn--club-muted" id="btn-shares-done">Готово</button>
         </div>
-        <button type="button" class="btn btn--club-muted" id="btn-shares-done">Готово</button>
         ${state.phase === PHASE.ROLL ? this.flipTimerHtml(leftMs) : ''}
       </div>
     `;
 
-    this.actionArea.querySelectorAll('[data-buy-share]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        await this.doAction({ type: 'build', cellId: Number(btn.dataset.buyShare) });
-        if (this.lastState) this.renderShareBuy(this.lastState);
-      });
+    document.getElementById('btn-sell-share-board')?.addEventListener('click', () => {
+      this.setBoardPick('sellShare');
+      this.actionArea.querySelector('.deal-panel__hint')?.replaceWith(
+        Object.assign(document.createElement('p'), {
+          className: 'deal-panel__hint',
+          textContent: 'Нажмите компанию на поле, чтобы снять акцию и вернуть половину цены',
+        }),
+      );
     });
     document.getElementById('btn-shares-done')?.addEventListener('click', async () => {
       this._shareBuy = false;
+      this.setBoardPick(null);
       if (state.phase === PHASE.BUILD) {
         await this.doAction({ type: 'finishBuild' });
       } else {
@@ -1757,35 +1912,29 @@ export class UI {
         </button>`;
     };
 
+    const offerNames = mine.filter(c => offerSet.has(c.cellId)).map(c => c.name).join(', ') || '—';
+    const askNames = theirs.filter(c => askSet.has(c.cellId)).map(c => c.name).join(', ') || '—';
     this.actionArea.innerHTML = `
       <div class="deal-panel deal-panel--compose">
         <p class="deal-panel__title">Сделка с ${escapeHtml(partner?.name || 'игроком')}</p>
-        <p class="deal-panel__hint">Компании обязательны. Деньги — доплата с одной стороны.</p>
+        <p class="deal-panel__hint">Нажимайте компании на поле. Деньги — доплата.</p>
 
         <div class="deal-compose__block">
-          <div class="deal-compose__label">Вы отдадите</div>
+          <div class="deal-compose__label">Вы отдадите: ${escapeHtml(offerNames)}</div>
           <label class="deal-panel__label">Доплата
             <input type="number" id="deal-offer-money" class="deal-panel__input"
               min="0" max="${me?.money || 0}" step="10000" value="${draft.offerMoney || 0}" />
           </label>
-          <div class="deal-compose__chips">
-            ${mine.length
-              ? mine.map(c => pickBtn(c, offerSet.has(c.cellId), 'data-offer-cell')).join('')
-              : '<span class="deal-empty">Нет своих компаний</span>'}
-          </div>
+          <button type="button" class="btn btn--club" id="deal-pick-offer">Выбрать свои на поле</button>
         </div>
 
         <div class="deal-compose__block">
-          <div class="deal-compose__label">Вы получите</div>
+          <div class="deal-compose__label">Вы получите: ${escapeHtml(askNames)}</div>
           <label class="deal-panel__label">Доплата
             <input type="number" id="deal-ask-money" class="deal-panel__input"
               min="0" max="${partner?.money || 0}" step="10000" value="${draft.askMoney || 0}" />
           </label>
-          <div class="deal-compose__chips">
-            ${theirs.length
-              ? theirs.map(c => pickBtn(c, askSet.has(c.cellId), 'data-ask-cell')).join('')
-              : '<span class="deal-empty">У соперника нет компаний</span>'}
-          </div>
+          <button type="button" class="btn btn--club" id="deal-pick-ask">Выбрать их на поле</button>
         </div>
 
         <div class="deal-panel__btns">
@@ -1796,6 +1945,9 @@ export class UI {
       </div>
     `;
 
+    document.getElementById('deal-pick-offer')?.addEventListener('click', () => this.setBoardPick('dealOffer'));
+    document.getElementById('deal-pick-ask')?.addEventListener('click', () => this.setBoardPick('dealAsk'));
+    // legacy chips (если останутся в DOM)
     this.actionArea.querySelectorAll('[data-offer-cell]').forEach(btn => {
       btn.addEventListener('click', () => toggleChip('offerCells', Number(btn.dataset.offerCell)));
     });
@@ -1932,6 +2084,7 @@ export class UI {
     const leftMs = this.turnLeftMs(state);
     const country = COUNTRY_LABEL_RU[cell?.country] || cell?.country || '';
 
+    const short = (buyer?.money || 0) < (pa.price || 0);
     this.actionArea.innerHTML = `
       <div class="rent-panel buy-panel">
         <div class="rent-panel__info">
@@ -1939,13 +2092,20 @@ export class UI {
           ${country ? `<p class="rent-panel__country">(${escapeHtml(country)})</p>` : ''}
           <p class="rent-panel__pay">Стоимость поля: ${formatMoney(pa.price)}</p>
           <p class="rent-panel__pay">У вас средств: ${formatMoney(buyer?.money || 0)}</p>
-          <p class="rent-panel__hint">Купить сейчас или выставить на аукцион</p>
+          <p class="rent-panel__hint">${short
+            ? 'Не хватает денег — заложите компании на поле или объявите аукцион'
+            : 'Купить сейчас или выставить на аукцион'}</p>
         </div>
         <div class="rent-panel__side">
           <div class="rent-panel__btns">
-            <button type="button" class="btn btn--club" id="btn-buy">
+            <button type="button" class="btn btn--club" id="btn-buy" ${short ? 'disabled' : ''}>
               Купить
             </button>
+            ${short ? `
+              <button type="button" class="btn btn--club" id="btn-buy-mortgage">
+                Заложить компании
+              </button>
+            ` : ''}
             <button type="button" class="btn btn--club" id="btn-pass">
               Объявить аукцион
             </button>
@@ -1957,6 +2117,11 @@ export class UI {
 
     document.getElementById('btn-buy')?.addEventListener('click', () => this.doAction({ type: 'buy' }));
     document.getElementById('btn-pass')?.addEventListener('click', () => this.doAction({ type: 'pass' }));
+    document.getElementById('btn-buy-mortgage')?.addEventListener('click', () => {
+      this.setBoardPick('mortgage');
+      this.actionArea.insertAdjacentHTML('beforeend',
+        `<p class="rent-panel__hint">Нажмите свою компанию на поле для залога</p>`);
+    });
   }
 
   renderRentActions(state) {
@@ -2105,29 +2270,29 @@ export class UI {
     document.getElementById('btn-shares-open')?.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      this._rentSharesPick = true;
+      this._rentSharesPick = false;
       this._rentMortgagePick = false;
-      this.renderRentActions(this.lastState || state);
+      this.setBoardPick('sellShare');
     });
     document.getElementById('btn-mortgage-open')?.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      this._rentMortgagePick = true;
+      this._rentMortgagePick = false;
       this._rentSharesPick = false;
-      this.renderRentActions(this.lastState || state);
+      this.setBoardPick('mortgage');
     });
     document.getElementById('btn-rent-back')?.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       this._rentMortgagePick = false;
       this._rentSharesPick = false;
+      this.setBoardPick(null);
       this.renderRentActions(this.lastState || state);
     });
     this.actionArea.querySelectorAll('[data-mortgage]').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        this._rentMortgagePick = true;
         await this.doAction({ type: 'mortgage', cellId: Number(btn.dataset.mortgage) });
         if (this.lastState?.phase === PHASE.ACTION) this.renderRentActions(this.lastState);
       });
@@ -2136,7 +2301,6 @@ export class UI {
       btn.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        this._rentSharesPick = true;
         await this.doAction({ type: 'sellShare', cellId: Number(btn.dataset.sellShare) });
         if (this.lastState?.phase === PHASE.ACTION) this.renderRentActions(this.lastState);
       });

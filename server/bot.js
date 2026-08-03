@@ -8,6 +8,7 @@ import {
   chooseBotShareCell,
   chooseBotDeal,
   HUMAN_DEAL_COOLDOWN_MS,
+  BOT_BOT_DEAL_COOLDOWN_MS,
   mortgageCandidates,
   shareSellCandidates,
   shouldAcceptDeal,
@@ -120,7 +121,14 @@ async function handleAfterRoll(game, broadcast) {
     const player = game.currentPlayer;
     const cell = getCell(cellId);
 
-    if (shouldBotBuy(game, player, cell, price)) {
+    // Не хватает денег — пробуем заложить, потом купить, иначе аукцион
+    if (player.money < price) {
+      game.autoRaiseCash?.(player, price);
+      await pulse(broadcast);
+    }
+    if (player.money >= price && shouldBotBuy(game, player, cell, price)) {
+      game.buyProperty();
+    } else if (player.money >= price && Math.random() < 0.35) {
       game.buyProperty();
     } else {
       game.passProperty();
@@ -258,7 +266,10 @@ async function finishBotTurn(game, broadcast) {
   }
 
   if (game.phase === PHASE.END) {
-    // После клетки / оплаты — одна акция, затем смена хода
+    // После клетки / оплаты — до 2 акций, затем смена хода
+    if (tryBotBuyShare(game)) {
+      await pulse(broadcast);
+    }
     if (tryBotBuyShare(game)) {
       await pulse(broadcast);
     }
@@ -284,21 +295,32 @@ function settleBotDeal(game) {
 /** Предложить сделку за недостающую клетку страны (бот↔бот или бот→игрок). */
 function tryBotProposeDeal(game, bot) {
   if (!game.canOfferDeal?.(bot.id)) return false;
-  // Не каждый ход — иначе спам
-  if (Math.random() > 0.55) return false;
+  // Чаще просто ходим — сделки не должны стопорить партию
+  if (Math.random() > 0.28) return false;
 
-  const humanCooldownOk = (
-    Date.now() - (game.lastBotDealToHumanAt || 0) >= HUMAN_DEAL_COOLDOWN_MS
-  );
-  const deal = chooseBotDeal(game, bot, { humanCooldownOk });
+  const now = Date.now();
+  const humanCooldownOk = now - (game.lastBotDealToHumanAt || 0) >= HUMAN_DEAL_COOLDOWN_MS;
+  const botBotCooldownOk = now - (game.lastBotBotDealAt || 0) >= BOT_BOT_DEAL_COOLDOWN_MS;
+  if (!humanCooldownOk && !botBotCooldownOk) return false;
+
+  const deal = chooseBotDeal(game, bot, { humanCooldownOk, botBotCooldownOk });
   if (!deal) return false;
 
-  const { _targetIsHuman, _cellName, ...payload } = deal;
+  const { _targetIsHuman, _cellName, _chat, fromId, ...payload } = deal;
+
+  // Бот↔бот: только если цель точно примет (без спама отказов)
+  if (!_targetIsHuman) {
+    const target = game.players[payload.toId];
+    if (!target || !shouldAcceptDeal(game, target, { ...payload, fromId: bot.id })) {
+      return false;
+    }
+  }
+
   if (!game.proposeDeal(bot.id, payload)) return false;
 
-  if (_targetIsHuman) {
-    game.lastBotDealToHumanAt = Date.now();
-  }
+  if (_chat) game.addLog(`${bot.name}: ${_chat}`);
+  if (_targetIsHuman) game.lastBotDealToHumanAt = now;
+  else game.lastBotBotDealAt = now;
   return true;
 }
 
