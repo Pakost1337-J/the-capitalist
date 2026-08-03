@@ -1,4 +1,4 @@
-﻿import { Network, LobbyUI } from './network.js';
+import { Network, LobbyUI } from './network.js';
 import { UI } from './ui.js';
 import { PHASE } from './game.js';
 import { applyTheme, PLAYER_SLOTS } from './config.js';
