@@ -55,6 +55,10 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Без этого браузер при зуме сам "раздувает" шрифт (font boosting) независимо
+   от вёрстки — сетка клеток остаётся прежней, а текст наезжает и обрезается. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
 html, body { height: 100%; }
 
 body {
