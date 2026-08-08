@@ -26,7 +26,18 @@ const io = new Server(httpServer, {
 
 app.use(express.json({ limit: '1mb' }));
 app.use('/vendor/three', express.static(join(__dirname, 'node_modules/three')));
-app.use(express.static(__dirname));
+// no-store на html/css/js: без этого CDN перед Render может отдавать старые
+// версии статики после деплоя (Cache-Control: max-age=0 от Express — не
+// гарантия против кэша на уровне CDN, только против браузера).
+app.use(express.static(__dirname, {
+  setHeaders: (res, filePath) => {
+    if (/\.(html|js|css)$/.test(filePath)) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  },
+}));
 app.use('/assets', express.static(join(__dirname, 'assets')));
 
 app.get('/health', (_, res) => res.json({ ok: true }));
