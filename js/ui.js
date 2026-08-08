@@ -103,7 +103,10 @@ export class UI {
     if (document.body.classList.contains('orientation-portrait')) return;
 
     const gap = 10;
-    const REF_RAIL = 248;
+    // Уже, чем раньше (248): при старом значении сцена (доска+рейл) была
+    // заметно шире типичного экрана 16:9, из-за чего сверху и снизу
+    // оставались пустые поля — доска не дотягивала до полной высоты.
+    const REF_RAIL = 200;
     // Делители: mid из SVG-сетки, края — inset дерева на board-frame (не 0/1023)
     // 13×8 → 38 клеток: угол + 11 mid + угол / угол + 6 mid + угол
     // board-frame.png после обрезки края −2px с каждой стороны
@@ -901,14 +904,14 @@ export class UI {
         moneyBlock = `<div class="p-card__cash p-card__cash--out">Нет сети…</div>
             <div class="p-card__capital">Кап.: ${formatPriceShort(capital)}${jailNote}</div>
             <div class="p-card__stats">
-              <div>Компаний: ${companies}</div>
+              <div>Комп.: ${companies}</div>
               <div>Страны: ${countries}</div>
             </div>`;
       } else {
         moneyBlock = `<div class="p-card__cash">${formatPriceShort(p.money)}</div>
             <div class="p-card__capital">Кап.: ${formatPriceShort(capital)}${jailNote}</div>
             <div class="p-card__stats">
-              <div>Компаний: ${companies}</div>
+              <div>Комп.: ${companies}</div>
               <div>Страны: ${countries}</div>
             </div>`;
       }
