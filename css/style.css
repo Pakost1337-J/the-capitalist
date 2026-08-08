@@ -802,14 +802,14 @@ button, input, select { font-family: inherit; }
   bottom: 2%;
   width: 98%;
   transform: translate(calc(-50% + var(--tw-x)), var(--tw-y)) scale(var(--tw-s));
-  font-size: max(8px, 12cqmin);
+  font-size: max(11px, 15cqmin);
 }
 .cell__body--bottom .cell__price {
   left: 50%;
   top: 2%;
   width: 98%;
   transform: translate(calc(-50% + var(--tw-x)), var(--tw-y)) scale(var(--tw-s));
-  font-size: max(8px, 12cqmin);
+  font-size: max(11px, 15cqmin);
 }
 .cell__body--bottom .cell__logo {
   left: 50%;
@@ -846,7 +846,7 @@ button, input, select { font-family: inherit; }
   top: 80%;
   width: 64%;
   transform: translate(calc(-50% + var(--tw-x)), calc(-50% + var(--tw-y))) scale(var(--tw-s));
-  font-size: max(7px, 10cqmin);
+  font-size: max(9px, 12cqmin);
 }
 
 /* ── RIGHT: зеркало left ── */
@@ -869,7 +869,7 @@ button, input, select { font-family: inherit; }
   top: 80%;
   width: 64%;
   transform: translate(calc(-50% + var(--tw-x)), calc(-50% + var(--tw-y))) scale(var(--tw-s));
-  font-size: max(7px, 10cqmin);
+  font-size: max(9px, 12cqmin);
 }
 
 .cell--tax,
@@ -2987,8 +2987,8 @@ button.club-buy-card:active {
 .p-card__name {
   font-family: 'PTNarrow', sans-serif;
   font-weight: 500;
-  font-size: max(12px, calc(14px * var(--text-scale)));
-  line-height: 1.15;
+  font-size: max(11px, calc(13px * var(--text-scale)));
+  line-height: 1.1;
   color: #2a2118;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2999,11 +2999,11 @@ button.club-buy-card:active {
 }
 
 .p-card__cash {
-  margin-top: calc(2px * var(--ui-scale));
+  margin-top: 0;
   font-family: 'PTNarrow', sans-serif;
   font-weight: 400;
-  font-size: max(13px, calc(15px * var(--text-scale)));
-  line-height: 1.05;
+  font-size: max(12px, calc(14px * var(--text-scale)));
+  line-height: 1;
   color: #1f1812;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.015em;
@@ -3022,12 +3022,12 @@ button.club-buy-card:active {
 }
 
 .p-card__capital {
-  margin-top: calc(2px * var(--ui-scale));
+  margin-top: 0;
   padding-right: calc(58px * var(--ui-scale));
   font-family: 'PTNarrow', sans-serif;
   font-weight: 400;
-  font-size: max(10px, calc(12px * var(--text-scale)));
-  line-height: 1.2;
+  font-size: max(9px, calc(11px * var(--text-scale)));
+  line-height: 1.1;
   color: #3a2a1a;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
@@ -3039,12 +3039,12 @@ button.club-buy-card:active {
 }
 
 .p-card__stats {
-  margin-top: calc(2px * var(--ui-scale));
+  margin-top: 0;
   padding-right: calc(58px * var(--ui-scale));
   font-family: 'PTNarrow', sans-serif;
   font-weight: 400;
-  font-size: max(10px, calc(12px * var(--text-scale)));
-  line-height: 1.25;
+  font-size: max(9px, calc(11px * var(--text-scale)));
+  line-height: 1.15;
   color: #3a2a1a;
   font-variant-numeric: tabular-nums;
   flex: 1 1 auto;
