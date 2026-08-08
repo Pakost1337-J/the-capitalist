@@ -85,6 +85,13 @@ body.is-playing {
   height: 100%;
 }
 
+/* Подстраховка: пока идёт игра, лобби скрыто всегда, независимо от
+   JS-атрибута hidden/inline-style (если тот не успел синхронизироваться —
+   например, после переподключения — лобби не должно вылезать под доской). */
+body.is-playing .lobby {
+  display: none !important;
+}
+
 body.is-playing button,
 body.is-playing input,
 body.is-playing select,
