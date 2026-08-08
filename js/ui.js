@@ -77,6 +77,17 @@ export class UI {
     };
     window.addEventListener('resize', onViewportChange);
     window.addEventListener('orientationchange', onViewportChange);
+    window.visualViewport?.addEventListener('resize', onViewportChange);
+
+    // iOS Safari: показ/скрытие адресной строки в landscape меняет реальную
+    // высоту viewport (100dvh реагирует сам), но событие window resize при
+    // этом не всегда стреляет — доска остаётся посчитанной под старую,
+    // меньшую высоту. ResizeObserver ловит изменение размера самого
+    // контейнера напрямую, независимо от того, что именно его вызвало.
+    const shellForObserver = document.getElementById('game-layout');
+    if (shellForObserver && typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(onViewportChange).observe(shellForObserver);
+    }
   }
 
   /** Portrait → overlay; try landscape lock when API allows */
