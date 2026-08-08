@@ -466,7 +466,9 @@ button, input, select { font-family: inherit; }
   display: flex;
   justify-content: center;
   align-items: center;
-  position: fixed;
+  /* absolute, не fixed: body.is-playing уже фиксирует область — вложенный fixed
+     ломает раскладку в Chromium при зуме страницы (сдвиг/растяжение). */
+  position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
