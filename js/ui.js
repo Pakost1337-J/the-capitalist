@@ -103,17 +103,14 @@ export class UI {
     if (document.body.classList.contains('orientation-portrait')) return;
 
     const gap = 10;
-    // Уже, чем раньше (248): при старом значении сцена (доска+рейл) была
-    // заметно шире типичного экрана 16:9, из-за чего сверху и снизу
-    // оставались пустые поля — доска не дотягивала до полной высоты.
-    const REF_RAIL = 200;
+    // Границы ширины рейла (в масштабе эталонной доски 1020px).
+    const REF_RAIL_MIN = 170;
+    const REF_RAIL_MAX = 340;
     // Делители: mid из SVG-сетки, края — inset дерева на board-frame (не 0/1023)
     // 13×8 → 38 клеток: угол + 11 mid + угол / угол + 6 mid + угол
     // board-frame.png после обрезки края −2px с каждой стороны
     const IMG_W = 1020;
     const IMG_H = 694;
-    const REF_STAGE_W = IMG_W + gap + REF_RAIL;
-    const REF_STAGE_H = IMG_H;
     const WOOD_X = [11, 151, 216, 282, 347, 412, 477, 542, 608, 672, 738, 803, 868, 1008];
     const WOOD_Y = [11, 152, 218, 283, 348, 413, 478, 544, 683];
 
@@ -128,21 +125,26 @@ export class UI {
     const availW = Math.max(1, shell.clientWidth - padL - padR);
     const availH = Math.max(1, shell.clientHeight - padT - padB);
 
-    const scale = Math.min(availW / REF_STAGE_W, availH / REF_STAGE_H);
-    let boardW = Math.max(1, Math.floor(IMG_W * scale));
-    let boardH = Math.round(boardW * IMG_H / IMG_W);
-    let rail = Math.round(REF_RAIL * (boardW / IMG_W));
+    // Сначала пробуем растянуть доску на всю доступную высоту — рейл
+    // забирает весь остаток ширины (в пределах min/max). Так доска всегда
+    // упирается в оба края экрана, а не только в тот, что "тесней".
+    let boardW = Math.max(1, Math.floor(IMG_W * (availH / IMG_H)));
+    let boardH = availH;
+    let rail = availW - gap - boardW;
+    const railMin = REF_RAIL_MIN * (boardW / IMG_W);
 
-    // Поджать округления, чтобы сцена не вылезала из viewport
-    while (boardW + gap + rail > availW && boardW > 200) {
-      boardW -= 1;
-      boardH = Math.round(boardW * IMG_H / IMG_W);
-      rail = Math.round(REF_RAIL * (boardW / IMG_W));
-    }
-    while (boardH > availH && boardW > 200) {
-      boardW -= 1;
-      boardH = Math.round(boardW * IMG_H / IMG_W);
-      rail = Math.round(REF_RAIL * (boardW / IMG_W));
+    if (rail < railMin) {
+      // Ширины не хватает даже на минимальный рейл при полной высоте —
+      // считаем от ширины (старое поведение): чем-то жертвовать всё равно
+      // придётся, экран слишком "квадратный" для доски+рейла.
+      const refStageW = IMG_W + gap + REF_RAIL_MIN;
+      const scale = availW / refStageW;
+      boardW = Math.max(1, Math.floor(IMG_W * scale));
+      boardH = Math.min(availH, Math.round(boardW * IMG_H / IMG_W));
+      rail = Math.round(REF_RAIL_MIN * scale);
+    } else {
+      const railMax = REF_RAIL_MAX * (boardW / IMG_W);
+      rail = Math.round(Math.min(rail, railMax));
     }
 
     const sx = boardW / IMG_W;

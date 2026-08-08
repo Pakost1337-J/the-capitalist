@@ -805,17 +805,17 @@ button, input, select { font-family: inherit; }
 }
 .cell__body--top .cell__price {
   left: 50%;
-  bottom: 6%;
+  bottom: 14%;
   width: 98%;
   transform: translate(calc(-50% + var(--tw-x)), var(--tw-y)) scale(var(--tw-s));
-  font-size: max(11px, 15cqmin);
+  font-size: max(10px, 13cqmin);
 }
 .cell__body--bottom .cell__price {
   left: 50%;
-  top: 6%;
+  top: 14%;
   width: 98%;
   transform: translate(calc(-50% + var(--tw-x)), var(--tw-y)) scale(var(--tw-s));
-  font-size: max(11px, 15cqmin);
+  font-size: max(10px, 13cqmin);
 }
 .cell__body--bottom .cell__logo {
   left: 50%;
@@ -852,7 +852,7 @@ button, input, select { font-family: inherit; }
   top: 80%;
   width: 64%;
   transform: translate(calc(-50% + var(--tw-x)), calc(-50% + var(--tw-y))) scale(var(--tw-s));
-  font-size: max(9px, 12cqmin);
+  font-size: max(10px, 13cqmin);
 }
 
 /* ── RIGHT: зеркало left ── */
@@ -875,7 +875,7 @@ button, input, select { font-family: inherit; }
   top: 80%;
   width: 64%;
   transform: translate(calc(-50% + var(--tw-x)), calc(-50% + var(--tw-y))) scale(var(--tw-s));
-  font-size: max(9px, 12cqmin);
+  font-size: max(10px, 13cqmin);
 }
 
 .cell--tax,
