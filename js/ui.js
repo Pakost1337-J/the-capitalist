@@ -119,8 +119,11 @@ export class UI {
     const padR = parseFloat(st.paddingRight) || 0;
     const padT = parseFloat(st.paddingTop) || 0;
     const padB = parseFloat(st.paddingBottom) || 0;
-    const availW = Math.max(280, shell.clientWidth - padL - padR);
-    const availH = Math.max(200, shell.clientHeight - padT - padB);
+    // Реальный размер контейнера, не искусственный минимум — иначе при очень
+    // маленькой доступной области (сильный зум страницы, узкое окно) доска
+    // считается больше, чем помещается, и обрезается по overflow:hidden.
+    const availW = Math.max(1, shell.clientWidth - padL - padR);
+    const availH = Math.max(1, shell.clientHeight - padT - padB);
 
     const scale = Math.min(availW / REF_STAGE_W, availH / REF_STAGE_H);
     let boardW = Math.max(1, Math.floor(IMG_W * scale));
