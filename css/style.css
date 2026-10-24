@@ -3159,3 +3159,143 @@ button.club-buy-card:active {
 
 /* Layout always landscape row; scale via --ui-scale from fitLayout */
 
+/* Compact first screen for phones held in landscape. Keep the lobby within
+   the visible viewport so Safari's browser chrome cannot leave it scrollable. */
+@media (orientation: landscape) and (max-height: 520px) and (min-width: 560px) {
+  body:not(.is-playing) {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  body:not(.is-playing) .lobby {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
+      max(8px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+
+  .lobby__shell {
+    width: 100%;
+    max-width: 940px;
+    max-height: 100%;
+  }
+
+  .lobby__card {
+    display: grid;
+    grid-template-columns: minmax(180px, 0.72fr) minmax(0, 1.28fr);
+    align-items: center;
+    gap: 0 clamp(18px, 3vw, 34px);
+    max-height: 100%;
+    overflow: hidden;
+    padding: clamp(12px, 3vh, 22px) clamp(14px, 3vw, 28px);
+  }
+
+  .lobby__header {
+    grid-column: 1;
+    grid-row: 1;
+    margin: 0;
+  }
+
+  .lobby__icon {
+    font-size: clamp(1.7rem, 6vh, 2.2rem);
+    margin-bottom: 2px;
+  }
+
+  .lobby__header h1 { font-size: clamp(1.4rem, 5vh, 1.75rem); }
+  .lobby__header p { font-size: clamp(0.75rem, 2.5vh, 0.9rem); }
+
+  .online-badge {
+    margin-top: 7px;
+    padding: 5px 10px;
+    font-size: 0.78rem;
+  }
+
+  #lobby-menu {
+    grid-column: 2;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    align-items: end;
+    gap: 8px 10px;
+    min-height: 0;
+    max-height: 100%;
+  }
+
+  #lobby-menu > .lobby__field {
+    min-width: 0;
+    gap: 4px;
+    margin: 0;
+    font-size: 0.64rem;
+  }
+
+  #lobby-menu > .lobby__field:has(#player-name) { grid-area: 1 / 1; }
+  #lobby-menu > .lobby__field:has(#max-players) { grid-area: 1 / 2; }
+  #lobby-menu > .lobby__field:has(#fill-bots) { grid-area: 2 / 1; }
+  #lobby-menu > .lobby__field:has(#chip-picker) { grid-area: 2 / 2; }
+
+  #lobby-menu .lobby__field input,
+  #lobby-menu .lobby__field select {
+    min-width: 0;
+    padding: 9px 10px;
+    font-size: 16px;
+  }
+
+  #lobby-menu .chip-picker {
+    flex-wrap: nowrap;
+    gap: 5px;
+    margin-top: 2px;
+  }
+
+  #lobby-menu .chip-picker__btn {
+    flex: 1 1 0;
+    min-width: 0;
+    gap: 3px;
+    padding: 5px 3px;
+    font-size: 10px;
+  }
+
+  #lobby-menu .chip-picker__swatch {
+    width: 18px;
+    height: 18px;
+  }
+
+  #lobby-menu > .lobby__btn {
+    grid-area: 3 / 1;
+    align-self: center;
+    margin: 0;
+    padding: 10px 12px;
+  }
+
+  #lobby-menu > .lobby__divider {
+    grid-area: 3 / 2;
+    align-self: end;
+    margin: 0 0 2px;
+    font-size: 0.72rem;
+  }
+
+  #lobby-menu > .rooms-list {
+    grid-area: 4 / 2;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  #lobby-menu > .rooms-list:has(.rooms-empty) {
+    overflow: hidden;
+  }
+
+  #lobby-menu .rooms-empty { padding: 8px 4px; }
+
+  .lobby__error {
+    grid-column: 1 / -1;
+    margin: 0 0 8px;
+    padding: 6px 8px;
+    font-size: 0.82rem;
+  }
+}
+
