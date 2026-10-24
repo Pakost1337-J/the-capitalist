@@ -8,23 +8,23 @@ const lobby = new LobbyUI(network);
 let ui = null;
 
 // iOS Safari can restore a previous page offset while its landscape browser
-// chrome is resizing. The compact lobby is fixed to the viewport, so also
-// clear any restored document scroll once the new viewport settles.
+// chrome is resizing. Clear it for both the lobby and game after the viewport
+// settles so a fixed game shell cannot inherit a stale document position.
 const compactLandscape = window.matchMedia(
   '(orientation: landscape) and (max-height: 520px) and (min-width: 560px)',
 );
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-function resetLobbyScroll() {
-  if (document.body.classList.contains('is-playing') || !compactLandscape.matches) return;
+function resetCompactLandscapeScroll() {
+  if (!compactLandscape.matches) return;
   if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
 }
-function scheduleLobbyScrollReset() {
-  requestAnimationFrame(() => requestAnimationFrame(resetLobbyScroll));
+function schedulePageScrollReset() {
+  requestAnimationFrame(() => requestAnimationFrame(resetCompactLandscapeScroll));
 }
-window.addEventListener('pageshow', scheduleLobbyScrollReset);
-window.addEventListener('orientationchange', scheduleLobbyScrollReset);
-window.addEventListener('resize', scheduleLobbyScrollReset);
-window.visualViewport?.addEventListener('resize', scheduleLobbyScrollReset);
+window.addEventListener('pageshow', schedulePageScrollReset);
+window.addEventListener('orientationchange', schedulePageScrollReset);
+window.addEventListener('resize', schedulePageScrollReset);
+window.visualViewport?.addEventListener('resize', schedulePageScrollReset);
 
 async function loadTheme() {
   try {
@@ -204,6 +204,7 @@ function bindExitButton() {
 function startGameUI(state) {
   const lobbyEl = document.getElementById('lobby');
   const gameEl = document.getElementById('game-layout');
+  if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
   lobbyEl.hidden = true;
   lobbyEl.style.display = 'none';
   gameEl.hidden = false;

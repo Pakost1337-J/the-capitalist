@@ -3162,6 +3162,13 @@ button.club-buy-card:active {
 /* Compact first screen for phones held in landscape. Keep the lobby within
    the visible viewport so Safari's browser chrome cannot leave it scrollable. */
 @media (orientation: landscape) and (max-height: 520px) and (min-width: 560px) {
+  body.is-playing .game-shell {
+    position: fixed;
+    inset: 0;
+    height: 100vh;
+    height: 100dvh;
+  }
+
   body:not(.is-playing) {
     height: 100%;
     min-height: 0;
