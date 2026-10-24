@@ -3293,6 +3293,102 @@ button.club-buy-card:active {
 
   #lobby-menu .rooms-empty { padding: 8px 4px; }
 
+  #lobby-room[hidden] { display: none !important; }
+
+  #lobby-room {
+    grid-column: 2;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: minmax(140px, 0.72fr) minmax(0, 1.28fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 6px 10px;
+    min-height: 0;
+    max-height: 100%;
+  }
+
+  .lobby__room-title {
+    grid-area: 1 / 1;
+    margin: 0;
+    text-align: left;
+    font-size: 1rem;
+  }
+
+  .lobby__room-count {
+    grid-area: 1 / 2;
+    margin: 0;
+    text-align: right;
+    font-size: 0.78rem;
+  }
+
+  .lobby__players {
+    grid-area: 2 / 1 / 4 / 2;
+    display: grid;
+    grid-auto-rows: minmax(0, 1fr);
+    gap: 4px;
+    min-height: 0;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  .lobby-player {
+    min-height: 0;
+    gap: 6px;
+    padding: 4px 7px;
+    border-left-width: 3px;
+    font-size: 0.76rem;
+  }
+
+  .lobby-player__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #room-chip-wrap {
+    grid-area: 2 / 2;
+    min-width: 0;
+    gap: 3px;
+    margin: 0;
+    font-size: 0.64rem;
+  }
+
+  #room-chip-picker {
+    flex-wrap: nowrap;
+    gap: 5px;
+    margin-top: 2px;
+  }
+
+  #room-chip-picker .chip-picker__btn {
+    flex: 1 1 0;
+    min-width: 0;
+    gap: 3px;
+    padding: 5px 3px;
+    font-size: 10px;
+  }
+
+  #room-chip-picker .chip-picker__swatch {
+    width: 18px;
+    height: 18px;
+  }
+
+  #host-hint {
+    grid-area: 3 / 2;
+    align-self: end;
+    margin: 0;
+    font-size: 0.72rem;
+  }
+
+  #lobby-room > .lobby__btn {
+    align-self: center;
+    margin: 0;
+    padding: 10px 12px;
+  }
+
+  #btn-start { grid-area: 4 / 1; }
+  #btn-leave { grid-area: 4 / 2; }
+
   .lobby__error {
     grid-column: 1 / -1;
     margin: 0 0 8px;
