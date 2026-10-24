@@ -3169,6 +3169,8 @@ button.club-buy-card:active {
   }
 
   body:not(.is-playing) .lobby {
+    position: fixed;
+    inset: 0;
     height: 100vh;
     height: 100dvh;
     min-height: 0;
