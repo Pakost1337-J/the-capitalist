@@ -230,6 +230,21 @@ export class UI {
     const textScale = Math.max(0.95, Math.min(1.2, uiScale < 0.8 ? 1.08 : uiScale * 1.05));
     root.style.setProperty('--text-scale', String(textScale));
     root.style.setProperty('--rail-w', `${rail}px`);
+
+    // A small optical overscan makes the board feel larger on wide landscape
+    // screens while keeping the playable rows inside the viewport. The extra
+    // space is borrowed from the shell's outer padding; shift the stage down
+    // just enough to keep the top edge visually balanced.
+    const stage = document.getElementById('game-stage');
+    if (stage && boardH > 0) {
+      const stageGrow = 8;
+      const stageScale = (boardH + stageGrow) / boardH;
+      const stageBottomRoom = padB + Math.max(0, (availH - boardH) / 2);
+      const stageShiftY = Math.max(0, Math.min(2, stageBottomRoom - stageGrow / 2));
+      stage.style.transformOrigin = 'center center';
+      stage.style.transform = `translateY(${stageShiftY}px) scale(${stageScale})`;
+    }
+
     if (this.boardEl) {
       this.boardEl.style.width = `${boardW}px`;
       this.boardEl.style.height = `${boardH}px`;
