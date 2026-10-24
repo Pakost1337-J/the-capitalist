@@ -7,6 +7,25 @@ const network = new Network();
 const lobby = new LobbyUI(network);
 let ui = null;
 
+// iOS Safari can restore a previous page offset while its landscape browser
+// chrome is resizing. The compact lobby is fixed to the viewport, so also
+// clear any restored document scroll once the new viewport settles.
+const compactLandscape = window.matchMedia(
+  '(orientation: landscape) and (max-height: 520px) and (min-width: 560px)',
+);
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+function resetLobbyScroll() {
+  if (document.body.classList.contains('is-playing') || !compactLandscape.matches) return;
+  if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
+}
+function scheduleLobbyScrollReset() {
+  requestAnimationFrame(() => requestAnimationFrame(resetLobbyScroll));
+}
+window.addEventListener('pageshow', scheduleLobbyScrollReset);
+window.addEventListener('orientationchange', scheduleLobbyScrollReset);
+window.addEventListener('resize', scheduleLobbyScrollReset);
+window.visualViewport?.addEventListener('resize', scheduleLobbyScrollReset);
+
 async function loadTheme() {
   try {
     const res = await fetch('/api/theme');
